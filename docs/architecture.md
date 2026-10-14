@@ -4,6 +4,13 @@
 
 - サーバーのない静的サイト。GitHub Pages に置く（[deployment.md](deployment.md)）
 - 1ページ = 1つの集計ツール。ページは `src/pages/<名前>/` に置き、ポータル（`src/pages/index.html`）から開く
+- ページの種類は2つ。どちらも設定を書くだけで作れる
+
+  | 種類 | 数え方 | 例 |
+  | --- | --- | --- |
+  | 個数 × 単価（tally） | 売れるたびに＋/− で数える。報告文をコピーする | タクミ（`takumi/`） |
+  | 在庫の差（stock） | 開店時・追加・残数を数字で入れ、減った分を売上にする | ネコ（`neko/`） |
+
 - 数字は**各端末のブラウザ（localStorage）にだけ**保存する。端末どうしで共有はしない
 
 ## ディレクトリ
@@ -15,6 +22,8 @@ src/
     tally.ts       「個数 × 単価」の計算・保存値の読み戻し
     tally-store.ts TallyState を端末に保存・復元する
     report.ts      売上報告の定型文
+    stock.ts       「在庫の差」の記録・計算・保存値の読み戻し
+    stock-store.ts StockState を端末に保存・復元する
     json-store.ts  1ページ分の状態を JSON で保存・復元する（JsonStore。各ページの store の土台）
     storage.ts     localStorage の薄い包み（キーの接頭辞・例外を投げない読み書き）
     guards.ts      保存値を読み戻すときの型の確かめ
@@ -24,6 +33,8 @@ src/
     page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
     tally.css      その画面だけのスタイル
+    stock-app.ts   StockConfig から「在庫の差」の画面を組み立てる（mountStockApp）
+    stock.css      その画面だけのスタイル
     base.css       全ページ共通の色・余白・カード・知らせ・ボタン・ポータル
     clipboard.ts   コピー（Clipboard API → execCommand → 選択して長押し）
     confirm-button.ts  2回押すと実行するボタン（リセット用）
@@ -32,6 +43,7 @@ src/
     index.html     ポータル
     registry.ts    ポータルに並べるページの一覧
     takumi/        タクミ売上カウンター（config.ts に品目・単価）
+    neko/          ネコ売上カウンター（config.ts に品目・単価）
 e2e/             Playwright
 ```
 
@@ -111,14 +123,63 @@ type TallyState = {
 
 ほかに、同じ端末の別のタブで数字が変わったら（`storage` イベント）、戻るボタンでキャッシュから表示されたら（`pageshow`）、保存を読み直す。
 
+## 「在庫の差」の集計（stock）
+
+ネコのように「開店時に在庫を記録し、あとで残数を数え直して、減った分を売上にする」ページ。
+設定（`StockConfig`）は `Catalog` そのもので、見出し（弓道・手裏剣）ごとに売上を分けて出す。定型文はない。
+
+```ts
+const config: StockConfig = {
+  id: 'neko',
+  title: 'ネコ売上カウンター',
+  dayStartHour: 4,
+  prices: [{ id: 'sticker', label: 'ステッカー', default: 1000 } /* … */],
+  sections: [
+    { id: 'kyudo', title: '弓道', items: [{ id: 'kyudo-sticker', name: 'ステッカー', priceId: 'sticker' } /* … */] },
+    { id: 'shuriken', title: '手裏剣', items: [/* … */] },
+  ],
+}
+```
+
+### 状態と計算
+
+```ts
+type StockState = {
+  entries: Record<string, { start: number | null; added: number | null; remaining: number | null }>
+  updatedAt: string | null
+  startedAt: string | null   // いまの記録を入れ始めた時刻（前の営業日の判定）
+}
+```
+
+- **空欄（null）と 0 を区別する。** 残数が空なら「まだ数えていない」、0 なら「売り切れ」
+- 売れた数 = 開店時 + 追加（空なら 0）− 残数。売上 = 売れた数 × 単価（`itemResult`）
+- 品目ごとの結果は5つ: `empty`（何もない）、`needStart`（開店時が空）、`needRemaining`（残数が空。その時点の在庫を出す）、
+  `tooMany`（残数が在庫より多い＝入れまちがい）、`ok`
+- 見出しの売上（`sectionResult`）は `ok` の品目だけを足し、計算できない品目の数（入れかけ・要確認）を添える
+- 追加は1つの欄に合計を入れる（何回かに分けて足しても、合計を入れれば計算は同じ）
+- 次の日の始め方は2つ: `carryRemainingToStart`（前日の残数を今日の開店時に移す）と `resetStock`（全部消す）
+
+### 画面（`mountStockApp`）
+
+| 画面の要素 | ふるまい |
+| --- | --- |
+| 開店時・追加・残数の欄 | `type="number"`・数字キーボード。入力のたびに `setField` → 保存。空にすると null に戻る。負の数・小数は記録せず、欄から離れると記録どおりに戻す。読み上げ名は「弓道 ステッカー 開店時の在庫」 |
+| 品目の結果 | 「売れた 18個 → ￥18,000-」など。直すべき欄（開店時が空・残数が多すぎる）は赤枠 |
+| 見出しの売上 | カードの下に小計と、入れかけ・要確認の品目数 |
+| 計算結果 | 見出しごとに売上と売れた数を分けて大きく出し、合計は小さく添える |
+| 前の営業日の知らせ | 「残数を今日の開店時の在庫にする」「全部消して始める」（どちらも2回押し） |
+| リセット | 2回押しで全部の欄を空にする |
+
+単価は画面から変えない（設定を直してデプロイする）。
+
 ## 保存
 
 | 項目 | 内容 |
 | --- | --- |
 | 場所 | ブラウザの `localStorage`（端末 × ブラウザごと） |
-| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v1`） |
-| 中身 | `TallyState` の JSON |
-| 書くとき | 個数・単価を変えるたび |
+| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v1`、`hihoukan-calc:neko:v1`） |
+| 中身 | `TallyState` / `StockState` の JSON |
+| 書くとき | 個数・単価・欄の数字を変えるたび |
 
 ```json
 {
@@ -129,12 +190,20 @@ type TallyState = {
 }
 ```
 
+```json
+{
+  "entries": { "kyudo-sticker": { "start": 20, "added": 10, "remaining": 12 } },
+  "updatedAt": "2026-10-15T09:00:00.000Z",
+  "startedAt": "2026-10-15T00:55:00.000Z"
+}
+```
+
 ### 決まりごと
 
 - **キーは必ず `hihoukan-calc:` で始める。** `kei-devworks.github.io` の下のサイトは保存場所を共有するため
 - **公開したあと、ページ・品目・単価の id は変えない。** 変えると保存済みの数が読めなくなる。名前（`name`・`label`・`title`）は変えてよい
-- 保存の形を変えるときは版（`TALLY_STORAGE_VERSION`）を上げ、古い版を読み替える処理を足す
-- 読み戻し（`parseState`）は何が来ても例外にしない。壊れた値・設定から消えた品目・負の数は捨てる
+- 保存の形を変えるときは版（`TALLY_STORAGE_VERSION` / `STOCK_STORAGE_VERSION`）を上げ、古い版を読み替える処理を足す
+- 読み戻し（`parseState` / `parseStockState`）は何が来ても例外にしない。壊れた値・設定から消えた品目・負の数は捨てる
 
 ### 設計の判断
 
@@ -144,4 +213,6 @@ type TallyState = {
   残った数字に今日の分を1つ足しただけで知らせが消え、前日と今日の数字が混ざるため
 - **単価は既定から変えたものだけ保存する。** 値上げなどでコードの既定値を直してデプロイしたとき、
   端末に古い単価が残り続けないようにするため
-- **保存できない端末でも動く。** `TallyStore` は storage が使えなければメモリ上だけで動き、画面で「保存できない」と知らせる
+- **保存できない端末でも動く。** `JsonStore` は storage が使えなければメモリ上だけで動き、画面で「保存できない」と知らせる
+- **在庫の差のページは数字を入れる方式にする。** 1日に1〜2回まとめて数えるので、ボタンで1つずつ数えるより
+  在庫と残数を打つほうが早い。空欄と 0 を区別し、計算できない品目は売上に入れずに知らせる

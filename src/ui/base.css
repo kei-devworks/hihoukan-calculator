@@ -9,6 +9,7 @@
   --accent2: #a3621a;
   --on-accent: #ffffff;
   --danger: #b3261e;
+  --danger-text: #b3261e;
   --notice-bg: #fff4dc;
   --notice-fg: #6b4200;
   --font: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
@@ -25,6 +26,7 @@
     --accent2: #e0a95f;
     --on-accent: #0e1116;
     --danger: #b3261e;
+    --danger-text: #f2b8b5;
     --notice-bg: #3a2c12;
     --notice-fg: #f3d29b;
     color-scheme: dark;
@@ -41,6 +43,7 @@
   --accent2: #e0a95f;
   --on-accent: #0e1116;
   --danger: #b3261e;
+  --danger-text: #f2b8b5;
   --notice-bg: #3a2c12;
   --notice-fg: #f3d29b;
   color-scheme: dark;

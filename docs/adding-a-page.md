@@ -74,6 +74,37 @@ export const pages: PageEntry[] = [
 報告文の形がちがうページ（見出しや合計の書き方がちがう）は、`src/core/report.ts` に関数を足し、
 `TallyConfig` に報告文の作り方を選べる項目を足す。そのときは `docs/architecture.md` も直す。
 
+## 「在庫の差」のページ（ネコと同じ形）
+
+開店時の在庫・途中の追加・残数を数字で入れ、減った分を売上にするページ。設定の形は「個数 × 単価」と同じで、
+`reportTitle` がないだけ。見出し（`sections`）ごとに売上が分かれて出る。手順は上と同じで、ちがうのは次の2つ。
+
+```ts
+// config.ts
+import type { StockConfig } from '../../core/stock'
+
+export const kiosk: StockConfig = {
+  id: 'kiosk',
+  title: '売店在庫カウンター',
+  dayStartHour: 4,
+  prices: [{ id: 'postcard', label: 'ポストカード', default: 300 }],
+  sections: [{ id: 'goods', title: 'グッズ', items: [{ id: 'goods-postcard', name: 'ポストカード', priceId: 'postcard' }] }],
+}
+```
+
+```ts
+// main.ts
+import '../../ui/base.css'
+import { byId } from '../../ui/dom'
+import { mountStockApp } from '../../ui/stock-app'
+import { kiosk } from './config'
+
+mountStockApp(byId('app'), kiosk)
+```
+
+- 同じ品物を見出しごとに分けるときは、品目の id を `<見出し>-<品物>` にして重複させない（例: `kyudo-sticker`・`shuriken-sticker`）
+- テストは `src/pages/neko/config.test.ts` と `e2e/neko.spec.ts` を参考にする
+
 ## 新しい種類のページ
 
 例: レジ締めの金種計算など、既存の種類に当てはまらないもの。

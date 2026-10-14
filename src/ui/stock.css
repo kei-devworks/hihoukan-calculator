@@ -1,0 +1,127 @@
+/* 「在庫の差」のページ。品目ごとに 開店時・追加・残数 の欄を横に並べる（共通部分は base.css） */
+
+.stock-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.card h2 + .stock-item {
+  border-top: 0;
+  margin-top: 2px;
+}
+
+.stock-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.stock-head .nm {
+  font-weight: 700;
+}
+
+.stock-head .pr {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stock-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.stock-field input {
+  width: 100%;
+  min-width: 0;
+  font-size: 18px;
+  text-align: right;
+  padding: 8px 10px;
+}
+
+.stock-field input::-webkit-inner-spin-button,
+.stock-field input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stock-field input.invalid,
+.stock-field input.mismatch {
+  border-color: var(--danger);
+}
+
+.stock-result {
+  margin: 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-result[data-tone='muted'] {
+  color: var(--muted);
+}
+
+.stock-result[data-tone='ok'] {
+  font-weight: 700;
+}
+
+.stock-result[data-tone='warn'],
+.stock-note {
+  color: var(--danger-text);
+}
+
+.stock-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+/* 計算結果: 見出しごとに分けて大きく出し、合計は控えめに添える */
+.stock-summary {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.card h2 + .stock-summary {
+  border-top: 0;
+}
+
+.stock-summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-summary-line b {
+  font-size: 22px;
+}
+
+.stock-breakdown {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stock-grand {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 2px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

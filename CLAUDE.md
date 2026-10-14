@@ -14,7 +14,8 @@ npm run build
 ## 構成
 
 - `src/pages/` — 1ページ = 1フォルダ。`index.html` を置くとビルドの入口になる（`vite.config.ts` が自動で拾う）。
-  「個数 × 単価」のページは `config.ts`（`TallyConfig`）を書いて `mountTallyApp` に渡すだけ（docs/adding-a-page.md）
+  「個数 × 単価」のページ（タクミ）は `config.ts`（`TallyConfig`）を `mountTallyApp` に、
+  「在庫の差」のページ（ネコ）は `config.ts`（`StockConfig`）を `mountStockApp` に渡すだけ（docs/adding-a-page.md）
 - `src/core/` — DOM に触れないロジック。単体テストはここが中心
 - `src/ui/` — DOM の共通部品と共通スタイル
 - `e2e/` — Playwright。本番と同じサブパス `/hihoukan-calculator/` で配信して流す
