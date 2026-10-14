@@ -1,4 +1,34 @@
+import type { StockConfig } from './stock'
 import type { TallyConfig } from './tally'
+
+/** テスト用の「在庫の差」の設定。2つの見出しで単価を共有する */
+export const sampleStockConfig: StockConfig = {
+  id: 'sample-stock',
+  title: 'テスト在庫',
+  dayStartHour: 4,
+  prices: [
+    { id: 'sticker', label: 'ステッカー', default: 1000 },
+    { id: 'ema', label: '絵馬', default: 500 },
+  ],
+  sections: [
+    {
+      id: 'a',
+      title: 'A',
+      items: [
+        { id: 'a-sticker', name: 'ステッカー', priceId: 'sticker' },
+        { id: 'a-ema', name: '絵馬', priceId: 'ema' },
+      ],
+    },
+    {
+      id: 'b',
+      title: 'B',
+      items: [
+        { id: 'b-sticker', name: 'ステッカー', priceId: 'sticker' },
+        { id: 'b-ema', name: '絵馬', priceId: 'ema' },
+      ],
+    },
+  ],
+}
 
 /** テスト用の設定。値段で呼ぶ品目・名前のある品目・単価を共有する品目をひととおり含む */
 export const sampleConfig: TallyConfig = {
