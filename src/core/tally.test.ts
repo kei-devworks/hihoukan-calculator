@@ -3,6 +3,7 @@ import { sampleConfig as config } from './fixtures'
 import {
   allItems,
   bump,
+  carriedOverSince,
   displayName,
   grandTotal,
   hasCounts,
@@ -49,6 +50,47 @@ describe('bump', () => {
     const before = withCounts({ a: 1 })
     bump(before, 'a', 1, now)
     expect(before.counts).toEqual({ a: 1 })
+  })
+
+  it('0 から数え始めた時刻を記録し、あとから足しても変えない', () => {
+    const later = new Date('2026-10-15T15:00:00+09:00')
+    const state = bump(bump(initialState(), 'a', 1, now), 'b', 1, later)
+    expect(state.startedAt).toBe(now.toISOString())
+    expect(state.updatedAt).toBe(later.toISOString())
+  })
+
+  it('全部 0 に戻ると、数え始めの時刻も消える', () => {
+    expect(bump(withCounts({ a: 1 }), 'a', -1, now).startedAt).toBeNull()
+  })
+})
+
+describe('carriedOverSince（前の営業日の数字が残っているか）', () => {
+  // dayStartHour は 4。深夜 3:59 までは前日の営業日
+  const startedAt = (iso: string) => bump(initialState(), 'a', 1, new Date(iso))
+
+  it('前の営業日に数え始めていれば、その時刻を返す', () => {
+    const state = startedAt('2026-10-14T18:00:00+09:00')
+    expect(carriedOverSince(config, state, new Date('2026-10-15T10:00:00+09:00'))).toEqual(
+      new Date('2026-10-14T18:00:00+09:00'),
+    )
+  })
+
+  it('残った数字に今日の分を足しても、前の営業日の数字のまま', () => {
+    const state = bump(startedAt('2026-10-14T18:00:00+09:00'), 'b', 1, new Date('2026-10-15T10:00:00+09:00'))
+    expect(carriedOverSince(config, state, new Date('2026-10-15T10:01:00+09:00'))).not.toBeNull()
+  })
+
+  it('深夜営業で日付をまたいでも、同じ営業日なら null', () => {
+    const state = startedAt('2026-10-14T18:00:00+09:00')
+    expect(carriedOverSince(config, state, new Date('2026-10-15T01:30:00+09:00'))).toBeNull()
+  })
+
+  it('同じ営業日・数えていない・リセット後は null', () => {
+    const state = startedAt('2026-10-15T09:00:00+09:00')
+    const today = new Date('2026-10-15T20:00:00+09:00')
+    expect(carriedOverSince(config, state, today)).toBeNull()
+    expect(carriedOverSince(config, initialState(), today)).toBeNull()
+    expect(carriedOverSince(config, resetCounts(startedAt('2026-10-14T18:00:00+09:00')), today)).toBeNull()
   })
 })
 
@@ -120,11 +162,12 @@ describe('品目名', () => {
 })
 
 describe('resetCounts', () => {
-  it('個数と更新時刻を消し、単価の変更は残す', () => {
+  it('個数と時刻を消し、単価の変更は残す', () => {
     const state = setPrice(config, withCounts({ a: 2, vanilla: 1 }), 'a', 1200)
     const reset = resetCounts(state)
     expect(reset.counts).toEqual({})
     expect(reset.updatedAt).toBeNull()
+    expect(reset.startedAt).toBeNull()
     expect(reset.priceOverrides).toEqual({ a: 1200 })
   })
 })
@@ -151,8 +194,17 @@ describe('parseState（保存されていた値を戻す）', () => {
     expect(state.priceOverrides).toEqual({ b: 2500 })
   })
 
-  it('日時として読めない updatedAt は捨てる', () => {
-    expect(parseState(config, { updatedAt: 'yesterday' }).updatedAt).toBeNull()
+  it('日時として読めない時刻は捨てる。数え始めがなければ更新時刻で代える', () => {
+    const iso = '2026-10-14T09:00:00.000Z'
+    expect(parseState(config, { counts: { a: 1 }, updatedAt: 'yesterday' }).updatedAt).toBeNull()
+    expect(parseState(config, { counts: { a: 1 }, updatedAt: iso }).startedAt).toBe(iso)
+  })
+
+  it('数えていなければ、時刻は残っていても持たない', () => {
+    const iso = '2026-10-14T09:00:00.000Z'
+    const state = parseState(config, { counts: {}, updatedAt: iso, startedAt: iso })
+    expect(state.updatedAt).toBeNull()
+    expect(state.startedAt).toBeNull()
   })
 })
 

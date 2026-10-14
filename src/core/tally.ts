@@ -4,6 +4,7 @@
  */
 
 import { formatNumber } from './format'
+import { businessDate } from './time'
 
 /** 品目。1品目 = 画面の1行（＋/− のカウンター） */
 export type TallyItem = {
@@ -59,6 +60,12 @@ export type TallyState = {
   priceOverrides: Prices
   /** 最後に個数を変えた時刻（ISO 8601）。数えていなければ null */
   updatedAt: string | null
+  /**
+   * いまの数字を数え始めた時刻（ISO 8601）。0 から数え始めたときに記録し、全部 0 に戻ると消える。
+   * 前の営業日の数字が残っているかの判定に使う（更新時刻で判定すると、残った数字に今日の分を
+   * 1つ足しただけで「今日の数字」に見えてしまうため）
+   */
+  startedAt: string | null
 }
 
 export function allItems(config: TallyConfig): TallyItem[] {
@@ -66,7 +73,7 @@ export function allItems(config: TallyConfig): TallyItem[] {
 }
 
 export function initialState(): TallyState {
-  return { counts: {}, priceOverrides: {}, updatedAt: null }
+  return { counts: {}, priceOverrides: {}, updatedAt: null, startedAt: null }
 }
 
 export function countOf(state: TallyState, itemId: string): number {
@@ -112,12 +119,28 @@ export function bump(state: TallyState, itemId: string, delta: number, now: Date
   const counts = { ...state.counts }
   if (next === 0) delete counts[itemId]
   else counts[itemId] = next
-  return { ...state, counts, updatedAt: now.toISOString() }
+  const empty = Object.keys(counts).length === 0
+  return {
+    ...state,
+    counts,
+    updatedAt: now.toISOString(),
+    startedAt: empty ? null : (state.startedAt ?? now.toISOString()),
+  }
 }
 
 /** 個数をすべて 0 に戻す。単価の変更は残す */
 export function resetCounts(state: TallyState): TallyState {
-  return { ...state, counts: {}, updatedAt: null }
+  return { ...state, counts: {}, updatedAt: null, startedAt: null }
+}
+
+/**
+ * 前の営業日に数え始めた数字が残っていれば、数え始めた時刻を返す。なければ null。
+ * 営業日は config.dayStartHour で区切る（深夜営業の途中で「前日の数字」扱いにしないため）
+ */
+export function carriedOverSince(config: TallyConfig, state: TallyState, now: Date): Date | null {
+  if (!state.startedAt || !hasCounts(state)) return null
+  const started = new Date(state.startedAt)
+  return businessDate(started, config.dayStartHour) === businessDate(now, config.dayStartHour) ? null : started
 }
 
 /** 単価を変える。既定と同じ値なら、変更なしの扱いに戻す。不正な値は 0 にする */
@@ -163,10 +186,15 @@ export function parseState(config: TallyConfig, raw: unknown): TallyState {
       if (isCount(p) && p !== def.default) state.priceOverrides[def.id] = p
     }
   }
-  if (typeof raw.updatedAt === 'string' && !Number.isNaN(Date.parse(raw.updatedAt))) {
-    state.updatedAt = raw.updatedAt
+  if (hasCounts(state)) {
+    state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
+    state.startedAt = isDateString(raw.startedAt) ? raw.startedAt : state.updatedAt
   }
   return state
+}
+
+function isDateString(v: unknown): v is string {
+  return typeof v === 'string' && !Number.isNaN(Date.parse(v))
 }
 
 /**
