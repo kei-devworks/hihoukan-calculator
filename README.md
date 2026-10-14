@@ -4,6 +4,10 @@
 
 **公開先: https://kei-devworks.github.io/hihoukan-calculator/**
 
+| ページ | 内容 |
+| --- | --- |
+| [タクミ売上カウンター](https://kei-devworks.github.io/hihoukan-calculator/takumi/) | 串・ホタテ・ビール・ソフトクリームの売上を数え、1時間ごとの売上報告の定型文をコピーする。数字は端末に保存され、再読み込みしても消えない（[使い方](docs/usage.md)） |
+
 ## 開発
 
 Node.js 24 以上（[.nvmrc](.nvmrc)）。
@@ -25,6 +29,8 @@ npm run build          # dist/ にビルド
 
 ## ドキュメント
 
+- [docs/usage.md](docs/usage.md) — 使い方（お店のスタッフ向け）
+- [docs/adding-a-page.md](docs/adding-a-page.md) — 集計ページを足す手順
 - [docs/architecture.md](docs/architecture.md) — 構成、集計の設定（`TallyConfig`）、保存の形と決まりごと
 - [docs/deployment.md](docs/deployment.md) — デプロイのしくみ、GitHub Pages で使えるかの精査と注意点
 - [docs/testing.md](docs/testing.md) — テストの方針と流し方

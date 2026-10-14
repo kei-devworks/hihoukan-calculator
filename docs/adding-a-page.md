@@ -1,0 +1,92 @@
+# 集計ページを足す
+
+ページは `src/pages/<名前>/` のフォルダ1つ。`index.html` を置けばビルドの入口になり、
+`https://kei-devworks.github.io/hihoukan-calculator/<名前>/` で開ける（`vite.config.ts` の設定は変えなくてよい）。
+
+## 「個数 × 単価」のページ（売上カウンターと同じ形）
+
+品目・単価・見出しを設定に書くだけで作れる。例として `src/pages/kiosk/` を作る場合:
+
+### 1. 設定 `src/pages/kiosk/config.ts`
+
+```ts
+import type { TallyConfig } from '../../core/tally'
+
+export const kiosk: TallyConfig = {
+  id: 'kiosk',               // 保存のキー。公開したら変えない
+  title: '売店売上カウンター',
+  reportTitle: '売上報告',
+  dayStartHour: 4,
+  prices: [
+    { id: 'postcard', label: 'ポストカード', default: 300 },
+    { id: 'tenugui', label: '手ぬぐい', default: 1200 },
+  ],
+  sections: [
+    {
+      id: 'goods',
+      title: '◾️グッズ',
+      items: [
+        { id: 'postcard', name: 'ポストカード', priceId: 'postcard' },
+        { id: 'tenugui', name: '手ぬぐい', priceId: 'tenugui' },
+      ],
+    },
+  ],
+}
+```
+
+- `name` を省くと、値段そのものが品目名になる（「1,000円」、報告文は「1,000×3」）
+- 複数の品目で同じ `priceId` を使うと、単価を共有できる（ソフトクリームの味違いなど）
+- id には英小文字・数字・`-` だけを使う。**公開したあとは id を変えない**（保存済みの数が読めなくなる）
+
+### 2. 入口 `src/pages/kiosk/main.ts`
+
+```ts
+import '../../ui/base.css'
+import { byId } from '../../ui/dom'
+import { mountTallyApp } from '../../ui/tally-app'
+import { kiosk } from './config'
+
+mountTallyApp(byId('app'), kiosk)
+```
+
+### 3. HTML `src/pages/kiosk/index.html`
+
+`src/pages/takumi/index.html` を写して、`<title>` だけ変える。
+
+### 4. ポータルに載せる `src/pages/registry.ts`
+
+```ts
+import { kiosk } from './kiosk/config'
+
+export const pages: PageEntry[] = [
+  // …
+  { path: 'kiosk', title: kiosk.title, description: 'ポストカード・手ぬぐいの売上' },
+]
+```
+
+### 5. テスト
+
+- 設定の書き間違い（id の重複・存在しない単価など）は、`src/pages/registry.test.ts` が
+  `src/pages/*/config.ts` を全部拾って検証するので、書き足さなくてよい
+- 報告文の形を固定したいときは、`src/pages/takumi/config.test.ts` を写して期待する定型文を書く
+- 画面の操作は `e2e/takumi.spec.ts` を参考に E2E を足す
+
+報告文の形がちがうページ（見出しや合計の書き方がちがう）は、`src/core/report.ts` に関数を足し、
+`TallyConfig` に報告文の作り方を選べる項目を足す。そのときは `docs/architecture.md` も直す。
+
+## 「個数 × 単価」ではないページ
+
+例: レジ締めの金種計算、在庫の数え上げなど。
+
+- `src/pages/<名前>/` に `index.html` と `main.ts` を置き、画面は自由に作る
+- 共通の部品を使う: 保存は `src/core/storage.ts`（キーは `storageKey('<名前>', 1)` で、`hihoukan-calc:` で始まる）、
+  金額は `src/core/format.ts`、コピーは `src/ui/clipboard.ts`、2回押しのボタンは `src/ui/confirm-button.ts`
+- 計算は `src/core/` に DOM を使わない関数として書き、単体テストを付ける
+- **端末をまたいだ共有やログインが要るなら、作る前に相談する**（GitHub Pages ではできない。[deployment.md](deployment.md)）
+
+## チェックリスト
+
+- [ ] `npm run typecheck && npm run lint && npm test`
+- [ ] `npm run test:e2e`
+- [ ] ポータル（`registry.ts`）に載せた
+- [ ] `docs/usage.md` に使い方を書いた（ページごとに節を足す）

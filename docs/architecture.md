@@ -18,11 +18,20 @@ src/
     time.ts        報告時刻・営業日・日時の表示
     format.ts      金額の表示
   ui/            DOM の共通部品と共通スタイル
+    tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
+    tally.css      その画面のスタイル
+    base.css       全ページ共通の色・余白・ポータル
+    clipboard.ts   コピー（Clipboard API → execCommand → 選択して長押し）
+    confirm-button.ts  2回押すと実行するボタン（リセット用）
+    dom.ts         要素を作る小さなヘルパー
   pages/         Vite の入口。1ページ = 1フォルダ
     index.html     ポータル
     registry.ts    ポータルに並べるページの一覧
+    takumi/        タクミ売上カウンター（config.ts に品目・単価）
 e2e/             Playwright
 ```
+
+ページを足す手順は [adding-a-page.md](adding-a-page.md)。
 
 依存の向きは `pages → ui → core` の一方通行。`core` は DOM も `window` も使わない
 （`storage.ts` の `openLocalStorage` だけが `window.localStorage` に触れる）。
@@ -70,6 +79,22 @@ type TallyState = {
 
 - 更新は `bump` / `setPrice` / `resetCounts` などの純関数で、新しい状態を返す（元の状態は書き換えない）
 - 画面は「状態を変える → `TallyStore.update` で保存 → 描き直す」の順に動く
+
+### 画面（`mountTallyApp`）
+
+設定から行・小計・合計・単価設定・報告文を組み立て、状態が変わるたびに `render()` で表示を合わせる。
+
+| 画面の要素 | ふるまい |
+| --- | --- |
+| ＋ / − | `bump` → 保存 → 描き直し。ボタンの読み上げ名は「1,000円を1つ増やす」 |
+| 報告時刻 | 初期値はいまに一番近い「ちょうど」。手で変えなければ、30秒ごと・画面に戻ったときにいまの時刻へ合わせ直す（開きっぱなしの端末向け）。「今」で自動に戻る |
+| 保存の状態 | 「この端末に保存済み（最終更新 21:03）」。保存できない・失敗したときは赤い知らせ |
+| 前の営業日の知らせ | `carriedOverSince` が時刻を返すあいだ出し続け、「0 に戻して今日を始める」（2回押し）で消える |
+| 単価設定 | 入力のたびに `setPrice`。欄が空の間は変えず、欄から離れると今の単価に戻す。変えた単価には既定値を並べ、見出しに件数を出す |
+| コピー | Clipboard API → execCommand。どちらもだめなら報告文を選択して「長押しでコピー」と出す |
+| リセット | 2回押し（3秒以内）。単価の変更は残す |
+
+ほかに、同じ端末の別のタブで数字が変わったら（`storage` イベント）、戻るボタンでキャッシュから表示されたら（`pageshow`）、保存を読み直す。
 
 ## 保存
 
