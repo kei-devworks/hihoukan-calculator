@@ -122,6 +122,148 @@ button {
   flex-direction: column;
 }
 
+.card h2 {
+  color: var(--accent);
+}
+
+.card.alt h2 {
+  color: var(--accent2);
+}
+
+/* 集計ページの共通部分（見出し・保存の状態・知らせ・小計・合計・ボタン）。ui/page-parts.ts */
+
+.app-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.back {
+  font-size: 13px;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+input[type='time'],
+input[type='number'] {
+  font: inherit;
+  /* 16px 未満だと iPhone で入力時に画面が拡大される */
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.save-status {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--notice-bg);
+  color: var(--notice-fg);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notice.warn {
+  background: var(--danger);
+  color: #fff;
+}
+
+.sub {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 2px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub span:last-child {
+  font-weight: 700;
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.total b {
+  font-size: 24px;
+}
+
+button.solid,
+button.ghost {
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 9px;
+  padding: 10px 16px;
+  cursor: pointer;
+  min-height: 42px;
+}
+
+button.solid {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 0;
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+button.ghost:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.notice button.ghost {
+  color: inherit;
+  border-color: currentColor;
+}
+
+button.ghost.armed,
+.notice button.ghost.armed {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
 /* ポータル */
 .page-list {
   list-style: none;

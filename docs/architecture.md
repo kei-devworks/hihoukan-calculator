@@ -11,16 +11,20 @@
 ```
 src/
   core/          DOM に触れないロジック。単体テストの中心
-    tally.ts       「個数 × 単価」の設定の型・計算・保存値の読み戻し・設定の検証
+    catalog.ts     品目・単価・見出しの設定（Catalog）の型と検証。売上を数えるページ共通の土台
+    tally.ts       「個数 × 単価」の計算・保存値の読み戻し
     tally-store.ts TallyState を端末に保存・復元する
     report.ts      売上報告の定型文
+    json-store.ts  1ページ分の状態を JSON で保存・復元する（JsonStore。各ページの store の土台）
     storage.ts     localStorage の薄い包み（キーの接頭辞・例外を投げない読み書き）
+    guards.ts      保存値を読み戻すときの型の確かめ
     time.ts        報告時刻・営業日・日時の表示
     format.ts      金額の表示
   ui/            DOM の共通部品と共通スタイル
+    page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
-    tally.css      その画面のスタイル
-    base.css       全ページ共通の色・余白・ポータル
+    tally.css      その画面だけのスタイル
+    base.css       全ページ共通の色・余白・カード・知らせ・ボタン・ポータル
     clipboard.ts   コピー（Clipboard API → execCommand → 選択して長押し）
     confirm-button.ts  2回押すと実行するボタン（リセット用）
     dom.ts         要素を作る小さなヘルパー
@@ -36,10 +40,21 @@ e2e/             Playwright
 依存の向きは `pages → ui → core` の一方通行。`core` は DOM も `window` も使わない
 （`storage.ts` の `openLocalStorage` だけが `window.localStorage` に触れる）。
 
+## ページの共通部分
+
+売上を数えるページは、どれも次の土台の上に作る。
+
+| 土台 | 中身 |
+| --- | --- |
+| `Catalog`（`core/catalog.ts`） | ページの id・題名・営業日の切り替わり・単価（`prices`）・見出しごとの品目（`sections`）。`validateCatalog` で書き間違いを見つける |
+| `JsonStore`（`core/json-store.ts`） | 状態を `hihoukan-calc:<ページの id>:v<版>` に保存・復元する。読み戻しはページごとの `parse` 関数に任せ、壊れた値でも例外にしない |
+| `earlierBusinessDay`（`core/time.ts`） | 「数え始めた時刻」が前の営業日かを判定する（前日の数字が残っている知らせに使う） |
+| `pageHeader` / `pageStatus` / `keepFresh`（`ui/page-parts.ts`） | 「‹ 一覧」と題名、保存の状態と赤い警告、前の営業日の黄色い知らせ、30秒ごと・画面復帰・別タブ・戻るボタンでの再描画 |
+
 ## 「個数 × 単価」の集計（tally）
 
 売上カウンターのような「品目ごとに個数を数え、単価を掛けて足す」ページは、**設定（`TallyConfig`）を書くだけ**で作れる。
-計算・保存・報告文・画面はすべて設定から組み立てる。
+計算・保存・報告文・画面はすべて設定から組み立てる。`TallyConfig` は `Catalog` に報告文の1行目（`reportTitle`）を足したもの。
 
 ```ts
 const config: TallyConfig = {
@@ -63,7 +78,7 @@ const config: TallyConfig = {
 }
 ```
 
-設定の書き間違い（id の重複、存在しない単価など）は `validateConfig` が見つける。
+設定の書き間違い（id の重複、存在しない単価など）は `validateCatalog` が見つける。
 登録されている全ページの設定をテストで検証するので、書き間違えると CI が落ちる。
 
 ### 状態と更新

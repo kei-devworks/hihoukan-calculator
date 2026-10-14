@@ -17,6 +17,16 @@ export function businessDate(date: Date, dayStartHour: number): string {
   return `${shifted.getFullYear()}-${pad(shifted.getMonth() + 1)}-${pad(shifted.getDate())}`
 }
 
+/**
+ * startedAt（ISO 8601）が now より前の営業日なら、その時刻を返す。同じ営業日・記録なしなら null。
+ * 前の営業日の数字が残っているかの判定に使う
+ */
+export function earlierBusinessDay(startedAt: string | null, dayStartHour: number, now: Date): Date | null {
+  if (!startedAt) return null
+  const started = new Date(startedAt)
+  return businessDate(started, dayStartHour) === businessDate(now, dayStartHour) ? null : started
+}
+
 /** 「10/14 21:03」の形（端末の時刻で） */
 export function formatMonthDayTime(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`

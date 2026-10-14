@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { businessDate, formatMonthDayTime, formatTime, nearestHour } from './time'
+import { businessDate, earlierBusinessDay, formatMonthDayTime, formatTime, nearestHour } from './time'
 
 // テストは端末の時刻（ローカル時刻）で Date を作る。どのタイムゾーンで流しても同じ結果になる
 const at = (y: number, mo: number, d: number, h: number, mi = 0) => new Date(y, mo - 1, d, h, mi)
@@ -31,6 +31,23 @@ describe('businessDate', () => {
 
   it('切り替わりが 0 時ならカレンダーどおり', () => {
     expect(businessDate(at(2026, 10, 15, 0, 0), 0)).toBe('2026-10-15')
+  })
+})
+
+describe('earlierBusinessDay', () => {
+  const iso = (d: Date) => d.toISOString()
+
+  it('前の営業日に始めていれば、その時刻を返す', () => {
+    const started = at(2026, 10, 14, 18, 0)
+    expect(earlierBusinessDay(iso(started), 4, at(2026, 10, 15, 10, 0))).toEqual(started)
+  })
+
+  it('同じ営業日（深夜 3:59 まで）なら null', () => {
+    expect(earlierBusinessDay(iso(at(2026, 10, 14, 18, 0)), 4, at(2026, 10, 15, 3, 59))).toBeNull()
+  })
+
+  it('記録がなければ null', () => {
+    expect(earlierBusinessDay(null, 4, at(2026, 10, 15, 10, 0))).toBeNull()
   })
 })
 

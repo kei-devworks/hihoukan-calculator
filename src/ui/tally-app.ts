@@ -1,5 +1,6 @@
 import './tally.css'
 import { formatNumber, formatYen } from '../core/format'
+import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
 import {
@@ -16,11 +17,12 @@ import {
   type TallyConfig,
   type TallyState,
 } from '../core/tally'
-import { TallyStore, type SaveResult } from '../core/tally-store'
-import { businessDate, formatMonthDayTime, formatTime, nearestHour } from '../core/time'
+import { TallyStore } from '../core/tally-store'
+import { formatMonthDayTime, nearestHour } from '../core/time'
 import { copyText, selectContents } from './clipboard'
 import { confirmButton } from './confirm-button'
 import { h } from './dom'
+import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
 export type MountOptions = {
   /** 保存先。省略すると端末の localStorage（使えなければ保存しない） */
@@ -49,16 +51,18 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   // ---- 見出し・報告時刻・保存の状態 ----
   const timeInput = h('input', { type: 'time', id: 'report-time' })
   const nowButton = h('button', { type: 'button', class: 'ghost', text: '今' })
-  const saveStatus = h('p', { class: 'save-status', role: 'status' })
-  const storageWarning = h('p', { class: 'notice warn', role: 'alert', hidden: true })
-
-  const carriedText = h('p')
-  const carriedReset = h('button', { type: 'button', class: 'ghost' })
-  const carriedNotice = h('div', { class: 'notice', role: 'alert', hidden: true }, [carriedText, carriedReset])
-  confirmButton(carriedReset, {
-    label: '0 に戻して今日を始める',
-    armedLabel: 'もう一度押すと全部 0',
-    onConfirm: () => change(resetCounts(store.current)),
+  const status = pageStatus({
+    dayStartHour: config.dayStartHour,
+    idleText: '数えた数はこの端末に自動で保存されます',
+    carriedText: (since) =>
+      `${formatMonthDayTime(since)} から数えた数字が残っています。今日の集計を始めるときは 0 に戻してください。`,
+    carriedActions: [
+      {
+        label: '0 に戻して今日を始める',
+        armedLabel: 'もう一度押すと全部 0',
+        onConfirm: () => change(resetCounts(store.current)),
+      },
+    ],
   })
 
   // ---- 品目の行と小計 ----
@@ -148,14 +152,12 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   })
 
   root.replaceChildren(
-    h('header', { class: 'app-head' }, [
-      h('a', { class: 'back', href: '../', text: '‹ 一覧' }),
-      h('h1', { text: config.title }),
+    pageHeader(config.title, [
       h('div', { class: 'timebar' }, [h('label', { for: timeInput.id, text: '報告時刻' }), timeInput, nowButton]),
-      saveStatus,
+      status.saveStatus,
     ]),
-    storageWarning,
-    carriedNotice,
+    status.storageWarning,
+    status.carriedNotice,
     ...sectionCards,
     h('div', { class: 'total' }, [h('span', { text: '合計' }), total]),
     h('details', { class: 'prices' }, [
@@ -213,33 +215,13 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     pricesSummary.textContent = changedPrices > 0 ? `単価設定（${changedPrices}件 変更あり）` : '単価設定'
     resetPricesButton.disabled = changedPrices === 0
 
-    renderStatus(state, at)
-  }
-
-  function renderStatus(state: TallyState, at: Date) {
-    if (!store.available || lastSave === 'failed') {
-      storageWarning.hidden = false
-      storageWarning.textContent = store.available
-        ? '保存に失敗しました。端末の空き容量を確かめてください。このままページを閉じると数字が消えます。'
-        : 'この端末では数字を保存できません。再読み込みやページを閉じると消えます。プライベートブラウズになっていないか確かめてください。'
-      saveStatus.hidden = true
-    } else {
-      storageWarning.hidden = true
-      saveStatus.hidden = false
-      if (state.updatedAt) {
-        const updated = new Date(state.updatedAt)
-        const sameDay = businessDate(updated, config.dayStartHour) === businessDate(at, config.dayStartHour)
-        saveStatus.textContent = `この端末に保存済み（最終更新 ${sameDay ? formatTime(updated) : formatMonthDayTime(updated)}）`
-      } else {
-        saveStatus.textContent = '数えた数はこの端末に自動で保存されます'
-      }
-    }
-
-    const since = carriedOverSince(config, state, at)
-    carriedNotice.hidden = since === null
-    if (since) {
-      carriedText.textContent = `${formatMonthDayTime(since)} から数えた数字が残っています。今日の集計を始めるときは 0 に戻してください。`
-    }
+    status.update({
+      available: store.available,
+      lastSave,
+      updatedAt: state.updatedAt,
+      carriedSince: carriedOverSince(config, state, at),
+      now: at,
+    })
   }
 
   // ---- 報告時刻 ----
@@ -257,45 +239,20 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     render()
   })
 
-  // ---- 外からの変化 ----
-  // 開きっぱなしの端末でも、時刻と「前の営業日の数字」の判定が古くならないように
-  const tick = setInterval(() => {
-    followClock()
-    render()
-  }, 30_000)
-  const onVisible = () => {
-    if (document.visibilityState !== 'visible') return
+  // 開きっぱなしでも時刻と「前の営業日の数字」の判定が古くならないように。別のタブの変更も拾う
+  const refresh = () => {
     followClock()
     render()
   }
-  // 同じ端末の別のタブで数字が変わったとき
-  const onStorage = (e: StorageEvent) => {
-    if (e.key !== store.key && e.key !== null) return
-    store.reload()
-    render()
-  }
-  // 戻るボタンでキャッシュから表示されたとき（その間に別のタブで変わっているかもしれない）
-  const onPageShow = (e: PageTransitionEvent) => {
-    if (!e.persisted) return
-    store.reload()
-    followClock()
-    render()
-  }
-  document.addEventListener('visibilitychange', onVisible)
-  window.addEventListener('storage', onStorage)
-  window.addEventListener('pageshow', onPageShow)
+  const stopFresh = keepFresh(store, { onTick: refresh, onReload: refresh })
 
-  followClock()
-  render()
+  refresh()
 
   return {
     store,
     unmount: () => {
-      clearInterval(tick)
+      stopFresh()
       clearTimeout(copyTimer)
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener('pageshow', onPageShow)
     },
   }
 }

@@ -1,16 +1,4 @@
-/* 「個数 × 単価」のページ。片手の親指で押せる大きさのカウンターを縦に並べる */
-
-.app-head {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.back {
-  font-size: 13px;
-  text-decoration: none;
-  align-self: flex-start;
-}
+/* 「個数 × 単価」のページ。片手の親指で押せる大きさのカウンターを縦に並べる（共通部分は base.css） */
 
 .timebar {
   display: flex;
@@ -21,58 +9,6 @@
 .timebar label {
   font-size: 13px;
   color: var(--muted);
-}
-
-input[type='time'],
-input[type='number'] {
-  font: inherit;
-  /* 16px 未満だと iPhone で入力時に画面が拡大される */
-  font-size: 16px;
-  font-variant-numeric: tabular-nums;
-  color: var(--fg);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 8px;
-}
-
-.save-status {
-  margin: 0;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.notice {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--notice-bg);
-  color: var(--notice-fg);
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.notice p {
-  margin: 0;
-}
-
-.notice button {
-  align-self: flex-start;
-}
-
-.notice.warn {
-  background: var(--danger);
-  color: #fff;
-}
-
-.card h2 {
-  color: var(--accent);
-}
-
-.card.alt h2 {
-  color: var(--accent2);
 }
 
 .row {
@@ -140,35 +76,6 @@ input[type='number'] {
   font-weight: 400;
 }
 
-.sub {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 2px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-}
-
-.sub span:last-child {
-  font-weight: 700;
-}
-
-.total {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  background: var(--accent);
-  color: var(--on-accent);
-  border-radius: 12px;
-  padding: 12px 16px;
-  font-variant-numeric: tabular-nums;
-}
-
-.total b {
-  font-size: 24px;
-}
-
 details.prices {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -226,49 +133,4 @@ pre.report {
   font-variant-numeric: tabular-nums;
   user-select: text;
   -webkit-user-select: text;
-}
-
-button.solid,
-button.ghost {
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 9px;
-  padding: 10px 16px;
-  cursor: pointer;
-  min-height: 42px;
-}
-
-button.solid {
-  background: var(--accent);
-  color: var(--on-accent);
-  border: 0;
-}
-
-button.ghost {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--line);
-}
-
-button.ghost:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.notice button.ghost {
-  color: inherit;
-  border-color: currentColor;
-}
-
-button.ghost.armed,
-.notice button.ghost.armed {
-  color: #fff;
-  background: var(--danger);
-  border-color: var(--danger);
-}
-
-.foot {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
 }

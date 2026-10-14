@@ -1,4 +1,4 @@
-type ConfirmButtonOptions = {
+export type ConfirmButtonOptions = {
   label: string
   /** 1回目に押したあとの表示 */
   armedLabel: string
