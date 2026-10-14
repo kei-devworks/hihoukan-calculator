@@ -15,8 +15,9 @@
 
 - 画面（`src/ui/tally-app.test.ts`・`src/ui/stock-app.test.ts`）も jsdom で流す。時計（`now`）と保存先を差し替えられるので、
   「前の営業日の数字が残っている」「深夜営業で日付をまたぐ」「保存できない端末」のような、実機では作りにくい状況をここで確かめる
-- ページの設定は `src/pages/registry.test.ts` が `src/pages/*/config.ts` を全部拾って `validateConfig` にかける。
-  報告文の定型は各ページの `config.test.ts` で1文字単位で固定する
+- ページの設定は `src/pages/registry.test.ts` が `src/pages/*/config.ts` を全部拾って `validateCatalog` にかける
+  （「個数 × 単価」も「在庫の差」も同じ形なので、ページを足してもテストを書き足さなくてよい）。
+  報告文の定型や1日分の計算は、各ページの `config.test.ts` で固定する
 
 ## E2E
 
