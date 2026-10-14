@@ -4,12 +4,13 @@
 
 - サーバーのない静的サイト。GitHub Pages に置く（[deployment.md](deployment.md)）
 - 1ページ = 1つの集計ツール。ページは `src/pages/<名前>/` に置き、ポータル（`src/pages/index.html`）から開く
-- ページの種類は2つ。どちらも設定を書くだけで作れる
+- ページの種類は3つ。どれも設定を書くだけで作れる
 
-  | 種類 | 数え方 | 例 |
+  | 種類 | やること | 例 |
   | --- | --- | --- |
   | 個数 × 単価（tally） | 売れるたびに＋/− で数える。報告文をコピーする | タクミ（`takumi/`） |
   | 在庫の差（stock） | 開店時・追加・残数を数字で入れ、減った分を売上にする | ネコ（`neko/`） |
+  | 勤務時間報告（work-report） | 勤務日・勤務時間・交通費から報告文を作ってコピーする | 勤務時間報告（`kinmu/`） |
 
 - 数字は**各端末のブラウザ（localStorage）にだけ**保存する。端末どうしで共有はしない
 
@@ -24,6 +25,8 @@ src/
     report.ts      売上報告の定型文
     stock.ts       「在庫の差」の記録・計算・保存値の読み戻し
     stock-store.ts StockState を端末に保存・復元する
+    work-report.ts 勤務時間報告の文面・記録・次の報告の初期値・保存値の読み戻し
+    work-report-store.ts  WorkReportState を端末に保存・復元する
     json-store.ts  1ページ分の状態を JSON で保存・復元する（JsonStore。各ページの store の土台）
     storage.ts     localStorage の薄い包み（キーの接頭辞・例外を投げない読み書き）
     guards.ts      保存値を読み戻すときの型の確かめ
@@ -35,6 +38,8 @@ src/
     tally.css      その画面だけのスタイル
     stock-app.ts   StockConfig から「在庫の差」の画面を組み立てる（mountStockApp）
     stock.css      その画面だけのスタイル
+    work-report-app.ts  勤務時間報告の画面（mountWorkReportApp）
+    work-report.css     その画面だけのスタイル
     base.css       全ページ共通の色・余白・カード・知らせ・ボタン・ポータル
     clipboard.ts   コピー（Clipboard API → execCommand → 選択して長押し）
     confirm-button.ts  2回押すと実行するボタン（リセット用）
@@ -44,6 +49,7 @@ src/
     registry.ts    ポータルに並べるページの一覧
     takumi/        タクミ売上カウンター（config.ts に品目・単価）
     neko/          ネコ売上カウンター（config.ts に品目・単価）
+    kinmu/         勤務時間報告（config.ts に初めて使うときの勤務時間）
 e2e/             Playwright
 ```
 
@@ -54,7 +60,7 @@ e2e/             Playwright
 
 ## ページの共通部分
 
-売上を数えるページは、どれも次の土台の上に作る。
+ページは、どれも次の土台の上に作る（`Catalog` は品目と単価のあるページだけ）。
 
 | 土台 | 中身 |
 | --- | --- |
@@ -172,14 +178,71 @@ type StockState = {
 
 単価は画面から変えない（設定を直してデプロイする）。
 
+## 勤務時間報告（work-report）
+
+勤務日・勤務時間・休憩・交通費から報告文を作ってコピーするページ。品目や単価はないので `Catalog` は使わず、
+設定（`WorkReportConfig`）はページの id・題名・営業日の切り替わり・初めて使うときの勤務時間だけ。
+
+```
+勤務時間報告
+10月14日(水曜日)
+勤務時間　16:00 〜23:00        ← 全角スペース、「〜」の前だけ半角スペース。時は0埋めしない
+休憩時間　0分
+交通費　（往復）500円          ← 交通費なしなら「交通費　なし」の1行
+　　園田駅〜なんば駅           ← 全角スペース2つ。駅名に「駅」を付けて書く
+10月13日分受領済み             ← 日払いで、受領済みの日付があるときだけ
+```
+
+全角スペースはソースでは `　` の定数（`ZS`）で書く（見分けにくく、ESLint にも止められるため）。
+
+### 状態
+
+```ts
+type WorkReportState = {
+  patterns: { id: string; amount: number; from: string; to: string }[]  // 交通費のパターン
+  selectedPatternId: string | null    // null なら「交通費なし」
+  payMode: 'daily' | 'monthly'
+  history: ReportRecord[]             // コピーした報告（勤務日ごとに1件、直近60件）
+  draft: ReportDraft | null           // 書きかけ
+  updatedAt: string | null
+}
+type ReportRecord = { workDate: string; start: string; end: string; breakMinutes: number; copiedAt: string }
+type ReportDraft = { workDate; start; end; breakMinutes; receivedDate: string | null; receivedEdited: boolean; savedAt: string }
+```
+
+- **設定**（パターン・選んだパターン・日払い／月払い）は変えたときにすぐ保存する
+- **記録**（`history`）は「コピーして報告する」を押したときに足す（同じ勤務日は差し替え）
+- **書きかけ**（`draft`）は入力のたびに保存する。iPhone でほかのアプリに切り替えた間にページが再読み込みされても消えないように
+
+### 次の報告の初期値（`openingDraft`）
+
+- 同じ営業日の書きかけがあれば、それを戻す
+- なければ、勤務日は今日の営業日（朝 4 時より前なら前日）、勤務時間・休憩は**最後にコピーした報告**と同じ（初めてなら設定の既定）
+- 受領済みの勤務日（`defaultReceivedDate`）は「**選んだ勤務日より前で、いちばん新しい報告の勤務日**」。
+  単に「最後にコピーした日」にすると、同じ日の報告をコピーし直したときにその日自身が入ってしまい、
+  遅れて前の日の分を報告するときにも合わなくなるため
+- 勤務日を変えると受領済みも決め直す。ただし受領済みを手で変えていたら（`receivedEdited`）そのまま
+- 報告の記録がなければ受領済みは null で、行を書かない（初めて使うとき）
+
+### 画面（`mountWorkReportApp`）
+
+| 画面の要素 | ふるまい |
+| --- | --- |
+| 勤務日 | 日付の欄と「‹ 前の日」「今日」「次の日 ›」。下に「10月14日(水曜日)」 |
+| 勤務時間 | 開始・終了とも「時」（0〜23）と「分」（5分刻み）のセレクト。iPhone では回転式で選べる。下に実働（日をまたぐ勤務も数える） |
+| 休憩 | 0・15・30・45・60・90分のボタンと、分を入れる欄 |
+| 交通費 | パターンをラジオボタンで切り替え。「＋ パターンを追加」「編集」で登録・修正・削除（削除は2回押し）。パターンがないときは登録の欄を開いておく |
+| 給料の受け取り | 日払い／月払いの切り替え。日払いのときだけ受領済みの勤務日の欄（「消す」で行を書かない） |
+| コピーして報告する | 報告文をコピーし（できなければ選択して長押しを案内）、勤務日と勤務時間を記録する |
+
 ## 保存
 
 | 項目 | 内容 |
 | --- | --- |
 | 場所 | ブラウザの `localStorage`（端末 × ブラウザごと） |
-| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v1`、`hihoukan-calc:neko:v1`） |
-| 中身 | `TallyState` / `StockState` の JSON |
-| 書くとき | 個数・単価・欄の数字を変えるたび |
+| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v1`、`hihoukan-calc:neko:v1`、`hihoukan-calc:kinmu:v1`） |
+| 中身 | `TallyState` / `StockState` / `WorkReportState` の JSON |
+| 書くとき | 個数・単価・欄の数字・設定を変えるたびと、勤務時間報告をコピーしたとき |
 
 ```json
 {
@@ -202,8 +265,8 @@ type StockState = {
 
 - **キーは必ず `hihoukan-calc:` で始める。** `kei-devworks.github.io` の下のサイトは保存場所を共有するため
 - **公開したあと、ページ・品目・単価の id は変えない。** 変えると保存済みの数が読めなくなる。名前（`name`・`label`・`title`）は変えてよい
-- 保存の形を変えるときは版（`TALLY_STORAGE_VERSION` / `STOCK_STORAGE_VERSION`）を上げ、古い版を読み替える処理を足す
-- 読み戻し（`parseState` / `parseStockState`）は何が来ても例外にしない。壊れた値・設定から消えた品目・負の数は捨てる
+- 保存の形を変えるときは版（`TALLY_STORAGE_VERSION` / `STOCK_STORAGE_VERSION` / `WORK_REPORT_STORAGE_VERSION`）を上げ、古い版を読み替える処理を足す
+- 読み戻し（`parseState` / `parseStockState` / `parseWorkState`）は何が来ても例外にしない。壊れた値・設定から消えた品目・負の数は捨てる
 
 ### 設計の判断
 
@@ -216,3 +279,5 @@ type StockState = {
 - **保存できない端末でも動く。** `JsonStore` は storage が使えなければメモリ上だけで動き、画面で「保存できない」と知らせる
 - **在庫の差のページは数字を入れる方式にする。** 1日に1〜2回まとめて数えるので、ボタンで1つずつ数えるより
   在庫と残数を打つほうが早い。空欄と 0 を区別し、計算できない品目は売上に入れずに知らせる
+- **勤務時間報告は、コピーしたときに記録する。** 「報告した」ことが受領済みの日付の根拠になるため。
+  書きかけは別に保存し、同じ営業日のうちだけ戻す（次の日は前回コピーした内容から始める）

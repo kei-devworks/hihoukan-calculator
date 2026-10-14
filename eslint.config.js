@@ -12,6 +12,10 @@ export default defineConfig(
     languageOptions: { globals: globals.browser },
   },
   {
+    // コメントには日本語の文面の例（全角スペース入り）を書くことがある。コードの中は引き続き検出する
+    rules: { 'no-irregular-whitespace': ['error', { skipComments: true }] },
+  },
+  {
     files: ['*.config.{ts,js}', 'e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
