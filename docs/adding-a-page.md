@@ -74,13 +74,17 @@ export const pages: PageEntry[] = [
 報告文の形がちがうページ（見出しや合計の書き方がちがう）は、`src/core/report.ts` に関数を足し、
 `TallyConfig` に報告文の作り方を選べる項目を足す。そのときは `docs/architecture.md` も直す。
 
-## 「個数 × 単価」ではないページ
+## 新しい種類のページ
 
-例: レジ締めの金種計算、在庫の数え上げなど。
+例: レジ締めの金種計算など、既存の種類に当てはまらないもの。
 
 - `src/pages/<名前>/` に `index.html` と `main.ts` を置き、画面は自由に作る
-- 共通の部品を使う: 保存は `src/core/storage.ts`（キーは `storageKey('<名前>', 1)` で、`hihoukan-calc:` で始まる）、
-  金額は `src/core/format.ts`、コピーは `src/ui/clipboard.ts`、2回押しのボタンは `src/ui/confirm-button.ts`
+- 品目・単価・見出しがあるなら、設定は `Catalog`（`src/core/catalog.ts`）の形にする。書き間違いのテストが自動で付く
+- 共通の部品を使う（[architecture.md](architecture.md) の「ページの共通部分」）
+  - 保存: `JsonStore`（`src/core/json-store.ts`）。キーは `storageKey('<名前>', 1)`（`hihoukan-calc:` で始まる）。
+    読み戻しの `parse` は、壊れた値でも例外にせず使える形に直す
+  - 画面: `pageHeader` / `pageStatus` / `keepFresh`（`src/ui/page-parts.ts`）で、見出し・保存の状態・前日の知らせ・再描画をそろえる
+  - 金額は `src/core/format.ts`、コピーは `src/ui/clipboard.ts`、2回押しのボタンは `src/ui/confirm-button.ts`
 - 計算は `src/core/` に DOM を使わない関数として書き、単体テストを付ける
 - **端末をまたいだ共有やログインが要るなら、作る前に相談する**（GitHub Pages ではできない。[deployment.md](deployment.md)）
 
