@@ -13,12 +13,20 @@
 - 時間帯は `Asia/Tokyo` に固定している（[vitest.config.ts](../vitest.config.ts)）。営業日や報告時刻は端末の時刻で決まるため、
   CI（UTC）でも手元でも同じ結果になるようにしている。E2E も同じ時間帯
 
+- 画面（`src/ui/tally-app.test.ts`）も jsdom で流す。時計（`now`）と保存先を差し替えられるので、
+  「前の営業日の数字が残っている」「深夜営業で日付をまたぐ」「保存できない端末」のような、実機では作りにくい状況をここで確かめる
+- ページの設定は `src/pages/registry.test.ts` が `src/pages/*/config.ts` を全部拾って `validateConfig` にかける。
+  報告文の定型は各ページの `config.test.ts` で1文字単位で固定する
+
 ## E2E
 
 - iPhone（WebKit）と Android（Chromium）をエミュレートして、両方で同じテストを流す
 - 本番と同じ `/hihoukan-calculator/` のサブパスで配信するので、相対パスの解決ミスもここで分かる
 - `npm run test:e2e` はビルドしてから `vite preview` を立ち上げて流す。手元でサーバーが動いていれば再利用する
 - 初回は `npx playwright install chromium webkit` でブラウザを入れる
+- [takumi.spec.ts](../e2e/takumi.spec.ts) は売上カウンターを実際に操作する: 定型文の生成とコピー、
+  リロード・開き直し後も数字が残ること、2回押しのリセット、単価の変更、前の営業日の知らせ、別のタブとの同期、
+  ポータルとの行き来、スマホの幅で横にはみ出さないこと。時計は `page.clock` で固定する
 - [browser-capabilities.spec.ts](../e2e/browser-capabilities.spec.ts) は、このサイトが頼るブラウザの機能
   （HTTPS 扱い・localStorage の保持・クリップボードへの書き込み）が配信先で使えるかを確かめる。
   本番でも流すのはこのため（[deployment.md](deployment.md)）

@@ -13,7 +13,8 @@ npm run build
 
 ## 構成
 
-- `src/pages/` — 1ページ = 1フォルダ。`index.html` を置くとビルドの入口になる（`vite.config.ts` が自動で拾う）
+- `src/pages/` — 1ページ = 1フォルダ。`index.html` を置くとビルドの入口になる（`vite.config.ts` が自動で拾う）。
+  「個数 × 単価」のページは `config.ts`（`TallyConfig`）を書いて `mountTallyApp` に渡すだけ（docs/adding-a-page.md）
 - `src/core/` — DOM に触れないロジック。単体テストはここが中心
 - `src/ui/` — DOM の共通部品と共通スタイル
 - `e2e/` — Playwright。本番と同じサブパス `/hihoukan-calculator/` で配信して流す
@@ -25,7 +26,9 @@ npm run build
 
   | 変更内容 | 更新するドキュメント |
   | --- | --- |
-  | 構成・保存の形・設定（`TallyConfig`）の型の変更 | `docs/architecture.md` |
+  | 構成・保存の形・設定（`TallyConfig`）の型・画面のふるまいの変更 | `docs/architecture.md` |
+  | ページの追加、品目・単価・画面の操作の変更 | `docs/usage.md`、`README.md` のページ一覧 |
+  | ページの足し方が変わる変更（共通部品・設定の項目） | `docs/adding-a-page.md` |
   | デプロイ・ホスティングの変更、Pages の制約に関わる変更 | `docs/deployment.md` |
   | テストの方針・道具の変更 | `docs/testing.md` |
   | コマンド・セットアップの変更 | `README.md`、この CLAUDE.md |

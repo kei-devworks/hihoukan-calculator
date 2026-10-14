@@ -14,6 +14,13 @@
 ビルドは相対パス（Vite の `base: './'`）で出力するので、`/hihoukan-calculator/` のようなサブパスでも、
 独自ドメインのルートでも、同じ成果物がそのまま動く。
 
+### デプロイが止まったとき
+
+`actions/deploy-pages` が `updating_pages` のまま10分たつと、打ち切られて失敗になる。
+GitHub 側の反映待ちで起きることがあり（初回のデプロイで実際に起きた）、ビルドの成果物は無事なので、
+Actions の画面から **Re-run failed jobs** するか、次のマージを待てばよい。
+smoke ジョブが落ちたときは、本番で保存・コピー・表示のどれかが動いていないので、Artifacts の `playwright-report-live` を見る。
+
 ## GitHub Pages で使えるかの精査（2026-10-15）
 
 このサイトに要ることが、GitHub Pages で実現できるかを確かめた。結論として**すべて実現できる**。
@@ -31,6 +38,11 @@
 | 料金 | ○ | 公開リポジトリなら無料。非公開リポジトリでは今のプランだと使えない（API が 422 を返すことを確認）ため、リポジトリを公開した |
 | 利用規約 | ○ | 禁止されているのは、オンラインビジネス・EC・商取引のためのサイトや商用 SaaS としての利用と、パスワードやカード番号の送信。このサイトは店内で使う計算機で、取引も個人情報の送信もない |
 | 表示の速さ | ○ | 東京のエッジから配信される（`x-github-edge-region: japaneast` を実測） |
+
+本番の URL でも、`e2e/browser-capabilities.spec.ts`（HTTPS 扱い・リロードと開き直し後の localStorage・ボタンからのクリップボード書き込み）
+とポータルの表示を iPhone・Android のエミュレーションで流し、8/8 通過した
+（[2026-10-15 の deploy run](https://github.com/kei-devworks/hihoukan-calculator/actions/runs/38594948318)）。
+以後はデプロイのたびに smoke ジョブが同じ確認をする。HTTPS には HSTS（`strict-transport-security`）も付いている。
 
 出典: [GitHub Pages の制限](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)、
 [WebKit: 7-Day Cap on All Script-Writeable Storage](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/)、
