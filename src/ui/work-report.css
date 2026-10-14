@@ -1,0 +1,286 @@
+/* 勤務時間報告のページ（共通部分は base.css） */
+
+.card h2 {
+  margin-bottom: 8px;
+}
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hint.warn,
+.form-error {
+  color: var(--danger-text);
+}
+
+.form-error {
+  margin: 0;
+  font-size: 13px;
+}
+
+input[type='date'],
+input[type='text'],
+select {
+  font: inherit;
+  /* 16px 未満だと iPhone で入力時に画面が拡大される */
+  font-size: 16px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 42px;
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='date'] {
+  min-width: 0;
+  flex: 1;
+}
+
+/* 勤務日 */
+.date-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.day-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#work-date-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+/* 勤務時間 */
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.time-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.time-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.time-picker select {
+  font-size: 18px;
+  padding: 6px 8px;
+}
+
+.colon,
+.wave {
+  font-weight: 700;
+}
+
+.break-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  font-size: 14px;
+  padding: 8px 10px;
+  min-height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.break-custom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.break-custom input {
+  width: 72px;
+  text-align: right;
+}
+
+/* 交通費 */
+.patterns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pattern-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pattern {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.pattern:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.pattern input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+  flex: none;
+}
+
+.pattern-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pattern-route {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+button.ghost.small {
+  min-height: 38px;
+  padding: 6px 12px;
+}
+
+.pattern-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+.pattern-editor h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.amount-field,
+.route-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.amount-field input {
+  width: 110px;
+  text-align: right;
+}
+
+.route-field input {
+  min-width: 0;
+  flex: 1;
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 給料の受け取り */
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.segmented label {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 42px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.segmented label + label {
+  border-left: 1px solid var(--line);
+}
+
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented label:has(input:checked) {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.segmented label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.received {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+/* 報告文 */
+button.solid.copy-main {
+  margin-top: 12px;
+  width: 100%;
+  min-height: 52px;
+  font-size: 16px;
+  font-weight: 700;
+}

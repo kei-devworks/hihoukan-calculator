@@ -107,7 +107,8 @@ mountStockApp(byId('app'), kiosk)
 
 ## 新しい種類のページ
 
-例: レジ締めの金種計算など、既存の種類に当てはまらないもの。
+例: レジ締めの金種計算など、既存の種類に当てはまらないもの。勤務時間報告（`src/pages/kinmu/`、
+`src/core/work-report.ts`・`src/ui/work-report-app.ts`）がこの作り方の見本になる。
 
 - `src/pages/<名前>/` に `index.html` と `main.ts` を置き、画面は自由に作る
 - 品目・単価・見出しがあるなら、設定は `Catalog`（`src/core/catalog.ts`）の形にする。書き間違いのテストが自動で付く
@@ -115,6 +116,8 @@ mountStockApp(byId('app'), kiosk)
   - 保存: `JsonStore`（`src/core/json-store.ts`）。キーは `storageKey('<名前>', 1)`（`hihoukan-calc:` で始まる）。
     読み戻しの `parse` は、壊れた値でも例外にせず使える形に直す
   - 画面: `pageHeader` / `pageStatus` / `keepFresh`（`src/ui/page-parts.ts`）で、見出し・保存の状態・前日の知らせ・再描画をそろえる
+    （前日の知らせが要らないページは、`pageStatus` の `carriedText` / `carriedActions` を省く）
+  - 報告文の全角スペースは `　` で書く（ソースに直接書くと ESLint に止められる。コメントの中は書いてよい）
   - 金額は `src/core/format.ts`、コピーは `src/ui/clipboard.ts`、2回押しのボタンは `src/ui/confirm-button.ts`
 - 計算は `src/core/` に DOM を使わない関数として書き、単体テストを付ける
 - **端末をまたいだ共有やログインが要るなら、作る前に相談する**（GitHub Pages ではできない。[deployment.md](deployment.md)）

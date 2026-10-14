@@ -20,10 +20,10 @@ export type PageStatusOptions = {
   dayStartHour: number
   /** まだ何も記録していないときの、保存についての説明 */
   idleText: string
-  /** 前の営業日の数字が残っているときの知らせの文 */
-  carriedText: (since: Date) => string
+  /** 前の営業日の数字が残っているときの知らせの文（知らせを使わないページは省く） */
+  carriedText?: (since: Date) => string
   /** 知らせに並べるボタン（2回押しで実行） */
-  carriedActions: ConfirmButtonOptions[]
+  carriedActions?: ConfirmButtonOptions[]
 }
 
 export type PageStatusView = {
@@ -37,7 +37,7 @@ export type PageStatusView = {
     available: boolean
     lastSave: SaveResult | null
     updatedAt: string | null
-    carriedSince: Date | null
+    carriedSince?: Date | null
     now: Date
   }) => void
 }
@@ -46,7 +46,7 @@ export function pageStatus(options: PageStatusOptions): PageStatusView {
   const saveStatus = h('p', { class: 'save-status', role: 'status' })
   const storageWarning = h('p', { class: 'notice warn', role: 'alert', hidden: true })
   const carriedText = h('p')
-  const buttons = options.carriedActions.map((action) => {
+  const buttons = (options.carriedActions ?? []).map((action) => {
     const button = h('button', { type: 'button', class: 'ghost' })
     confirmButton(button, action)
     return button
@@ -60,7 +60,7 @@ export function pageStatus(options: PageStatusOptions): PageStatusView {
     saveStatus,
     storageWarning,
     carriedNotice,
-    update: ({ available, lastSave, updatedAt, carriedSince, now }) => {
+    update: ({ available, lastSave, updatedAt, carriedSince = null, now }) => {
       if (!available || lastSave === 'failed') {
         storageWarning.hidden = false
         storageWarning.textContent = available
@@ -80,7 +80,7 @@ export function pageStatus(options: PageStatusOptions): PageStatusView {
       }
 
       carriedNotice.hidden = carriedSince === null
-      if (carriedSince) carriedText.textContent = options.carriedText(carriedSince)
+      if (carriedSince && options.carriedText) carriedText.textContent = options.carriedText(carriedSince)
     },
   }
 }

@@ -267,6 +267,22 @@ button.ghost.armed,
   margin-top: 10px;
 }
 
+/* コピーする報告文（売上報告・勤務時間報告） */
+pre.report {
+  margin: 10px 0 0;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* ポータル */
 .page-list {
   list-style: none;
