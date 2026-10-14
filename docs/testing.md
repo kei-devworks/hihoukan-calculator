@@ -10,6 +10,8 @@
 
 - 計算・保存・整形など、DOM に触れないロジック（`src/core/`）が中心。ここで正しさを細かく押さえる
 - 既定は node 環境で速く回す。DOM が要るテストは、ファイルの先頭に `// @vitest-environment jsdom` を書く
+- 時間帯は `Asia/Tokyo` に固定している（[vitest.config.ts](../vitest.config.ts)）。営業日や報告時刻は端末の時刻で決まるため、
+  CI（UTC）でも手元でも同じ結果になるようにしている。E2E も同じ時間帯
 
 ## E2E
 
