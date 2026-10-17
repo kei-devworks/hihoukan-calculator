@@ -6,6 +6,7 @@ export const sampleStockConfig: StockConfig = {
   id: 'sample-stock',
   title: 'テスト在庫',
   dayStartHour: 4,
+  cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
   prices: [
     { id: 'sticker', label: 'ステッカー', default: 1000 },
     { id: 'ema', label: '絵馬', default: 500 },

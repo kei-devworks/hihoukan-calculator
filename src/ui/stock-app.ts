@@ -96,7 +96,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
       {
         label: '全部消して始める',
         armedLabel: 'もう一度押すと全部消す',
-        onConfirm: () => change(resetStock()),
+        onConfirm: () => change(resetStock(store.current)),
       },
     ],
   })
@@ -195,7 +195,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
   confirmButton(resetButton, {
     label: 'リセット',
     armedLabel: 'もう一度押すと全部消す',
-    onConfirm: () => change(resetStock()),
+    onConfirm: () => change(resetStock(store.current)),
   })
 
   root.replaceChildren(
