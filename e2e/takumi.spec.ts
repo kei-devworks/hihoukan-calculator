@@ -207,6 +207,28 @@ test('今のオーダーは、長押しで取り消し、画面の下の［元�
   await expect(total(page)).toHaveText('￥2,000-')
 })
 
+test('前のオーダーを［編集］で直すと合計が変わり、［元に戻す］で戻せる', async ({ page }) => {
+  await open(page)
+  await tap(page, '1,000円を1つ増やす', 2)
+  await page.getByRole('button', { name: '完了' }).click()
+  await page.getByRole('button', { name: /^前のオーダー/ }).click()
+  await page.getByRole('region', { name: '前のオーダー' }).getByRole('button', { name: '編集' }).click()
+
+  const editor = page.getByRole('dialog', { name: '20:50 のオーダーを編集' })
+  await editor.getByRole('button', { name: '1,000円を1つ減らす' }).click()
+  await editor.getByRole('button', { name: '＋ 品目を足す' }).click()
+  await editor.getByRole('button', { name: '＋ ビール' }).click()
+  await expect(editor.locator('.editor-summary')).toHaveText('変更前 ￥2,000 → 変更後 ￥1,500（−￥500）')
+  await editor.getByRole('button', { name: '変更を保存' }).click()
+  await expect(editor).toBeHidden()
+  await expect(total(page)).toHaveText('￥1,500-')
+  await expect(report(page)).toContainText('1,000×1')
+  await expect(report(page)).toContainText('ビール×1')
+
+  await page.getByRole('button', { name: '元に戻す' }).click()
+  await expect(total(page)).toHaveText('￥2,000-')
+})
+
 test('最後に押してから3分たつと、今のオーダーは自動で閉じる', async ({ page }) => {
   await page.clock.install({ time: evening })
   await page.goto('takumi/')

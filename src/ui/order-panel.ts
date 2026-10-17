@@ -11,6 +11,8 @@ export type OrderPanelActions = {
   remove: (itemId: string) => void
   complete: (orderId: number) => void
   cancel: (orderId: number) => void
+  /** オーダーを直す画面を開く */
+  edit: (orderId: number) => void
   /** ほかの画面から「数える」へ戻る */
   showCount: () => void
 }
@@ -65,9 +67,12 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
     viewingId = null
     rerender()
   })
+  const editButton = h('button', { type: 'button', class: 'ghost', text: '編集' })
+  editButton.addEventListener('click', () => viewingId !== null && actions.edit(viewingId))
   const prevPanel = h('section', { class: 'order-panel view', 'aria-label': '前のオーダー' }, [
     h('div', { class: 'order-head' }, [h('div', { class: 'order-sum' }, [prevTitle, prevPieces, prevTotal]), prevClose]),
     prevLines,
+    h('div', { class: 'order-foot end' }, [editButton]),
   ])
 
   // ---- 小さく出すとき ----

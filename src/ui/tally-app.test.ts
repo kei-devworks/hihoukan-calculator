@@ -291,4 +291,87 @@ describe('mountTallyApp', () => {
       expect(panel().hidden).toBe(false)
     })
   })
+
+  describe('オーダーの編集', () => {
+    const dialog = () => document.querySelector<HTMLDialogElement>('dialog.order-editor')
+    /** 編集の画面の中のボタン（品目のカードと同じ名前のボタンがあるので、画面の中だけを探す） */
+    const inDialog = (name: string) => {
+      const found = [...dialog()!.querySelectorAll('button')].find(
+        (b) => b.getAttribute('aria-label') === name || b.textContent === name,
+      )
+      if (!found) throw new Error(`編集の画面にボタン「${name}」がありません`)
+      return found
+    }
+    /** 1件のオーダー（1,000円×2・ホタテ×1）を作って閉じ、前のオーダーから編集を開く */
+    const openEditor = () => {
+      mount()
+      button('1,000円を1つ増やす').click()
+      button('1,000円を1つ増やす').click()
+      button('ホタテを1つ増やす').click()
+      button('完了').click()
+      document.querySelector<HTMLButtonElement>('.order-chip')!.click()
+      button('編集').click()
+    }
+
+    it('前のオーダーの［編集］で開き、下書きを変えても保存するまで数は変わらない', () => {
+      openEditor()
+      expect(dialog()?.open).toBe(true)
+      expect(text('#order-editor-title')).toBe('20:40 のオーダーを編集')
+      inDialog('1,000円を1つ減らす').click()
+      expect(text('.editor-summary')).toBe('変更前 ￥3,000 → 変更後 ￥2,000（−￥1,000）')
+      expect(text('.editor-row.changed .editor-from')).toBe('2 →')
+      expect(text('#total')).toBe('￥3,000-')
+      inDialog('やめる').click()
+      expect(dialog()).toBeNull()
+      expect(text('#total')).toBe('￥3,000-')
+    })
+
+    it('［変更を保存］で直し、知らせから元に戻せる。ほかの品目も足せる', () => {
+      openEditor()
+      inDialog('1,000円を1つ減らす').click()
+      inDialog('＋ 品目を足す').click()
+      inDialog('＋ バニラ').click()
+      inDialog('変更を保存').click()
+      expect(dialog()).toBeNull()
+      expect(text('#total')).toBe('￥2,800-')
+      expect(text('.notice-bar-text')).toBe('20:40 のオーダーを変更しました（1,000円 2→1・バニラ 0→1）')
+      button('元に戻す').click()
+      expect(text('#total')).toBe('￥3,000-')
+    })
+
+    it('変えていなければ保存できない', () => {
+      openEditor()
+      expect(inDialog('変更を保存').disabled).toBe(true)
+    })
+
+    it('変更の記録から、変更の前に戻せる', () => {
+      openEditor()
+      inDialog('ホタテを1つ増やす').click()
+      inDialog('変更を保存').click()
+      expect(text('#total')).toBe('￥4,000-')
+      document.querySelector<HTMLButtonElement>('.order-chip')!.click()
+      button('編集').click()
+      expect(text('.editor-history h3')).toBe('変更の記録（1回）')
+      expect(text('.editor-history-row span')).toBe('20:40 ホタテ 1→2')
+      inDialog('この変更の前に戻す').click()
+      expect(text('#total')).toBe('￥3,000-')
+      expect(text('.notice-bar-text')).toBe('20:40 のオーダーを変更の前に戻しました')
+    })
+
+    it('編集の画面からも、長押しでオーダーを取り消せる', () => {
+      openEditor()
+      const hold = dialog()!.querySelector<HTMLButtonElement>('button.hold-button')!
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        hold.click()
+        hold.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }))
+        vi.advanceTimersByTime(1000)
+      } finally {
+        vi.useRealTimers()
+      }
+      expect(dialog()).toBeNull()
+      expect(text('#total')).toBe('￥0-')
+      expect(text('.notice-bar-text')).toBe('20:40 のオーダー（￥3,000）を取り消しました')
+    })
+  })
 })

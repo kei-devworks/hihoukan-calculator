@@ -196,3 +196,19 @@ export function revertEdit(state: TallyState, id: number, index: number, now: Da
   const edit = findOrder(state, id)?.edits[index]
   return edit ? editOrder(state, id, edit.before, now) : state
 }
+
+export type LineChange = { itemId: string; from: number; to: number }
+
+/** 2つの中身のちがい（品目ごとの、変える前と後の数）。order は itemOrder の順（設定の品目の順）にする */
+export function lineChanges(before: OrderLines, after: OrderLines, itemOrder: readonly string[]): LineChange[] {
+  return itemOrder.flatMap((itemId) => {
+    const from = before[itemId] ?? 0
+    const to = after[itemId] ?? 0
+    return from === to ? [] : [{ itemId, from, to }]
+  })
+}
+
+/** 直した記録ごとの、直す前と後の中身（後は、次の記録の直す前、なければ今の中身） */
+export function editSteps(order: Order): { at: string; before: OrderLines; after: OrderLines }[] {
+  return order.edits.map((edit, i) => ({ at: edit.at, before: edit.before, after: order.edits[i + 1]?.before ?? order.lines }))
+}

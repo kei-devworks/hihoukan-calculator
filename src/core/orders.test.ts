@@ -4,7 +4,9 @@ import {
   cancelOrder,
   closeOrder,
   editOrder,
+  editSteps,
   isOpen,
+  lineChanges,
   openOrder,
   ORDER_IDLE_MS,
   pieces,
@@ -203,5 +205,24 @@ describe('revertEdit（この変更の前に戻す）', () => {
   it('ない記録なら何もしない', () => {
     const state = press(initialState(), ['a', 0])
     expect(revertEdit(state, 1, 0, at(1))).toBe(state)
+  })
+})
+
+describe('lineChanges・editSteps（ちがいを並べる）', () => {
+  it('変わった品目だけを、設定の品目の順に並べる', () => {
+    expect(lineChanges({ b: 1, a: 2 }, { a: 1, b: 1, hotate: 2 }, ['a', 'b', 'hotate'])).toEqual([
+      { itemId: 'a', from: 2, to: 1 },
+      { itemId: 'hotate', from: 0, to: 2 },
+    ])
+  })
+
+  it('直した記録ごとに、直す前と後の中身を出す', () => {
+    let state = press(initialState(), ['a', 0], ['a', 0])
+    state = editOrder(state, 1, { a: 1 }, at(10))
+    state = editOrder(state, 1, { a: 1, b: 1 }, at(11))
+    expect(editSteps(state.orders[0]!)).toEqual([
+      { at: at(10).toISOString(), before: { a: 2 }, after: { a: 1 } },
+      { at: at(11).toISOString(), before: { a: 1 }, after: { a: 1, b: 1 } },
+    ])
   })
 })

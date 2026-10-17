@@ -346,3 +346,154 @@
   box-shadow: 0 8px 20px -14px rgba(0, 0, 0, 0.5);
   font-variant-numeric: tabular-nums;
 }
+
+.order-foot.end {
+  justify-content: flex-end;
+}
+
+/* オーダーを直す画面（ui/order-editor.ts）。下から出す */
+dialog.order-editor {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  margin: auto auto 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface);
+  color: var(--fg);
+  overflow-y: auto;
+}
+
+dialog.order-editor::backdrop {
+  background: rgba(10, 14, 20, 0.45);
+}
+
+dialog.order-editor[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-head h2 {
+  font-size: 16px;
+}
+
+.editor-x {
+  font-size: 18px;
+}
+
+.editor-summary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-summary b {
+  color: var(--fg);
+  font-size: 17px;
+}
+
+.editor-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-top: 1px solid var(--line);
+}
+
+.editor-row:first-child {
+  border-top: 0;
+}
+
+.editor-row.changed {
+  background: color-mix(in srgb, var(--accent2) 16%, transparent);
+  border-radius: 8px;
+}
+
+.editor-from {
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-n {
+  min-width: 2ch;
+  text-align: center;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-add-toggle {
+  align-self: flex-start;
+}
+
+.editor-add-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.editor-warning {
+  font-size: 13px;
+}
+
+.editor-history {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.editor-history h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.editor-history-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-history-row button.ghost {
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.editor-danger {
+  display: flex;
+}
+
+.editor-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

@@ -3,7 +3,18 @@ import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
-import { addItem, cancelOrder, closeOrder, findOrder, openOrder, ORDER_IDLE_MS, removeItem } from '../core/orders'
+import {
+  addItem,
+  cancelOrder,
+  closeOrder,
+  editOrder,
+  findOrder,
+  openOrder,
+  ORDER_IDLE_MS,
+  removeItem,
+  revertEdit,
+  type Order,
+} from '../core/orders'
 import {
   carriedOverSince,
   countOf,
@@ -24,6 +35,7 @@ import { copyText, selectContents } from './clipboard'
 import { h } from './dom'
 import { holdButton } from './hold-button'
 import { noticeBar } from './notice-bar'
+import { describeChanges, openOrderEditor } from './order-editor'
 import { orderPanel } from './order-panel'
 import { viewTabs } from './view-tabs'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
@@ -174,16 +186,34 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
 
   // ---- 画面の下に重ねて出すもの（お知らせ・今のオーダー） ----
   const notice = noticeBar()
+  const orderTime = (order: Order) => formatTime(new Date(order.openedAt))
+  const cancelOne = (id: number) => {
+    const order = findOrder(store.current, id)
+    if (!order) return
+    const price = formatPrice(linesTotal(config, store.current, order.lines))
+    change(cancelOrder(store.current, id, now()), `${orderTime(order)} のオーダー（${price}）を取り消しました`)
+  }
+  const editOne = (id: number) =>
+    openOrderEditor(config, store.current, id, {
+      save: (orderId, lines) => {
+        const order = findOrder(store.current, orderId)
+        if (!order) return
+        const changes = describeChanges(config, store.current, order.lines, lines)
+        change(editOrder(store.current, orderId, lines, now()), `${orderTime(order)} のオーダーを変更しました（${changes}）`)
+      },
+      cancel: cancelOne,
+      revert: (orderId, index) => {
+        const order = findOrder(store.current, orderId)
+        if (!order) return
+        change(revertEdit(store.current, orderId, index, now()), `${orderTime(order)} のオーダーを変更の前に戻しました`)
+      },
+    })
   const orders = orderPanel(config, {
     add: addOne,
     remove: removeOne,
     complete: (id) => change(closeOrder(store.current, id, now())),
-    cancel: (id) => {
-      const order = findOrder(store.current, id)
-      if (!order) return
-      const price = formatPrice(linesTotal(config, store.current, order.lines))
-      change(cancelOrder(store.current, id, now()), `${formatTime(new Date(order.openedAt))} のオーダー（${price}）を取り消しました`)
-    },
+    cancel: cancelOne,
+    edit: editOne,
     showCount: () => tabs.select('count'),
   })
   const dock = h('div', { class: 'dock' }, [notice.element, orders.element])
