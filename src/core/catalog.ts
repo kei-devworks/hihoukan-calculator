@@ -19,7 +19,7 @@ export type CatalogItem = {
 export type CatalogSection = {
   /** 保存には使わない。画面の要素と小計の識別に使う */
   id: string
-  /** 画面の見出し（例: '◾️肉'、'弓道'） */
+  /** 画面の見出し（例: '肉'、'弓道'） */
   title: string
   items: CatalogItem[]
 }

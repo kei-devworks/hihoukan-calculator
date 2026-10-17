@@ -196,9 +196,9 @@ describe('報告文から読む', () => {
     expect(input.total).toBe(9800)
   })
 
-  it('見出しの書き方のちがい（◾️ と ◾）や、行の前後の空白は気にしない', () => {
-    const input = inputFromReport(config, initialState(), '  ◾肉 \n ホタテ × 2\n', at('17:05'))!
-    expect(input.counts).toEqual({ hotate: 2 })
+  it('見出しの書き方のちがい（◾️ と ◾、印のない画面の見出し）や、行の前後の空白は気にしない', () => {
+    const input = inputFromReport(config, initialState(), '  ◾肉 \n ホタテ × 2\nソフト\nバニラ×1', at('17:05'))!
+    expect(input.counts).toEqual({ hotate: 2, vanilla: 1 })
     expect(input.at).toBeNull()
   })
 

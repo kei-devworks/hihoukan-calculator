@@ -305,9 +305,9 @@ test('最後に押してから3分たつと、今のオーダーは自動で閉�
 test('「品目」で見出しに品目を足すと、数えられて報告文にも入り、リロード後も残る', async ({ page }) => {
   await open(page)
   await page.getByRole('tab', { name: '品目' }).click()
-  await page.getByRole('button', { name: '＋ ◾️ソフトに品目を足す' }).click()
-  await page.getByLabel('◾️ソフトに足す品目の名前').fill('チョコトッピング')
-  await page.getByLabel('◾️ソフトに足す品目の単価').fill('100')
+  await page.getByRole('button', { name: '＋ ソフトに品目を足す' }).click()
+  await page.getByLabel('ソフトに足す品目の名前').fill('チョコトッピング')
+  await page.getByLabel('ソフトに足す品目の単価').fill('100')
   await page.locator('.items-section[data-section="soft"]').getByRole('button', { name: '足す', exact: true }).click()
   await expect(page.getByRole('heading', { name: '品目と単価（1品目 追加）' })).toBeVisible()
 

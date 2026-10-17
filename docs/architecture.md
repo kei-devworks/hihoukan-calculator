@@ -101,23 +101,24 @@ PNG は `favicon.svg` から `node scripts/make-icons.mjs` で作る（SVG を�
 ## 「個数 × 単価」の集計（tally）
 
 売上カウンターのような「品目ごとに個数を数え、単価を掛けて足す」ページは、**設定（`TallyConfig`）を書くだけ**で作れる。
-計算・保存・報告文・画面はすべて設定から組み立てる。`TallyConfig` は `Catalog` に報告文の1行目（`reportTitle`）を足したもの。
+計算・保存・報告文・画面はすべて設定から組み立てる。`TallyConfig` は `Catalog` に報告文の1行目（`reportTitle`）と、報告文の見出しだけに付ける印（`reportSectionMark`）を足したもの。
 
 ```ts
 const config: TallyConfig = {
   id: 'takumi',                 // 保存のキー。公開したら変えない
   title: 'タクミ売上カウンター',
   reportTitle: '売上報告',        // 報告文の1行目
+  reportSectionMark: '◾️',        // 報告文の見出しだけに付ける（報告文は「◾️肉」、画面は「肉」）
   dayStartHour: 4,              // 営業日の切り替わり（深夜 3:59 までは前日扱い）
   prices: [                     // 単価。画面の「単価設定」に並ぶ順
     { id: 'skewer1', label: '串①', default: 1000 },
     { id: 'soft', label: 'ソフト（共通）', default: 800 },
   ],
   sections: [                   // 見出しごとの品目。画面と報告文に出る順
-    { id: 'meat', title: '◾️肉', items: [
+    { id: 'meat', title: '肉', items: [
       { id: 'skewer1', priceId: 'skewer1' },          // name なし → 「1,000円」と値段で呼ぶ
     ] },
-    { id: 'soft', title: '◾️ソフト', items: [
+    { id: 'soft', title: 'ソフト', items: [
       { id: 'vanilla', name: 'バニラ', priceId: 'soft' }, // 単価を共有
       { id: 'matcha', name: '抹茶', priceId: 'soft' },
     ] },

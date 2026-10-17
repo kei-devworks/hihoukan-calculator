@@ -38,6 +38,14 @@ describe('buildSalesReport', () => {
     )
   })
 
+  it('見出しの印（◾️）は報告文にだけ付ける。設定で省くと付けない', () => {
+    expect(config.sections.map((s) => s.title)).toEqual(['肉', 'ソフト'])
+    const plain = { ...config, reportSectionMark: undefined }
+    expect(buildSalesReport(plain, initialState(), '10:00')).toBe(
+      ['売上報告', '10:00時点', '', '肉', '小計￥0-', '', 'ソフト', '小計￥0-', '', '合計￥0-'].join('\n'),
+    )
+  })
+
   it('品目は設定の順に並ぶ（数えた順ではない）', () => {
     const state = withCounts({ hotate: 1, b: 1, a: 1 })
     expect(buildSalesReport(config, state, '12:00')).toContain('1,000×1\n2,000×1\nホタテ×1\n')

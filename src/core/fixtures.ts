@@ -36,6 +36,7 @@ export const sampleConfig: TallyConfig = {
   id: 'sample',
   title: 'テスト売上',
   reportTitle: '売上報告',
+  reportSectionMark: '◾️',
   dayStartHour: 4,
   cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
   prices: [
@@ -47,7 +48,7 @@ export const sampleConfig: TallyConfig = {
   sections: [
     {
       id: 'meat',
-      title: '◾️肉',
+      title: '肉',
       items: [
         { id: 'a', priceId: 'a' },
         { id: 'b', priceId: 'b' },
@@ -56,7 +57,7 @@ export const sampleConfig: TallyConfig = {
     },
     {
       id: 'soft',
-      title: '◾️ソフト',
+      title: 'ソフト',
       items: [
         { id: 'vanilla', name: 'バニラ', priceId: 'soft' },
         { id: 'matcha', name: '抹茶', priceId: 'soft' },

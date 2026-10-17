@@ -66,6 +66,9 @@ describe('mountTallyApp', () => {
     ])
     expect(document.querySelector<HTMLInputElement>('#report-time')!.value).toBe('21:00')
     expect(text('#report')).toContain('21:00時点')
+    // 画面の見出しに ◾️ は付けない（報告文にだけ付ける）
+    expect([...document.querySelectorAll('.card[data-section] h2')].map((el) => el.textContent)).toEqual(['肉', 'ソフト'])
+    expect(text('#report')).toContain('\n◾️肉\n')
   })
 
   it('＋/− で個数・小計・合計・報告文が変わる', () => {
@@ -580,11 +583,11 @@ describe('mountTallyApp', () => {
     it('見出しに品目を足すと、カードの最後に ＋/− つきで出て、報告文にも入る。保存もされる', () => {
       const { storage } = mount()
       button('品目').click()
-      button('＋ ◾️ソフトに品目を足す').click()
+      button('＋ ソフトに品目を足す').click()
       fill('#new-name-soft', 'チョコトッピング')
       fill('#new-price-soft', '100')
       addIn('soft')
-      expect(text('.notice-bar-text')).toBe('チョコトッピング（￥100）を◾️ソフトに足しました')
+      expect(text('.notice-bar-text')).toBe('チョコトッピング（￥100）をソフトに足しました')
       expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
       expect(text('#prices-title')).toBe('品目と単価（1品目 追加）')
 
@@ -601,7 +604,7 @@ describe('mountTallyApp', () => {
     it('名前を空にすると値段で呼ぶ。単価がなければ足さない', () => {
       mount()
       button('品目').click()
-      button('＋ ◾️肉に品目を足す').click()
+      button('＋ 肉に品目を足す').click()
       addIn('meat')
       expect(document.querySelector<HTMLElement>('[data-section="meat"] .add-item-error')!.hidden).toBe(false)
       fill('#new-price-meat', '7000')
@@ -612,7 +615,7 @@ describe('mountTallyApp', () => {
     it('足した品目の名前と単価はその場で直せ、長押しで消せる（知らせから元に戻せる）', () => {
       mount()
       button('品目').click()
-      button('＋ ◾️ソフトに品目を足す').click()
+      button('＋ ソフトに品目を足す').click()
       fill('#new-name-soft', 'チョコ')
       fill('#new-price-soft', '100')
       addIn('soft')

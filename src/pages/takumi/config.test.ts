@@ -21,6 +21,8 @@ describe('タクミ売上カウンター', () => {
       beer: 500,
       soft: 800,
     })
+    // 画面の見出しに ◾️ は付けない（報告文の見出しにだけ付ける）
+    expect(takumi.sections.map((s) => s.title)).toEqual(['肉', 'ソフト'])
     expect(takumi.sections.map((s) => s.items.map((i) => i.name ?? i.priceId))).toEqual([
       ['skewer1', 'skewer2', 'skewer3', 'skewer4', 'ホタテ', 'ビール'],
       ['バニラ', 'ミックス', '抹茶'],
