@@ -42,6 +42,11 @@ src/
   ui/            DOM の共通部品と共通スタイル
     page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
+    order-panel.ts 画面の下の「今のオーダー」「前のオーダー」
+    order-editor.ts  オーダーを直す画面（下から出すダイアログ）
+    checkout-sheet.ts  会計の画面（預かりとお釣り）
+    tally-log.ts   記録の画面（オーダーの記録と1時間ごとの推移）
+    tally-items.ts 品目と単価の画面（単価・足した品目）
     tally.css      その画面だけのスタイル
     stock-app.ts   StockConfig から「在庫の差」の画面を組み立てる（mountStockApp）
     stock.css      その画面だけのスタイル
@@ -52,6 +57,8 @@ src/
     clipboard.ts   コピー（Clipboard API → execCommand → 選択して長押し）
     confirm-button.ts  2回押すと実行するボタン（勤務時間報告のパターンを消すときなど）
     hold-button.ts タップで構えて長押しで実行するボタン（タクミとネコ・グリコのリセット・取り消しなど）
+    notice-bar.ts  画面の下の知らせ（［元に戻す］［×］）
+    view-tabs.ts   画面を切り替えるボタン（タクミの4画面、ネコ・グリコの見出し）
     dom.ts         要素を作る小さなヘルパー
     qr.ts          QR コードを SVG で描く（いつも白地に黒）
     share-dialog.ts  リンクを QR・共有シート（AirDrop・LINE など）・コピーで渡すダイアログ
