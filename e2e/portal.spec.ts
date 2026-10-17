@@ -1,4 +1,8 @@
 import { expect, test } from '@playwright/test'
+import { pages } from '../src/pages/registry'
+
+/** ポータルと、ポータルに載っているすべてのページ */
+const allPaths = ['./', ...pages.map((p) => `${p.path}/`)]
 
 test('ポータルが GitHub Pages と同じサブパスで表示される', async ({ page }) => {
   await page.goto('./')
@@ -7,7 +11,7 @@ test('ポータルが GitHub Pages と同じサブパスで表示される', asy
 })
 
 test('どのページからも、タブとホーム画面のアイコンが読める', async ({ page }) => {
-  for (const path of ['./', 'takumi/', 'neko/', 'kinmu/']) {
+  for (const path of allPaths) {
     await page.goto(path)
     const hrefs = await page
       .locator('link[rel="icon"], link[rel="apple-touch-icon"]')
@@ -46,4 +50,11 @@ test('［共有］のダイアログを開いても、スマホの幅で横に�
   await expect(page.getByRole('img', { name: 'このサイトの入口の QR コード' })).toBeVisible()
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(0)
+})
+
+test('どのページも検索に出さない（noindex, nofollow）', async ({ page }) => {
+  for (const path of allPaths) {
+    await page.goto(path)
+    await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute('content', 'noindex, nofollow')
+  }
 })
