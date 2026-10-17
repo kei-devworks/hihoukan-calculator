@@ -111,16 +111,35 @@ const config: TallyConfig = {
 
 ### 状態と更新
 
+押した分は、お客さん1組の注文（オーダー）ごとに記録する（`core/orders.ts`）。個数・合計・報告文は、すべてのオーダーから数える。
+
 ```ts
 type TallyState = {
-  counts: Record<string, number>          // 品目 id → 個数（0 の品目は持たない）
+  orders: Order[]                         // オーダーの記録（古い順）
   priceOverrides: Record<string, number>  // 既定から変えた単価だけ
-  updatedAt: string | null                // 最後に個数を変えた時刻
-  startedAt: string | null                // いまの数字を 0 から数え始めた時刻（全部 0 に戻ると消える）
+  updatedAt: string | null                // 最後に記録を変えた時刻
+}
+type Order = {
+  id: number                              // 1 から増やす
+  kind: 'order' | 'handover'              // お客さんのオーダー／まとめて入れた数（更新前の記録など）
+  openedAt: string                        // 始めた時刻
+  lastAt: string                          // 最後に足した時刻
+  closedAt: string | null                 // ［完了］などで閉じた時刻
+  lines: Record<string, number>           // 品目 id → 数（0 の品目は持たない）
+  tenders: number[]                       // 会計で預かった額面
+  edits: { at: string; before: Record<string, number> }[]  // 直したときの、直す前の中身
+  cancelledAt: string | null              // 取り消した時刻（数に入れないが、記録には残す）
+  source: string | null                   // まとめて入れた数の出どころ
 }
 ```
 
-- 更新は `bump` / `setPrice` / `resetCounts` などの純関数で、新しい状態を返す（元の状態は書き換えない）
+- ＋（`addItem`）は今のオーダーに足す。今のオーダーは記録のいちばん最後のオーダーで、閉じておらず、
+  最後に押してから3分（`ORDER_IDLE_MS`）たっていないもの（`isOpen`）。なければ新しいオーダーを始める
+- −（`removeItem`）は、今のオーダーにその品目があればそこから減らす。なければ、その品目がある
+  いちばん新しいオーダーから減らし、直した記録（`edits`）を残す。今のオーダーが空になったら消し、
+  前のオーダーが空になったら中身を残したまま取り消し済みにする
+- 数え始めた時刻（`startedAtOf`）は、取り消していないいちばん古いオーダーの始めた時刻
+- 更新は `addItem` / `removeItem` / `setPrice` / `resetCounts` などの純関数で、新しい状態を返す（元の状態は書き換えない）
 - 画面は「状態を変える → `TallyStore.update` で保存 → 描き直す」の順に動く
 
 ### 画面（`mountTallyApp`）
@@ -129,7 +148,7 @@ type TallyState = {
 
 | 画面の要素 | ふるまい |
 | --- | --- |
-| ＋ / − | `bump` → 保存 → 描き直し。ボタンの読み上げ名は「1,000円を1つ増やす」 |
+| ＋ / − | `addItem` / `removeItem` → 保存 → 描き直し。ボタンの読み上げ名は「1,000円を1つ増やす」 |
 | 報告時刻 | 初期値はいまに一番近い「ちょうど」。手で変えなければ、30秒ごと・画面に戻ったときにいまの時刻へ合わせ直す（開きっぱなしの端末向け）。「今」で自動に戻る |
 | 保存の状態 | 「この端末に保存済み（最終更新 21:03）」。保存できない・失敗したときは赤い知らせ |
 | 前の営業日の知らせ | `carriedOverSince` が時刻を返すあいだ出し続け、「0 に戻して今日を始める」（2回押し）で消える |
@@ -250,16 +269,22 @@ type ReportDraft = { workDate; start; end; breakMinutes; receivedDate: string | 
 | 項目 | 内容 |
 | --- | --- |
 | 場所 | ブラウザの `localStorage`（端末 × ブラウザごと） |
-| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v1`、`hihoukan-calc:neko:v1`、`hihoukan-calc:kinmu:v1`） |
+| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v2`、`hihoukan-calc:neko:v1`、`hihoukan-calc:kinmu:v1`） |
 | 中身 | `TallyState` / `StockState` / `WorkReportState` の JSON |
 | 書くとき | 個数・単価・欄の数字・設定を変えるたびと、勤務時間報告をコピーしたとき |
 
 ```json
 {
-  "counts": { "skewer1": 3, "vanilla": 2 },
+  "orders": [
+    {
+      "id": 1, "kind": "order",
+      "openedAt": "2026-10-15T12:01:00.000Z", "lastAt": "2026-10-15T12:02:10.000Z", "closedAt": null,
+      "lines": { "skewer1": 2, "vanilla": 1 },
+      "tenders": [], "edits": [], "cancelledAt": null, "source": null
+    }
+  ],
   "priceOverrides": {},
-  "updatedAt": "2026-10-15T12:03:00.000Z",
-  "startedAt": "2026-10-15T01:10:00.000Z"
+  "updatedAt": "2026-10-15T12:02:10.000Z"
 }
 ```
 
@@ -275,14 +300,16 @@ type ReportDraft = { workDate; start; end; breakMinutes; receivedDate: string | 
 
 - **キーは必ず `hihoukan-calc:` で始める。** `kei-devworks.github.io` の下のサイトは保存場所を共有するため
 - **公開したあと、ページ・品目・単価の id は変えない。** 変えると保存済みの数が読めなくなる。名前（`name`・`label`・`title`）は変えてよい
-- 保存の形を変えるときは版（`TALLY_STORAGE_VERSION` / `STOCK_STORAGE_VERSION` / `WORK_REPORT_STORAGE_VERSION`）を上げ、古い版を読み替える処理を足す
+- 保存の形を変えるときは版（`TALLY_STORAGE_VERSION` / `STOCK_STORAGE_VERSION` / `WORK_REPORT_STORAGE_VERSION`）を上げ、古い版を読み替える処理を足す。
+  `JsonStore` に古い版のキー（`legacyKeys`）を渡すと、新しいキーに何もなければ古いキーを読み、新しいキーに書けたら古いキーを消す
+- タクミは版 2 でオーダーの記録にした。版 1（品目ごとの個数だけ）は、数え始めた時刻の「まとめて入れた数（更新前の記録）」1件に読み替える
 - 読み戻し（`parseState` / `parseStockState` / `parseWorkState`）は何が来ても例外にしない。壊れた値・設定から消えた品目・負の数は捨てる
 
 ### 設計の判断
 
 - **日付が変わっても自動では消さない。** 深夜まで営業した日に、集計の途中で数字が消えるのを防ぐため。
   前の営業日の数字が残っていれば画面で知らせ、消すのは人が「リセット」を押したときだけ。
-  判定は**数え始めた時刻**（`startedAt`）で行う（`carriedOverSince`）。最終更新の時刻で判定すると、
+  判定は**数え始めた時刻**（`startedAtOf`。ネコ・グリコは `startedAt`）で行う（`carriedOverSince`）。最終更新の時刻で判定すると、
   残った数字に今日の分を1つ足しただけで知らせが消え、前日と今日の数字が混ざるため
 - **単価は既定から変えたものだけ保存する。** 値上げなどでコードの既定値を直してデプロイしたとき、
   端末に古い単価が残り続けないようにするため

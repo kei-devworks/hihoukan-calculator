@@ -3,8 +3,8 @@ import { formatNumber, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
+import { addItem, removeItem } from '../core/orders'
 import {
-  bump,
   carriedOverSince,
   countOf,
   displayName,
@@ -77,8 +77,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     })),
   )
   for (const row of rows) {
-    row.minus.addEventListener('click', () => change(bump(store.current, row.item.id, -1, now())))
-    row.plus.addEventListener('click', () => change(bump(store.current, row.item.id, 1, now())))
+    row.minus.addEventListener('click', () => change(removeItem(store.current, row.item.id, now()).state))
+    row.plus.addEventListener('click', () => change(addItem(store.current, row.item.id, now())))
   }
 
   const subtotals = config.sections.map((section) => ({ section, value: h('span') }))

@@ -51,6 +51,15 @@ export function writeJson(storage: KeyValueStorage, key: string, value: unknown)
   }
 }
 
+/** キーを消す。消せなくても例外にしない */
+export function removeKey(storage: KeyValueStorage, key: string): void {
+  try {
+    storage.removeItem(key)
+  } catch {
+    // 消せなくても、新しい版のキーが先に読まれるので困らない
+  }
+}
+
 /** テスト用の、メモリ上の KeyValueStorage */
 export function memoryStorage(initial: Record<string, string> = {}): KeyValueStorage & { data: Map<string, string> } {
   const data = new Map(Object.entries(initial))

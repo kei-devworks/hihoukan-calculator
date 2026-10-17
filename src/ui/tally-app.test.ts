@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { sampleConfig as config } from '../core/fixtures'
 import { memoryStorage, type KeyValueStorage } from '../core/storage'
-import { bump, initialState } from '../core/tally'
 import { mountTallyApp, type TallyApp } from './tally-app'
 
 let app: TallyApp | undefined
@@ -116,8 +115,9 @@ describe('mountTallyApp', () => {
 
   it('前の営業日に数え始めた数字が残っていれば知らせ、0 に戻すと消える', () => {
     const storage = memoryStorage()
-    const yesterday = bump(initialState(), 'a', 2, new Date('2026-10-14T18:00:00+09:00'))
-    storage.setItem('hihoukan-calc:sample:v1', JSON.stringify(yesterday))
+    // 前の日に数えた版 1 の保存が残っている（版 1 からの読み替えも兼ねて確かめる）
+    const yesterday = new Date('2026-10-14T18:00:00+09:00').toISOString()
+    storage.setItem('hihoukan-calc:sample:v1', JSON.stringify({ counts: { a: 2 }, updatedAt: yesterday, startedAt: yesterday }))
 
     mount(storage)
     expect(visibleAlerts()).toEqual([expect.stringContaining('10/14 18:00 から数えた数字が残っています')])
@@ -133,10 +133,8 @@ describe('mountTallyApp', () => {
 
   it('深夜営業で日付をまたいでも、同じ営業日なら知らせない', () => {
     const storage = memoryStorage()
-    storage.setItem(
-      'hihoukan-calc:sample:v1',
-      JSON.stringify(bump(initialState(), 'a', 2, new Date('2026-10-15T18:00:00+09:00'))),
-    )
+    const evening = new Date('2026-10-15T18:00:00+09:00').toISOString()
+    storage.setItem('hihoukan-calc:sample:v1', JSON.stringify({ counts: { a: 2 }, updatedAt: evening, startedAt: evening }))
     clock = new Date('2026-10-16T01:30:00+09:00')
     mount(storage)
     expect(visibleAlerts()).toEqual([])

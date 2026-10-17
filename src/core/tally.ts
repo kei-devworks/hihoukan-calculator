@@ -6,6 +6,7 @@
 import { allItems, defaultPrice, validateCatalog, type Catalog, type CatalogItem, type CatalogSection } from './catalog'
 import { formatNumber } from './format'
 import { isCount, isDateString, isRecord } from './guards'
+import { liveOrders, pieces, type Order, type OrderEdit, type OrderLines } from './orders'
 import { earlierBusinessDay } from './time'
 
 export { allItems } from './catalog'
@@ -26,25 +27,29 @@ export type Counts = Record<string, number>
 export type Prices = Record<string, number>
 
 export type TallyState = {
-  counts: Counts
+  /** オーダーの記録（古い順）。個数はここから数える（core/orders.ts） */
+  orders: Order[]
   /** 既定から変えた単価だけを持つ（既定のままのものは持たない） */
   priceOverrides: Prices
-  /** 最後に個数を変えた時刻（ISO 8601）。数えていなければ null */
+  /** 最後に記録を変えた時刻（ISO 8601）。記録がなければ null */
   updatedAt: string | null
-  /**
-   * いまの数字を数え始めた時刻（ISO 8601）。0 から数え始めたときに記録し、全部 0 に戻ると消える。
-   * 前の営業日の数字が残っているかの判定に使う（更新時刻で判定すると、残った数字に今日の分を
-   * 1つ足しただけで「今日の数字」に見えてしまうため）
-   */
-  startedAt: string | null
 }
 
 export function initialState(): TallyState {
-  return { counts: {}, priceOverrides: {}, updatedAt: null, startedAt: null }
+  return { orders: [], priceOverrides: {}, updatedAt: null }
+}
+
+/** 品目 id → 個数（取り消したオーダーを除く、すべてのオーダーの合計） */
+export function countsOf(state: TallyState): Counts {
+  const counts: Counts = {}
+  for (const order of liveOrders(state)) {
+    for (const [id, n] of Object.entries(order.lines)) counts[id] = (counts[id] ?? 0) + n
+  }
+  return counts
 }
 
 export function countOf(state: TallyState, itemId: string): number {
-  return state.counts[itemId] ?? 0
+  return countsOf(state)[itemId] ?? 0
 }
 
 export function priceOf(config: TallyConfig, state: TallyState, priceId: string): number {
@@ -72,28 +77,30 @@ export function grandTotal(config: TallyConfig, state: TallyState): number {
   return config.sections.reduce((sum, section) => sum + sectionTotal(config, state, section), 0)
 }
 
+/** オーダー（の中身）の金額。いまの単価で計算する */
+export function linesTotal(config: TallyConfig, state: TallyState, lines: OrderLines): number {
+  let sum = 0
+  for (const item of allItems(config)) sum += (lines[item.id] ?? 0) * priceOf(config, state, item.priceId)
+  return sum
+}
+
 export function hasCounts(state: TallyState): boolean {
-  return Object.values(state.counts).some((n) => n > 0)
+  return liveOrders(state).some((o) => pieces(o.lines) > 0)
 }
 
-/** 個数を増減する。0 より下にはならない */
-export function bump(state: TallyState, itemId: string, delta: number, now: Date): TallyState {
-  const next = Math.max(0, countOf(state, itemId) + delta)
-  const counts = { ...state.counts }
-  if (next === 0) delete counts[itemId]
-  else counts[itemId] = next
-  const empty = Object.keys(counts).length === 0
-  return {
-    ...state,
-    counts,
-    updatedAt: now.toISOString(),
-    startedAt: empty ? null : (state.startedAt ?? now.toISOString()),
-  }
+/**
+ * いまの数字を数え始めた時刻（いちばん古いオーダーの始めた時刻）。記録がなければ null。
+ * 前の営業日の数字が残っているかの判定に使う（最後に押した時刻で判定すると、残った数字に今日の分を
+ * 1つ足しただけで「今日の数字」に見えてしまうため）
+ */
+export function startedAtOf(state: TallyState): string | null {
+  const opened = liveOrders(state).map((o) => o.openedAt)
+  return opened.length === 0 ? null : opened.reduce((min, at) => (Date.parse(at) < Date.parse(min) ? at : min))
 }
 
-/** 個数をすべて 0 に戻す。単価の変更は残す */
+/** 記録をすべて消して 0 に戻す。単価の変更は残す */
 export function resetCounts(state: TallyState): TallyState {
-  return { ...state, counts: {}, updatedAt: null, startedAt: null }
+  return { ...state, orders: [], updatedAt: null }
 }
 
 /**
@@ -101,7 +108,7 @@ export function resetCounts(state: TallyState): TallyState {
  * 営業日は config.dayStartHour で区切る（深夜営業の途中で「前日の数字」扱いにしないため）
  */
 export function carriedOverSince(config: TallyConfig, state: TallyState, now: Date): Date | null {
-  return hasCounts(state) ? earlierBusinessDay(state.startedAt, config.dayStartHour, now) : null
+  return hasCounts(state) ? earlierBusinessDay(startedAtOf(state), config.dayStartHour, now) : null
 }
 
 /** 単価を変える。既定と同じ値なら、変更なしの扱いに戻す。不正な値は 0 にする */
@@ -125,24 +132,82 @@ export function resetPrices(state: TallyState): TallyState {
 export function parseState(config: TallyConfig, raw: unknown): TallyState {
   const state = initialState()
   if (!isRecord(raw)) return state
+  const itemIds = new Set(allItems(config).map((i) => i.id))
 
-  if (isRecord(raw.counts)) {
-    for (const item of allItems(config)) {
-      const n = raw.counts[item.id]
-      if (isCount(n) && n > 0) state.counts[item.id] = n
+  if (Array.isArray(raw.orders)) {
+    for (const value of raw.orders) {
+      const order = parseOrder(value, itemIds)
+      // id は増えていく順に並ぶ。重なり・逆順は壊れた値として捨てる
+      if (order && order.id > (state.orders.at(-1)?.id ?? 0)) state.orders.push(order)
+    }
+  } else if (isRecord(raw.counts)) {
+    // 版 1 の保存（品目ごとの個数だけ）。押した時刻はわからないので、1件の「まとめて入れた数」にする
+    const lines = parseLines(raw.counts, itemIds)
+    if (pieces(lines) > 0) {
+      const at = isDateString(raw.startedAt)
+        ? raw.startedAt
+        : isDateString(raw.updatedAt)
+          ? raw.updatedAt
+          : new Date(0).toISOString()
+      state.orders.push({
+        id: 1,
+        kind: 'handover',
+        openedAt: at,
+        lastAt: at,
+        closedAt: at,
+        lines,
+        tenders: [],
+        edits: [],
+        cancelledAt: null,
+        source: '更新前の記録',
+      })
     }
   }
+
   if (isRecord(raw.priceOverrides)) {
     for (const def of config.prices) {
       const p = raw.priceOverrides[def.id]
       if (isCount(p) && p !== def.default) state.priceOverrides[def.id] = p
     }
   }
-  if (hasCounts(state)) {
-    state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
-    state.startedAt = isDateString(raw.startedAt) ? raw.startedAt : state.updatedAt
-  }
+  if (state.orders.length > 0) state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
   return state
+}
+
+/** 品目 id → 数。設定にない品目・0 以下・整数でない数は捨てる */
+function parseLines(raw: unknown, itemIds: Set<string>): OrderLines {
+  const lines: OrderLines = {}
+  if (!isRecord(raw)) return lines
+  for (const [id, n] of Object.entries(raw)) if (itemIds.has(id) && isCount(n) && n > 0) lines[id] = n
+  return lines
+}
+
+const isDateOrNull = (v: unknown): v is string | null => v === null || isDateString(v)
+
+function parseOrder(raw: unknown, itemIds: Set<string>): Order | null {
+  if (!isRecord(raw)) return null
+  const { id, kind, openedAt, lastAt, closedAt, cancelledAt, source } = raw
+  if (!isCount(id) || id === 0 || (kind !== 'order' && kind !== 'handover')) return null
+  if (!isDateString(openedAt) || !isDateString(lastAt) || !isDateOrNull(closedAt) || !isDateOrNull(cancelledAt)) return null
+  const lines = parseLines(raw.lines, itemIds)
+  // 中身が空のオーダーは残さない（設定から品目が消えた場合も含む）
+  if (pieces(lines) === 0) return null
+  const tenders = Array.isArray(raw.tenders) ? raw.tenders.filter((t): t is number => isCount(t) && t > 0) : []
+  const edits: OrderEdit[] = Array.isArray(raw.edits)
+    ? raw.edits.flatMap((e) => (isRecord(e) && isDateString(e.at) ? [{ at: e.at, before: parseLines(e.before, itemIds) }] : []))
+    : []
+  return {
+    id,
+    kind,
+    openedAt,
+    lastAt,
+    closedAt,
+    lines,
+    tenders,
+    edits,
+    cancelledAt,
+    source: typeof source === 'string' ? source : null,
+  }
 }
 
 /** 設定の書き間違いを探す。問題がなければ空の配列 */

@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { stateWithCounts } from '../../core/fixtures'
 import { buildSalesReport } from '../../core/report'
-import { bump, initialState, type TallyState } from '../../core/tally'
+import type { TallyState } from '../../core/tally'
 import { takumi } from './config'
 
 const now = new Date('2026-10-15T21:00:00+09:00')
 
 function withCounts(counts: Record<string, number>): TallyState {
-  let state = initialState()
-  for (const [id, n] of Object.entries(counts)) state = bump(state, id, n, now)
-  return state
+  return stateWithCounts(counts, now)
 }
 
 describe('タクミ売上カウンター', () => {
