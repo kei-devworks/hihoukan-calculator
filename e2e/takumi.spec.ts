@@ -14,6 +14,15 @@ async function tap(page: Page, name: string, times = 1) {
   for (let i = 0; i < times; i++) await button.click()
 }
 
+/** 長押しのボタン: タップで構え、1秒より長く押し続ける */
+async function holdPress(page: Page, label: string, armedLabel: string) {
+  await page.getByRole('button', { name: label, exact: true }).click()
+  await page.getByRole('button', { name: armedLabel, exact: true }).hover()
+  await page.mouse.down()
+  await page.waitForTimeout(1300)
+  await page.mouse.up()
+}
+
 const count = (page: Page, itemId: string) => page.locator(`[data-item="${itemId}"] .n`)
 const total = (page: Page) => page.locator('#total')
 const report = (page: Page) => page.locator('#report')
@@ -84,25 +93,29 @@ test('− は 0 より下がらない', async ({ page }) => {
   await expect(total(page)).toHaveText('￥0-')
 })
 
-test('リセットは2回押したときだけ全部 0 になり、リロード後も 0 のまま', async ({ page }) => {
+test('リセットは、タップしただけでは 0 にならず、長押しで全部 0 になり、リロード後も 0 のまま', async ({ page }) => {
   await open(page)
   await countSample(page)
 
   await page.getByRole('button', { name: 'リセット' }).click()
+  await page.getByRole('button', { name: '長押しで全部 0 にする' }).click()
   await expect(total(page)).toHaveText('￥12,900-')
-  await page.getByRole('button', { name: 'もう一度押すと全部 0' }).click()
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(4200) // 構えてから4秒で元に戻る
+  await holdPress(page, 'リセット', '長押しで全部 0 にする')
   await expect(total(page)).toHaveText('￥0-')
 
   await page.reload()
   await expect(total(page)).toHaveText('￥0-')
 })
 
-test('リセットの1回目から時間がたつと、押し直しになる', async ({ page }) => {
+test('リセットをタップしてから4秒たつと、押し直しになる', async ({ page }) => {
   await page.clock.install({ time: evening })
   await page.goto('takumi/')
   await tap(page, 'ホタテを1つ増やす')
   await page.getByRole('button', { name: 'リセット' }).click()
-  await page.clock.runFor(3500)
+  await expect(page.getByRole('button', { name: '長押しで全部 0 にする' })).toBeVisible()
+  await page.clock.runFor(4500)
   await expect(page.getByRole('button', { name: 'リセット' })).toBeVisible()
   await expect(total(page)).toHaveText('￥1,000-')
 })
@@ -135,8 +148,7 @@ test('前の営業日の数字が残っていたら知らせ、0 に戻して今
   await expect(notice).toContainText('10/14 18:00 から数えた数字が残っています')
   await expect(total(page)).toHaveText('￥2,000-')
 
-  await notice.getByRole('button', { name: '0 に戻して今日を始める' }).click()
-  await notice.getByRole('button', { name: 'もう一度押すと全部 0' }).click()
+  await holdPress(page, '0 に戻して今日を始める', '長押しで全部 0 にする')
   await expect(notice).toBeHidden()
   await expect(total(page)).toHaveText('￥0-')
 })

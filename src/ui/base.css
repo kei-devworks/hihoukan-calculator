@@ -420,3 +420,64 @@ dialog.share-dialog[open] {
   display: flex;
   justify-content: center;
 }
+
+/* タップで構えて、長押しで実行するボタン（ui/hold-button.ts）。ふだんは赤い枠、構えたら赤い背景。
+   2つの文言を同じ場所に重ね、見えない方は visibility で隠す（ボタンの大きさが変わらない・読み上げは見えている方だけ） */
+button.hold-button {
+  position: relative;
+  overflow: hidden;
+  display: inline-grid;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--danger-text);
+  border: 1.5px solid var(--danger);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hold-button .hold-idle,
+.hold-button .hold-armed {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.hold-button .hold-armed {
+  visibility: hidden;
+}
+
+button.hold-button.armed {
+  background: var(--danger);
+  color: #fff;
+}
+
+button.hold-button.armed .hold-idle {
+  visibility: hidden;
+}
+
+button.hold-button.armed .hold-armed {
+  visibility: visible;
+}
+
+/* 押している間、左から濃い色で埋まる */
+button.hold-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+button.hold-button.holding::after {
+  transform: scaleX(1);
+  transition: transform var(--hold-ms, 1s) linear;
+}

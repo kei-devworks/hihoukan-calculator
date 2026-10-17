@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { sampleConfig as config } from '../core/fixtures'
 import { memoryStorage, type KeyValueStorage } from '../core/storage'
 import { mountTallyApp, type TallyApp } from './tally-app'
@@ -21,6 +21,21 @@ const button = (name: string) => {
   )
   if (!found) throw new Error(`ボタン「${name}」がありません`)
   return found
+}
+/** 長押しのボタン（ui/hold-button.ts）を、タップで構えてから1秒押し続ける */
+const holdPress = (label: string) => {
+  const found = [...document.querySelectorAll<HTMLButtonElement>('button.hold-button')].find(
+    (b) => b.querySelector('.hold-idle')?.textContent === label,
+  )
+  if (!found) throw new Error(`長押しのボタン「${label}」がありません`)
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    found.click()
+    found.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }))
+    vi.advanceTimersByTime(1000)
+  } finally {
+    vi.useRealTimers()
+  }
 }
 const text = (selector: string) => document.querySelector(selector)?.textContent ?? ''
 const visibleAlerts = () =>
@@ -74,13 +89,15 @@ describe('mountTallyApp', () => {
     expect(text('.save-status')).toBe('この端末に保存済み（最終更新 20:40）')
   })
 
-  it('リセットは2回押したときだけ 0 に戻す', () => {
+  it('リセットは、タップしただけでは 0 にせず、長押ししたときだけ 0 に戻す', () => {
     const { storage } = mount()
     button('ホタテを1つ増やす').click()
 
-    button('リセット').click()
+    const reset = document.querySelector<HTMLButtonElement>('button.hold-button')!
+    reset.click()
+    reset.click()
     expect(text('#total')).toBe('￥1,000-')
-    button('もう一度押すと全部 0').click()
+    holdPress('リセット')
     expect(text('#total')).toBe('￥0-')
 
     mount(storage)
@@ -125,8 +142,7 @@ describe('mountTallyApp', () => {
     button('2,000円を1つ増やす').click()
     expect(visibleAlerts()).toHaveLength(1)
 
-    button('0 に戻して今日を始める').click()
-    button('もう一度押すと全部 0').click()
+    holdPress('0 に戻して今日を始める')
     expect(visibleAlerts()).toEqual([])
     expect(text('#total')).toBe('￥0-')
   })

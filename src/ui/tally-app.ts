@@ -20,8 +20,8 @@ import {
 import { TallyStore } from '../core/tally-store'
 import { formatMonthDayTime, nearestHour } from '../core/time'
 import { copyText, selectContents } from './clipboard'
-import { confirmButton } from './confirm-button'
 import { h } from './dom'
+import { holdButton } from './hold-button'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
 export type MountOptions = {
@@ -59,7 +59,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     carriedActions: [
       {
         label: '0 に戻して今日を始める',
-        armedLabel: 'もう一度押すと全部 0',
+        armedLabel: '長押しで全部 0 にする',
+        hold: true,
         onConfirm: () => change(resetCounts(store.current)),
       },
     ],
@@ -129,10 +130,9 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   // ---- 報告文 ----
   const report = h('pre', { class: 'report', id: 'report' })
   const copyButton = h('button', { type: 'button', class: 'solid', text: 'コピー' })
-  const resetButton = h('button', { type: 'button', class: 'ghost' })
-  confirmButton(resetButton, {
+  const resetButton = holdButton({
     label: 'リセット',
-    armedLabel: 'もう一度押すと全部 0',
+    armedLabel: '長押しで全部 0 にする',
     onConfirm: () => change(resetCounts(store.current)),
   })
 
