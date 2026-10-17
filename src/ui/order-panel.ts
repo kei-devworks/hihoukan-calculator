@@ -3,6 +3,7 @@ import { formatPrice } from '../core/format'
 import { openOrder, pieces, previousOrder, type Order } from '../core/orders'
 import { countOf, displayName, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
 import { formatTime } from '../core/time'
+import { describePayment } from './checkout-sheet'
 import { h } from './dom'
 import { holdButton } from './hold-button'
 
@@ -13,6 +14,8 @@ export type OrderPanelActions = {
   cancel: (orderId: number) => void
   /** オーダーを直す画面を開く */
   edit: (orderId: number) => void
+  /** 会計の画面を開く（設定に cash がないページでは使わない） */
+  checkout: (orderId: number) => void
   /** ほかの画面から「数える」へ戻る */
   showCount: () => void
 }
@@ -51,9 +54,17 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
     onConfirm: () => openId !== null && actions.cancel(openId),
   })
   completeButton.addEventListener('click', () => openId !== null && actions.complete(openId))
+  // 会計は、受け取るお金の額面（cash）を設定に書いたページだけ
+  const checkoutButton = h('button', { type: 'button', class: 'solid', text: '会計', hidden: !config.cash })
+  checkoutButton.addEventListener('click', () => openId !== null && actions.checkout(openId))
+  const openPaid = h('p', { class: 'order-paid' })
   const openPanel = h('section', { class: 'order-panel', 'aria-label': '今のオーダー' }, [
-    h('div', { class: 'order-head' }, [h('div', { class: 'order-sum' }, [openTitle, openPieces, openTotal]), completeButton]),
+    h('div', { class: 'order-head' }, [
+      h('div', { class: 'order-sum' }, [openTitle, openPieces, openTotal]),
+      h('div', { class: 'order-actions' }, [checkoutButton, completeButton]),
+    ]),
     openLines,
+    openPaid,
     h('div', { class: 'order-foot' }, [cancelButton, h('p', { class: 'order-note', text: '3分で自動で閉じます' })]),
   ])
 
@@ -69,10 +80,14 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
   })
   const editButton = h('button', { type: 'button', class: 'ghost', text: '編集' })
   editButton.addEventListener('click', () => viewingId !== null && actions.edit(viewingId))
+  const prevCheckout = h('button', { type: 'button', class: 'solid', text: '会計', hidden: !config.cash })
+  prevCheckout.addEventListener('click', () => viewingId !== null && actions.checkout(viewingId))
+  const prevPaid = h('p', { class: 'order-paid' })
   const prevPanel = h('section', { class: 'order-panel view', 'aria-label': '前のオーダー' }, [
     h('div', { class: 'order-head' }, [h('div', { class: 'order-sum' }, [prevTitle, prevPieces, prevTotal]), prevClose]),
     prevLines,
-    h('div', { class: 'order-foot end' }, [editButton]),
+    prevPaid,
+    h('div', { class: 'order-foot end' }, [editButton, prevCheckout]),
   ])
 
   // ---- 小さく出すとき ----
@@ -141,6 +156,12 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
       )
     }
 
+    if (open && onCount) {
+      const payment = describePayment(config, state, open)
+      openPaid.hidden = payment === null
+      openPaid.textContent = payment && payment.includes('お釣り') ? `${payment}。次の ＋ で次のお客さんになります` : (payment ?? '')
+    }
+
     // 押した品目の行が、パネルの中のスクロールで隠れていたら見えるところまで動かす（ページは動かさない）
     const line = touched ? openLines.querySelector<HTMLElement>(`[data-item="${touched}"]`) : null
     if (line) {
@@ -152,6 +173,9 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
     touched = null
 
     if (!prevPanel.hidden && previous) {
+      const payment = describePayment(config, state, previous)
+      prevPaid.hidden = payment === null
+      prevPaid.textContent = payment ?? ''
       prevTitle.textContent = `前のオーダー ${formatTime(new Date(previous.openedAt))}`
       prevPieces.textContent = `${pieces(previous.lines)}点`
       prevTotal.textContent = formatPrice(linesTotal(config, state, previous.lines))

@@ -692,3 +692,155 @@ dialog.order-editor[open] {
   padding: 0 7px;
   align-self: flex-start;
 }
+
+.order-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.order-head button.solid {
+  min-height: 36px;
+  padding: 4px 16px;
+}
+
+.order-paid {
+  margin: 0;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 会計の画面（ui/checkout-sheet.ts）。編集の画面と同じく下から出す */
+dialog.checkout {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  margin: auto auto 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface);
+  color: var(--fg);
+  overflow-y: auto;
+}
+
+dialog.checkout::backdrop {
+  background: rgba(10, 14, 20, 0.45);
+}
+
+dialog.checkout[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.checkout-head h2 {
+  font-size: 15px;
+}
+
+.checkout-total {
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.checkout-lines,
+.checkout-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tenders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 6px;
+}
+
+.tender {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  min-height: 52px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.tender:active {
+  background: var(--line);
+}
+
+.tender.coin {
+  border-radius: 999px;
+}
+
+.checkout-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-tendered {
+  font-size: 18px;
+}
+
+.checkout-breakdown {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.checkout-fix {
+  display: flex;
+  gap: 6px;
+}
+
+.checkout-fix button.ghost {
+  min-height: 38px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.checkout-change {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-change b {
+  font-size: 32px;
+  color: var(--accent);
+}
+
+.checkout-change.short b {
+  color: var(--danger-text);
+  font-size: 22px;
+}
+
+.checkout-change.none {
+  color: var(--muted);
+  font-size: 14px;
+}
