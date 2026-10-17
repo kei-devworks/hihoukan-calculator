@@ -125,3 +125,22 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* 精算を終える（見出しごと） */
+.settle-status {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.settle-status[data-tone='ok'] {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.settle-status[data-tone='warn'] {
+  color: var(--notice-fg);
+  background: var(--notice-bg);
+  border-radius: 10px;
+  padding: 8px 12px;
+}

@@ -4,6 +4,7 @@
  * 「売れた数 = 開店時 + 追加 − 残数」と、その売上（売れた数 × 単価）が出る（docs/architecture.md）
  */
 
+import { clearCashCount, emptyCashCount, parseCashCount, type CashCount } from './cash'
 import { allItems, defaultPrice, type Catalog, type CatalogItem, type CatalogSection } from './catalog'
 import { isCount, isDateString, isRecord } from './guards'
 import { earlierBusinessDay } from './time'
@@ -25,9 +26,16 @@ export type StockField = keyof StockEntry
 
 export const STOCK_FIELDS: StockField[] = ['start', 'added', 'remaining']
 
+/** 見出しのレジ精算を終えたときの印。signature はそのときの数（在庫の欄と枚数）。あとで数が変わったか見るのに使う */
+export type SectionSettlement = { at: string; signature: string }
+
 export type StockState = {
   /** 品目 id → 記録（どれか1つでも入っている品目だけ持つ） */
   entries: Record<string, StockEntry>
+  /** 見出し id → レジ精算で数えた枚数（見出しごとに別々に数える。設定に cash があるページだけ使う） */
+  cash: Record<string, CashCount>
+  /** 見出し id → レジ精算を終えた印 */
+  settled: Record<string, SectionSettlement>
   /** 最後に記録を変えた時刻（ISO 8601）。記録がなければ null */
   updatedAt: string | null
   /** いまの記録を入れ始めた時刻（ISO 8601）。前の営業日の記録が残っているかの判定に使う */
@@ -37,7 +45,7 @@ export type StockState = {
 const emptyEntry: StockEntry = { start: null, added: null, remaining: null }
 
 export function initialStockState(): StockState {
-  return { entries: {}, updatedAt: null, startedAt: null }
+  return { entries: {}, cash: {}, settled: {}, updatedAt: null, startedAt: null }
 }
 
 export function entryOf(state: StockState, itemId: string): StockEntry {
@@ -67,15 +75,21 @@ export function setField(
   else entries[itemId] = entry
   const empty = Object.keys(entries).length === 0
   return {
+    ...state,
     entries,
     updatedAt: empty ? null : now.toISOString(),
     startedAt: empty ? null : (state.startedAt ?? now.toISOString()),
   }
 }
 
-/** 全部消す */
-export function resetStock(): StockState {
-  return initialStockState()
+/** レジ精算の枚数を消す（ポケットといまの準備金）。開店時の準備金の枚数は残す。精算の印も消す */
+function clearAllCash(state: StockState): Pick<StockState, 'cash' | 'settled'> {
+  return { cash: Object.fromEntries(Object.entries(state.cash).map(([id, c]) => [id, clearCashCount(c)])), settled: {} }
+}
+
+/** 全部消す。レジ精算の、釣り銭準備金の開店時の枚数だけは残す（毎日同じことが多いため） */
+export function resetStock(state: StockState): StockState {
+  return { ...initialStockState(), ...clearAllCash(state) }
 }
 
 /**
@@ -90,9 +104,38 @@ export function carryRemainingToStart(state: StockState, now: Date): StockState 
   const empty = Object.keys(entries).length === 0
   return {
     entries,
+    ...clearAllCash(state),
     updatedAt: empty ? null : now.toISOString(),
     startedAt: empty ? null : now.toISOString(),
   }
+}
+
+export function sectionCashOf(state: StockState, sectionId: string): CashCount {
+  return state.cash[sectionId] ?? emptyCashCount()
+}
+
+/** 見出しのレジ精算の枚数を書き換える */
+export function setSectionCash(state: StockState, sectionId: string, count: CashCount, now: Date): StockState {
+  return { ...state, cash: { ...state.cash, [sectionId]: count }, updatedAt: now.toISOString() }
+}
+
+/** 見出しの数（在庫の欄とレジ精算の枚数）を1つの文字列にする。精算のあとで数が変わったかを見るのに使う */
+function sectionSignature(state: StockState, section: CatalogSection): string {
+  const entries = section.items.map((item) => entryOf(state, item.id))
+  const { pocket, floatStart, floatNow } = sectionCashOf(state, section.id)
+  return JSON.stringify({ entries, pocket, floatStart, floatNow })
+}
+
+/** ［精算を終える］: 見出しに精算の印を付ける */
+export function settleSection(state: StockState, section: CatalogSection, now: Date): StockState {
+  const settlement = { at: now.toISOString(), signature: sectionSignature(state, section) }
+  return { ...state, settled: { ...state.settled, [section.id]: settlement }, updatedAt: now.toISOString() }
+}
+
+/** 精算を終えていれば、その時刻と、そのあとで数が変わったか。終えていなければ null */
+export function settlementOf(state: StockState, section: CatalogSection): { at: string; changed: boolean } | null {
+  const s = state.settled[section.id]
+  return s ? { at: s.at, changed: s.signature !== sectionSignature(state, section) } : null
 }
 
 /** 品目ごとの計算結果 */
@@ -162,6 +205,17 @@ export function parseStockState(config: StockConfig, raw: unknown): StockState {
   const state = initialStockState()
   if (!isRecord(raw) || !isRecord(raw.entries)) return state
 
+  // レジ精算の枚数と精算の印は、版 1 のあとから足した項目。なければ空にする
+  for (const section of config.sections) {
+    if (config.cash && isRecord(raw.cash) && raw.cash[section.id] !== undefined) {
+      state.cash[section.id] = parseCashCount(raw.cash[section.id], config.cash)
+    }
+    const settled = isRecord(raw.settled) ? raw.settled[section.id] : undefined
+    if (isRecord(settled) && isDateString(settled.at) && typeof settled.signature === 'string') {
+      state.settled[section.id] = { at: settled.at, signature: settled.signature }
+    }
+  }
+
   for (const item of allItems(config)) {
     const saved = raw.entries[item.id]
     if (!isRecord(saved)) continue
@@ -175,6 +229,8 @@ export function parseStockState(config: StockConfig, raw: unknown): StockState {
   if (hasEntries(state)) {
     state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
     state.startedAt = isDateString(raw.startedAt) ? raw.startedAt : state.updatedAt
+  } else if (Object.keys(state.cash).length > 0) {
+    state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
   }
   return state
 }
