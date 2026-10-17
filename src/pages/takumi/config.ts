@@ -8,6 +8,8 @@ export const takumi: TallyConfig = {
   id: 'takumi',
   title: 'タクミ売上カウンター',
   reportTitle: '売上報告',
+  // 報告文の見出しだけに付ける（「◾️肉」）。画面の見出しは「肉」
+  reportSectionMark: '◾️',
   dayStartHour: 4,
   // お札と 500円玉・100円玉だけを受け取る。会計の預かりのボタンになる
   cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
@@ -23,7 +25,7 @@ export const takumi: TallyConfig = {
   sections: [
     {
       id: 'meat',
-      title: '◾️肉',
+      title: '肉',
       items: [
         // 串は値段で呼ぶので名前を付けない（画面は「1,000円」、報告文は「1,000×3」）
         { id: 'skewer1', priceId: 'skewer1' },
@@ -36,7 +38,7 @@ export const takumi: TallyConfig = {
     },
     {
       id: 'soft',
-      title: '◾️ソフト',
+      title: 'ソフト',
       items: [
         { id: 'vanilla', name: 'バニラ', priceId: 'soft' },
         { id: 'mix', name: 'ミックス', priceId: 'soft' },

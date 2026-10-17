@@ -16,6 +16,7 @@ export const kiosk: TallyConfig = {
   id: 'kiosk',               // 保存のキー。公開したら変えない
   title: '売店売上カウンター',
   reportTitle: '売上報告',
+  reportSectionMark: '◾️',   // 報告文の見出しだけに付ける（省くと付けない）
   dayStartHour: 4,
   prices: [
     { id: 'postcard', label: 'ポストカード', default: 300 },
@@ -24,7 +25,7 @@ export const kiosk: TallyConfig = {
   sections: [
     {
       id: 'goods',
-      title: '◾️グッズ',
+      title: 'グッズ',      // 画面の見出し。報告文では「◾️グッズ」
       items: [
         { id: 'postcard', name: 'ポストカード', priceId: 'postcard' },
         { id: 'tenugui', name: '手ぬぐい', priceId: 'tenugui' },

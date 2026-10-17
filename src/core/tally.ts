@@ -20,6 +20,8 @@ export type TallySection = CatalogSection
 export type TallyConfig = Catalog & {
   /** 報告文の1行目 */
   reportTitle: string
+  /** 報告文の見出しの前にだけ付ける印（例: '◾️' → 報告文は「◾️肉」、画面は「肉」）。省くと付けない */
+  reportSectionMark?: string
 }
 
 /** 品目 id → 個数 */

@@ -6,6 +6,7 @@
 import { clearCashCount, type CoinCounts } from './cash'
 import type { HandoverCode } from './handover-code'
 import { cleanLines, openOrder, pieces, type Order, type OrderLines } from './orders'
+import { reportSectionTitle } from './report'
 import {
   allItems,
   carriedOverSince,
@@ -118,7 +119,8 @@ export function inputFromReport(config: TallyConfig, state: TallyState, text: st
       recognized++
       continue
     }
-    const section = sections.find((s) => plain(s.title) === plain(line))
+    // 見出しは報告文の書き方（「◾️肉」）でも、画面の書き方（「肉」）でもよい
+    const section = sections.find((s) => plain(reportSectionTitle(config, s)) === plain(line) || plain(s.title) === plain(line))
     if (section) {
       current = section
       recognized++

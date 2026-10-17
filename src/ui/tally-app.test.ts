@@ -66,6 +66,9 @@ describe('mountTallyApp', () => {
     ])
     expect(document.querySelector<HTMLInputElement>('#report-time')!.value).toBe('21:00')
     expect(text('#report')).toContain('21:00時点')
+    // 画面の見出しに ◾️ は付けない（報告文にだけ付ける）
+    expect([...document.querySelectorAll('.card[data-section] h2')].map((el) => el.textContent)).toEqual(['肉', 'ソフト'])
+    expect(text('#report')).toContain('\n◾️肉\n')
   })
 
   it('＋/− で個数・小計・合計・報告文が変わる', () => {
@@ -580,11 +583,11 @@ describe('mountTallyApp', () => {
     it('見出しに品目を足すと、カードの最後に ＋/− つきで出て、報告文にも入る。保存もされる', () => {
       const { storage } = mount()
       button('品目').click()
-      button('＋ ◾️ソフトに品目を足す').click()
+      button('＋ ソフトに品目を足す').click()
       fill('#new-name-soft', 'チョコトッピング')
       fill('#new-price-soft', '100')
       addIn('soft')
-      expect(text('.notice-bar-text')).toBe('チョコトッピング（￥100）を◾️ソフトに足しました')
+      expect(text('.notice-bar-text')).toBe('チョコトッピング（￥100）をソフトに足しました')
       expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
       expect(text('#prices-title')).toBe('品目と単価（1品目 追加）')
 
@@ -601,7 +604,7 @@ describe('mountTallyApp', () => {
     it('名前を空にすると値段で呼ぶ。単価がなければ足さない', () => {
       mount()
       button('品目').click()
-      button('＋ ◾️肉に品目を足す').click()
+      button('＋ 肉に品目を足す').click()
       addIn('meat')
       expect(document.querySelector<HTMLElement>('[data-section="meat"] .add-item-error')!.hidden).toBe(false)
       fill('#new-price-meat', '7000')
@@ -612,7 +615,7 @@ describe('mountTallyApp', () => {
     it('足した品目の名前と単価はその場で直せ、長押しで消せる（知らせから元に戻せる）', () => {
       mount()
       button('品目').click()
-      button('＋ ◾️ソフトに品目を足す').click()
+      button('＋ ソフトに品目を足す').click()
       fill('#new-name-soft', 'チョコ')
       fill('#new-price-soft', '100')
       addIn('soft')
@@ -670,7 +673,7 @@ describe('引き継ぎ', () => {
     expect(document.querySelector('dialog.handover .qr-box svg')!.getAttribute('aria-label')).toBe('引き継ぎの QR コード')
   })
 
-  it('引き継ぎのリンクで開くと、読み込んだ状態で受け取りの画面が出る。種類を選ぶまで引き継げない。リンクのデータは URL から消す', () => {
+  it('引き継ぎのリンクで開くと、読み込んだ状態で受け取りの画面が出る（種類はゼロから引き継ぐ）。リンクのデータは URL から消す', () => {
     location.hash = `hikitsugi=${encodeHandoverCode(senderCode())}`
     mount()
     expect(location.hash).toBe('')
@@ -678,9 +681,9 @@ describe('引き継ぎ', () => {
     expect(messages()[0]).toBe('前の人の 20:35時点（5分前）の数を読み取りました（2品目）。')
     expect(prev('a').value).toBe('3')
     expect(prev('hotate').value).toBe('1')
-    expect(goButton().disabled).toBe(true)
+    expect(button('ゼロから引き継ぐ').getAttribute('aria-checked')).toBe('true')
+    expect(button('休憩から戻った').getAttribute('aria-checked')).toBe('false')
 
-    button('ゼロから引き継ぐ').click()
     expect(messages()).toContain('前の人の数の合計は、前の人の合計 ￥4,000 と合っています。')
     expect(goButton().textContent).toBe('引き継ぐ（4点 ￥4,000）')
     goButton().click()
@@ -728,7 +731,6 @@ describe('引き継ぎ', () => {
     button('抹茶を1つ増やす').click()
     button('引き継ぎ').click()
     choice('前の人から受け取る').click()
-    button('ゼロから引き継ぐ').click()
     button('打ち込む').click()
     fill('#handover-n-b', '2')
     expect(messages()).toContain('この端末に残っている記録（1点 ￥800）は取り消して、前の人の数に置き換えます。取り消した記録は［記録］の画面から元に戻せます。')

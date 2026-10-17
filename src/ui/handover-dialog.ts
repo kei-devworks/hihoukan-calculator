@@ -144,7 +144,8 @@ export function openHandoverDialog(options: HandoverDialogOptions, start?: Loade
 
   // ---- 前の人から受け取る ----
   function showReceive(preset?: Loaded) {
-    let mode: HandoverMode | null = null
+    // ふだんは交代（ゼロから）。休憩から戻ったときだけ切り替える
+    let mode: HandoverMode = 'zero'
     let loaded: Loaded | null = preset ?? null
     /** QR・報告文の読み取りの知らせ（読めなかったときなど） */
     let readMessage: { kind: 'none' | 'warn'; text: string } | null = null
@@ -312,7 +313,6 @@ export function openHandoverDialog(options: HandoverDialogOptions, start?: Loade
     }
 
     function commit() {
-      if (!mode) return
       const counts = readCounts()
       // 報告文から足す品目は、数を入れたものだけ（QR の足した品目は、数がなくても渡す）
       const newItems = (loaded?.input.newItems ?? []).filter((c) => loaded?.via === 'code' || (counts[c.id] ?? 0) > 0)
@@ -329,7 +329,7 @@ export function openHandoverDialog(options: HandoverDialogOptions, start?: Loade
       buildList(state)
       const now = options.now()
       const counts = readCounts()
-      const plan = planHandover(config, state, counts, mode ?? 'zero')
+      const plan = planHandover(config, state, counts, mode)
       const name = (id: string) => {
         const item = sectionsOf(config, state).flatMap((s) => s.items).find((i) => i.id === id)
         return item ? displayName(config, state, item) : id
@@ -339,11 +339,8 @@ export function openHandoverDialog(options: HandoverDialogOptions, start?: Loade
       modeNote.textContent =
         mode === 'zero'
           ? 'この端末の数を、前の人の数に置き換えます。交代でこの端末を使い始めるとき。'
-          : mode === 'back'
-            ? 'この端末の数は残して、休憩のあいだに増えた分だけ足します。'
-            : '交代でこの端末を使い始めるときは［ゼロから引き継ぐ］、休憩から戻ったときは［休憩から戻った］。'
-      listLabel.textContent =
-        mode === 'zero' ? '前の人の数（この数に置き換えます）' : mode === 'back' ? '前の人の数（足りない分だけ足します）' : '前の人の数'
+          : 'この端末の数は残して、休憩のあいだに増えた分だけ足します。'
+      listLabel.textContent = mode === 'zero' ? '前の人の数（この数に置き換えます）' : '前の人の数（足りない分だけ足します）'
 
       for (const line of plan.lines) {
         const field = fields.get(line.itemId)
@@ -417,17 +414,14 @@ export function openHandoverDialog(options: HandoverDialogOptions, start?: Loade
       }
       messages.replaceChildren(...out.map((m) => h('p', { class: `handover-msg ${m.kind}`, text: m.text })))
 
-      afterLine.hidden = mode === null || plan.prevPieces === 0
+      afterLine.hidden = plan.prevPieces === 0
       after.textContent = formatPrice(mode === 'back' ? plan.afterTotal : plan.prevTotal)
 
       const needsHold = mode === 'zero' && plan.localPieces > 0 && plan.prevPieces > 0
       replaceButton.hidden = !needsHold
       replaceButton.querySelector('.hold-idle')!.textContent = `置き換えて引き継ぐ（${plan.prevPieces}点 ${formatPrice(plan.prevTotal)}）`
       goButton.hidden = needsHold
-      if (mode === null) {
-        goButton.disabled = true
-        goButton.textContent = 'ゼロから・休憩から戻ったを選んでください'
-      } else if (plan.prevPieces === 0) {
+      if (plan.prevPieces === 0) {
         goButton.disabled = true
         goButton.textContent = '前の人の数を入れてください'
       } else if (mode === 'zero') {

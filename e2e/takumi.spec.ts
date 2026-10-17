@@ -305,9 +305,9 @@ test('最後に押してから3分たつと、今のオーダーは自動で閉�
 test('「品目」で見出しに品目を足すと、数えられて報告文にも入り、リロード後も残る', async ({ page }) => {
   await open(page)
   await page.getByRole('tab', { name: '品目' }).click()
-  await page.getByRole('button', { name: '＋ ◾️ソフトに品目を足す' }).click()
-  await page.getByLabel('◾️ソフトに足す品目の名前').fill('チョコトッピング')
-  await page.getByLabel('◾️ソフトに足す品目の単価').fill('100')
+  await page.getByRole('button', { name: '＋ ソフトに品目を足す' }).click()
+  await page.getByLabel('ソフトに足す品目の名前').fill('チョコトッピング')
+  await page.getByLabel('ソフトに足す品目の単価').fill('100')
   await page.locator('.items-section[data-section="soft"]').getByRole('button', { name: '足す', exact: true }).click()
   await expect(page.getByRole('heading', { name: '品目と単価（1品目 追加）' })).toBeVisible()
 
@@ -397,7 +397,8 @@ test('2台で引き継ぐ: 前の人のリンクを次の人の端末で開き�
   await expect(next).toHaveURL(/\/takumi\/$/)
   await expect(dialog.getByText('前の人の 20:50時点（5分前）の数を読み取りました（6品目）。')).toBeVisible()
   await expect(dialog.getByLabel('ホタテ 前の人の数')).toHaveValue('2')
-  await dialog.getByRole('radio', { name: 'ゼロから引き継ぐ' }).click()
+  // 種類は、はじめからゼロから引き継ぐ
+  await expect(dialog.getByRole('radio', { name: 'ゼロから引き継ぐ' })).toBeChecked()
   await expect(dialog.getByText('前の人の数の合計は、前の人の合計 ￥12,900 と合っています。')).toBeVisible()
   await dialog.getByRole('button', { name: '引き継ぐ（10点 ￥12,900）' }).click()
   await expect(dialog).toBeHidden()
