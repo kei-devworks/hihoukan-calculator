@@ -23,6 +23,8 @@ src/
     catalog.ts     品目・単価・見出しの設定（Catalog）の型と検証。売上を数えるページ共通の土台
     tally.ts       「個数 × 単価」の計算・保存値の読み戻し
     tally-store.ts TallyState を端末に保存・復元する
+    orders.ts      オーダーの記録と増減（＋/−・閉じる・直す・取り消す・元に戻す）
+    hourly.ts      オーダーを1時間ごとにまとめる（記録と推移）
     report.ts      売上報告の定型文
     stock.ts       「在庫の差」の記録・計算・保存値の読み戻し
     stock-store.ts StockState を端末に保存・復元する
@@ -142,6 +144,9 @@ type Order = {
 - 直す（`editOrder`）と、直す前の中身を `edits` に残す。中身を空にして保存すると取り消しになる。
   `revertEdit` で直す前に戻せ、戻したことも `edits` に残る
 - 取り消す（`cancelOrder`）と数に入れないが、オーダーは消さずに残す。`restoreOrder` で元に戻せる
+- 1時間ごとの推移（`hourlyEntries`）は、オーダーを始めた時刻で分け、件数・売上・その時間の終わりまでの累計を出す。
+  まとめて入れた数（引き継ぎ・更新前の記録）は時間の売上に入れず別の行にし、累計には入れる。
+  オーダーのない時間は `empty`。引き継ぎと同じ時間か、そのあとオーダーより先に引き継ぎが来る時間は `covered`（押し忘れとみなさない）
 - 更新は `addItem` / `removeItem` / `setPrice` / `resetCounts` などの純関数で、新しい状態を返す（元の状態は書き換えない）
 - 画面は「状態を変える → `TallyStore.update` で保存 → 描き直す」の順に動く
 
