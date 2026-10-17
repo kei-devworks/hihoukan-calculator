@@ -145,8 +145,8 @@ test('単価を変えると名前と合計に反映し、リロード後も残�
   await page.reload()
   await expect(total(page)).toHaveText('￥2,400-')
   await page.getByRole('tab', { name: '品目' }).click()
-  await expect(page.getByRole('heading', { name: '単価設定（1件 変更あり）' })).toBeVisible()
-  await page.getByRole('button', { name: 'すべて既定に戻す' }).click()
+  await expect(page.getByRole('heading', { name: '品目と単価（単価 1件 変更あり）' })).toBeVisible()
+  await page.getByRole('button', { name: '単価をすべて既定に戻す' }).click()
   await expect(total(page)).toHaveText('￥2,000-')
 })
 
@@ -300,6 +300,26 @@ test('最後に押してから3分たつと、今のオーダーは自動で閉�
   await page.clock.runFor(3 * 60_000 + 1000)
   await expect(page.getByRole('region', { name: '今のオーダー' })).toBeHidden()
   await expect(page.getByRole('button', { name: /^前のオーダー 20:50/ })).toBeVisible()
+})
+
+test('「品目」で見出しに品目を足すと、数えられて報告文にも入り、リロード後も残る', async ({ page }) => {
+  await open(page)
+  await page.getByRole('tab', { name: '品目' }).click()
+  await page.getByRole('button', { name: '＋ ◾️ソフトに品目を足す' }).click()
+  await page.getByLabel('◾️ソフトに足す品目の名前').fill('チョコトッピング')
+  await page.getByLabel('◾️ソフトに足す品目の単価').fill('100')
+  await page.locator('.items-section[data-section="soft"]').getByRole('button', { name: '足す', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '品目と単価（1品目 追加）' })).toBeVisible()
+
+  await page.getByRole('tab', { name: '数える' }).click()
+  await tap(page, 'バニラを1つ増やす')
+  await tap(page, 'チョコトッピングを1つ増やす', 2)
+  await expect(report(page)).toContainText('バニラ×1\nチョコトッピング×2\n小計￥1,000-')
+  await expect(total(page)).toHaveText('￥1,000-')
+
+  await page.reload()
+  await expect(page.locator('[data-section="soft"] .row .nm').last()).toHaveText('チョコトッピング')
+  await expect(total(page)).toHaveText('￥1,000-')
 })
 
 test('ポータルから開けて、一覧に戻れる', async ({ page }) => {

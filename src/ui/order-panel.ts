@@ -1,7 +1,7 @@
-import { allItems, type CatalogItem } from '../core/catalog'
+import type { CatalogItem } from '../core/catalog'
 import { formatPrice } from '../core/format'
 import { openOrder, pieces, previousOrder, type Order } from '../core/orders'
-import { countOf, displayName, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
+import { countOf, displayName, itemsOf, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
 import { formatTime } from '../core/time'
 import { describePayment } from './checkout-sheet'
 import { h } from './dom'
@@ -103,8 +103,8 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
   const summary = (state: TallyState, order: Order) =>
     `${pieces(order.lines)}点 ${formatPrice(linesTotal(config, state, order.lines))}`
 
-  const linesOf = (order: Order): [CatalogItem, number][] =>
-    allItems(config).flatMap((item) => (order.lines[item.id] ? [[item, order.lines[item.id]!] as [CatalogItem, number]] : []))
+  const linesOf = (state: TallyState, order: Order): [CatalogItem, number][] =>
+    itemsOf(config, state).flatMap((item) => (order.lines[item.id] ? [[item, order.lines[item.id]!] as [CatalogItem, number]] : []))
 
   function render(state: TallyState, now: Date, onCount: boolean) {
     last = { state, now, onCount }
@@ -135,7 +135,7 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
       openPieces.textContent = `${pieces(open.lines)}点`
       openTotal.textContent = formatPrice(linesTotal(config, state, open.lines))
       openLines.replaceChildren(
-        ...linesOf(open).map(([item, n]) => {
+        ...linesOf(state, open).map(([item, n]) => {
           const name = displayName(config, state, item)
           const after = countOf(state, item.id)
           const minus = h('button', { type: 'button', class: 'mini-step', 'aria-label': `今のオーダーの${name}を1つ減らす`, text: '−' })
@@ -180,7 +180,7 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
       prevPieces.textContent = `${pieces(previous.lines)}点`
       prevTotal.textContent = formatPrice(linesTotal(config, state, previous.lines))
       prevLines.replaceChildren(
-        ...linesOf(previous).map(([item, n]) =>
+        ...linesOf(state, previous).map(([item, n]) =>
           h('div', { class: 'order-line', 'data-item': item.id }, [
             h('span', { class: 'order-name', text: displayName(config, state, item) }),
             h('span', { class: 'order-change', text: `×${n}` }),

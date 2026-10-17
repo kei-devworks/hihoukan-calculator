@@ -148,7 +148,7 @@ describe('mountTallyApp', () => {
 
     expect(text('[data-item="a"] .nm')).toBe('1,200円')
     expect(text('#total')).toBe('￥1,200-')
-    expect(text('#prices-title')).toBe('単価設定（1件 変更あり）')
+    expect(text('#prices-title')).toBe('品目と単価（単価 1件 変更あり）')
 
     mount(storage)
     expect(text('#total')).toBe('￥1,200-')
@@ -557,6 +557,75 @@ describe('mountTallyApp', () => {
       expect(document.querySelector<HTMLInputElement>('#cash-pocket-1000')!.value).toBe('')
       expect(document.querySelector<HTMLInputElement>('#cash-floatStart-100')!.value).toBe('30')
       expect(document.querySelector<HTMLInputElement>('#cash-floatNow-100')!.value).toBe('')
+    })
+  })
+
+  describe('品目を足す', () => {
+    const fill = (selector: string, value: string) => {
+      const input = document.querySelector<HTMLInputElement>(selector)!
+      input.value = value
+      input.dispatchEvent(new Event('input'))
+    }
+    const names = (sectionId: string) => [...document.querySelectorAll(`[data-section="${sectionId}"] .row .nm`)].map((el) => el.textContent)
+    /** その見出しの［足す］（見出しごとに同じ名前のボタンがあるので、見出しの中を探す） */
+    const addIn = (sectionId: string) =>
+      document.querySelector<HTMLButtonElement>(`.items-section[data-section="${sectionId}"] .add-item-actions .solid`)!.click()
+
+    it('見出しに品目を足すと、カードの最後に ＋/− つきで出て、報告文にも入る。保存もされる', () => {
+      const { storage } = mount()
+      button('品目').click()
+      button('＋ ◾️ソフトに品目を足す').click()
+      fill('#new-name-soft', 'チョコトッピング')
+      fill('#new-price-soft', '100')
+      addIn('soft')
+      expect(text('.notice-bar-text')).toBe('チョコトッピング（￥100）を◾️ソフトに足しました')
+      expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
+      expect(text('#prices-title')).toBe('品目と単価（1品目 追加）')
+
+      button('数える').click()
+      button('チョコトッピングを1つ増やす').click()
+      expect(text('#report')).toContain('チョコトッピング×1\n小計￥100-')
+      expect(text('#total')).toBe('￥100-')
+
+      mount(storage)
+      expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
+      expect(text('#total')).toBe('￥100-')
+    })
+
+    it('名前を空にすると値段で呼ぶ。単価がなければ足さない', () => {
+      mount()
+      button('品目').click()
+      button('＋ ◾️肉に品目を足す').click()
+      addIn('meat')
+      expect(document.querySelector<HTMLElement>('[data-section="meat"] .add-item-error')!.hidden).toBe(false)
+      fill('#new-price-meat', '7000')
+      addIn('meat')
+      expect(names('meat')).toEqual(['1,000円', '2,000円', 'ホタテ', '7,000円'])
+    })
+
+    it('足した品目の名前と単価はその場で直せ、長押しで消せる（知らせから元に戻せる）', () => {
+      mount()
+      button('品目').click()
+      button('＋ ◾️ソフトに品目を足す').click()
+      fill('#new-name-soft', 'チョコ')
+      fill('#new-price-soft', '100')
+      addIn('soft')
+      const id = document.querySelector<HTMLElement>('.custom-row')!.dataset.item!
+      fill(`#custom-name-${id}`, 'チョコトッピング')
+      fill(`#custom-price-${id}`, '150')
+      expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
+      expect(text(`[data-item="${id}"] .pr`)).toBe('¥150')
+
+      button('数える').click()
+      button('チョコトッピングを1つ増やす').click()
+      button('品目').click()
+      holdPress('消す')
+      expect(names('soft')).toEqual(['バニラ', '抹茶'])
+      expect(text('#total')).toBe('￥0-')
+      expect(text('.notice-bar-text')).toBe('チョコトッピングを消しました（今日の 1個 も消しました）')
+      button('元に戻す').click()
+      expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
+      expect(text('#total')).toBe('￥150-')
     })
   })
 })

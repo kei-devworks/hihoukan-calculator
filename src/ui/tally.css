@@ -800,3 +800,114 @@ dialog.checkout[open] {
   color: var(--muted);
   font-size: 14px;
 }
+
+/* 品目と単価（ui/tally-items.ts） */
+.items-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.prices h2 + .items-section {
+  border-top: 0;
+  margin-top: 0;
+}
+
+.items-section h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.custom-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.custom-row-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.custom-row-line button.hold-button {
+  margin-left: auto;
+}
+
+.custom-row input[type='text'],
+.add-item-form input[type='text'] {
+  font: inherit;
+  font-size: 16px;
+  min-width: 0;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.custom-row input[type='number'] {
+  width: 7em;
+  text-align: right;
+}
+
+.custom-row button.hold-button {
+  min-height: 38px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.add-item-toggle {
+  align-self: flex-start;
+  color: var(--accent);
+  border-style: dashed;
+}
+
+.add-item-form {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.add-item-form input[type='number'] {
+  width: 100%;
+  text-align: right;
+}
+
+.add-item-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger-text);
+}
+
+.add-item-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.items-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
