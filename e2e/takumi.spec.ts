@@ -251,6 +251,27 @@ test('記録の画面に、オーダーの数・1時間ごとの推移・オー�
   await expect(total(page)).toHaveText('￥2,000-')
 })
 
+test('会計で、受け取ったお札・硬貨を押すとお釣りが出て、次の ＋ は次のお客さんになる', async ({ page }) => {
+  await open(page)
+  await tap(page, '1,000円を1つ増やす', 2)
+  await tap(page, 'ビールを1つ増やす')
+  await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: '会計' }).click()
+  const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
+  await expect(sheet.locator('.checkout-total')).toHaveText('￥2,500')
+  await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
+  await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
+  await expect(sheet.locator('.checkout-change')).toHaveText('あと￥500')
+  await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
+  await expect(sheet.locator('.checkout-breakdown')).toHaveText('1,000×3')
+  await expect(sheet.locator('.checkout-change')).toHaveText('お釣り￥500')
+
+  await page.reload() // 預かりは保存される
+  const panel = page.getByRole('region', { name: '今のオーダー' })
+  await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000 → お釣り ￥500。次の ＋ で次のお客さんになります')
+  await tap(page, 'ホタテを1つ増やす')
+  await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜1点￥1,000')
+})
+
 test('最後に押してから3分たつと、今のオーダーは自動で閉じる', async ({ page }) => {
   await page.clock.install({ time: evening })
   await page.goto('takumi/')

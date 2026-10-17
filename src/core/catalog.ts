@@ -3,6 +3,7 @@
  * 「個数 × 単価」（tally.ts）と「在庫の差」（stock.ts）の両方がこれを土台にする（docs/architecture.md）
  */
 
+import { validateCash, type CashConfig } from './cash'
 import { isCount } from './guards'
 
 /** 品目。画面の1行 */
@@ -44,6 +45,8 @@ export type Catalog = {
   dayStartHour: number
   prices: PriceDef[]
   sections: CatalogSection[]
+  /** 受け取るお金の額面。書くと、会計（タクミ）とレジ精算の画面を出す */
+  cash?: CashConfig
 }
 
 export function allItems(catalog: Catalog): CatalogItem[] {
@@ -96,6 +99,8 @@ export function validateCatalog(catalog: Catalog): string[] {
 
   const used = new Set(items.map((i) => i.priceId))
   for (const id of priceIds) if (!used.has(id)) errors.push(`単価「${id}」はどの品目にも使われていません`)
+
+  if (catalog.cash) errors.push(...validateCash(catalog.cash))
 
   return errors
 }

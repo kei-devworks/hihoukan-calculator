@@ -212,3 +212,19 @@ export function lineChanges(before: OrderLines, after: OrderLines, itemOrder: re
 export function editSteps(order: Order): { at: string; before: OrderLines; after: OrderLines }[] {
   return order.edits.map((edit, i) => ({ at: edit.at, before: edit.before, after: order.edits[i + 1]?.before ?? order.lines }))
 }
+
+/** 会計: 預かったお札・硬貨（額面）を1枚足す */
+export function addTender(state: TallyState, id: number, denomination: number, now: Date): TallyState {
+  const order = findOrder(state, id)
+  if (!order || !Number.isInteger(denomination) || denomination <= 0) return state
+  const at = now.toISOString()
+  return replaceOrder(state, { ...order, tenders: [...order.tenders, denomination] }, at)
+}
+
+/** 会計: 最後に足した預かりを1枚戻す（all なら全部） */
+export function removeTender(state: TallyState, id: number, now: Date, all = false): TallyState {
+  const order = findOrder(state, id)
+  if (!order || order.tenders.length === 0) return state
+  const at = now.toISOString()
+  return replaceOrder(state, { ...order, tenders: all ? [] : order.tenders.slice(0, -1) }, at)
+}

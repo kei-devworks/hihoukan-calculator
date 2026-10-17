@@ -426,4 +426,74 @@ describe('mountTallyApp', () => {
       expect(text('.log-empty')).toBe('まだ記録がありません。＋ を押すと、ここにオーダーごとに残ります。')
     })
   })
+
+  describe('会計', () => {
+    const sheet = () => document.querySelector<HTMLDialogElement>('dialog.checkout')
+    const inSheet = (name: string) => {
+      const found = [...sheet()!.querySelectorAll('button')].find(
+        (b) => b.getAttribute('aria-label') === name || b.textContent === name,
+      )
+      if (!found) throw new Error(`会計の画面にボタン「${name}」がありません`)
+      return found
+    }
+    const order2500 = () => {
+      mount()
+      button('2,000円を1つ増やす').click()
+      button('バニラを1つ増やす').click() // 2,000 + 800 = 2,800
+      button('会計').click()
+    }
+
+    it('合計を出し、押した額面を預かりに足してお釣りを出す', () => {
+      order2500()
+      expect(text('#checkout-title')).toBe('お会計（20:40 のオーダー）')
+      expect(text('.checkout-total')).toBe('￥2,800')
+      expect(text('.checkout-lines')).toBe('2,000円×1・バニラ×1（2点）')
+      expect(text('.checkout-change')).toBe('受け取ったお札・硬貨のボタンを押してください')
+      inSheet('1,000円を預かりに足す').click()
+      inSheet('1,000円を預かりに足す').click()
+      expect(text('.checkout-change')).toBe('あと￥800')
+      inSheet('1,000円を預かりに足す').click()
+      expect(text('.checkout-tendered')).toBe('￥3,000')
+      expect(text('.checkout-breakdown')).toBe('1,000×3')
+      expect(text('.checkout-change')).toBe('お釣り￥200')
+    })
+
+    it('［1つ戻す］［0に戻す］で押しまちがいを直せる。ちょうどなら「なし」', () => {
+      order2500()
+      inSheet('5,000円を預かりに足す').click()
+      inSheet('1つ戻す').click()
+      expect(text('.checkout-tendered')).toBe('￥0')
+      inSheet('1,000円を預かりに足す').click()
+      inSheet('1,000円を預かりに足す').click()
+      inSheet('500円を預かりに足す').click()
+      inSheet('100円を預かりに足す').click()
+      inSheet('100円を預かりに足す').click()
+      inSheet('100円を預かりに足す').click()
+      expect(text('.checkout-breakdown')).toBe('1,000×2・500×1・100×3')
+      expect(text('.checkout-change')).toBe('お釣りなし（ちょうど）')
+      inSheet('0に戻す').click()
+      expect(text('.checkout-change')).toBe('受け取ったお札・硬貨のボタンを押してください')
+    })
+
+    it('預かりはオーダーに残り、パネルにお釣りを出す。会計のあとの ＋ は次のお客さんになる', () => {
+      order2500()
+      inSheet('5,000円を預かりに足す').click()
+      inSheet('戻る').click()
+      expect(sheet()).toBeNull()
+      expect(text('.order-panel .order-paid')).toBe('預かり ￥5,000 → お釣り ￥2,200。次の ＋ で次のお客さんになります')
+      button('ホタテを1つ増やす').click()
+      expect(text('.order-panel .order-sum')).toBe('今のオーダー 20:40〜1点￥1,000')
+      button('記録').click()
+      expect(text('.log-order[data-order="1"] .log-meta')).toBe('2点預かり ￥5,000 → お釣り ￥2,200')
+    })
+
+    it('［完了］でオーダーを閉じる', () => {
+      order2500()
+      inSheet('5,000円を預かりに足す').click()
+      inSheet('完了').click()
+      expect(sheet()).toBeNull()
+      expect(document.querySelector<HTMLElement>('.order-panel:not(.view)')!.hidden).toBe(true)
+      expect(text('.order-chip')).toBe('前のオーダー 20:40・2点 ￥2,800 ›')
+    })
+  })
 })

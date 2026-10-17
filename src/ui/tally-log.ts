@@ -4,6 +4,7 @@ import { hourlyEntries, type HourEntry } from '../core/hourly'
 import { liveOrders, pieces, type Order } from '../core/orders'
 import { displayName, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
 import { formatTime } from '../core/time'
+import { describePayment } from './checkout-sheet'
 import { h } from './dom'
 
 export type TallyLogActions = {
@@ -43,6 +44,8 @@ export function tallyLog(config: TallyConfig, actions: TallyLogActions): TallyLo
     if (cancelled) meta.push(h('span', { text: `取り消し済み（${formatTime(new Date(order.cancelledAt!))}）` }))
     else {
       meta.push(h('span', { text: `${pieces(order.lines)}点` }))
+      const payment = describePayment(config, state, order)
+      if (payment) meta.push(h('span', { text: payment }))
       if (order.edits.length > 0) meta.push(h('span', { class: 'log-badge', text: `変更 ${order.edits.length}回` }))
     }
     const button = cancelled

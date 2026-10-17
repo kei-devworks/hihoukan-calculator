@@ -3,8 +3,9 @@ import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
+import { addItemForCustomer } from '../core/checkout'
 import {
-  addItem,
+  addTender,
   cancelOrder,
   closeOrder,
   editOrder,
@@ -12,6 +13,7 @@ import {
   openOrder,
   ORDER_IDLE_MS,
   removeItem,
+  removeTender,
   restoreOrder,
   revertEdit,
   type Order,
@@ -32,6 +34,7 @@ import {
 } from '../core/tally'
 import { TallyStore } from '../core/tally-store'
 import { formatMonthDayTime, formatTime, nearestHour } from '../core/time'
+import { openCheckout } from './checkout-sheet'
 import { copyText, selectContents } from './clipboard'
 import { h } from './dom'
 import { holdButton } from './hold-button'
@@ -99,7 +102,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   )
   const addOne = (itemId: string) => {
     orders.touch(itemId)
-    change(addItem(store.current, itemId, now()))
+    // 会計が済んだオーダーのあとに押した分は、次のお客さんのオーダーになる
+    change(addItemForCustomer(config, store.current, itemId, now()))
   }
   const removeOne = (itemId: string) => {
     const item = rows.find((row) => row.item.id === itemId)?.item
@@ -224,6 +228,12 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     complete: (id) => change(closeOrder(store.current, id, now())),
     cancel: cancelOne,
     edit: editOne,
+    checkout: (id) =>
+      openCheckout(config, () => store.current, id, {
+        addTender: (orderId, d) => change(addTender(store.current, orderId, d, now())),
+        removeTender: (orderId, all) => change(removeTender(store.current, orderId, now(), all)),
+        complete: (orderId) => change(closeOrder(store.current, orderId, now())),
+      }),
     showCount: () => tabs.select('count'),
   })
   const dock = h('div', { class: 'dock' }, [notice.element, orders.element])
