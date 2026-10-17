@@ -670,7 +670,7 @@ describe('引き継ぎ', () => {
     expect(document.querySelector('dialog.handover .qr-box svg')!.getAttribute('aria-label')).toBe('引き継ぎの QR コード')
   })
 
-  it('引き継ぎのリンクで開くと、読み込んだ状態で受け取りの画面が出る。種類を選ぶまで引き継げない。リンクのデータは URL から消す', () => {
+  it('引き継ぎのリンクで開くと、読み込んだ状態で受け取りの画面が出る（種類はゼロから引き継ぐ）。リンクのデータは URL から消す', () => {
     location.hash = `hikitsugi=${encodeHandoverCode(senderCode())}`
     mount()
     expect(location.hash).toBe('')
@@ -678,9 +678,9 @@ describe('引き継ぎ', () => {
     expect(messages()[0]).toBe('前の人の 20:35時点（5分前）の数を読み取りました（2品目）。')
     expect(prev('a').value).toBe('3')
     expect(prev('hotate').value).toBe('1')
-    expect(goButton().disabled).toBe(true)
+    expect(button('ゼロから引き継ぐ').getAttribute('aria-checked')).toBe('true')
+    expect(button('休憩から戻った').getAttribute('aria-checked')).toBe('false')
 
-    button('ゼロから引き継ぐ').click()
     expect(messages()).toContain('前の人の数の合計は、前の人の合計 ￥4,000 と合っています。')
     expect(goButton().textContent).toBe('引き継ぐ（4点 ￥4,000）')
     goButton().click()
@@ -728,7 +728,6 @@ describe('引き継ぎ', () => {
     button('抹茶を1つ増やす').click()
     button('引き継ぎ').click()
     choice('前の人から受け取る').click()
-    button('ゼロから引き継ぐ').click()
     button('打ち込む').click()
     fill('#handover-n-b', '2')
     expect(messages()).toContain('この端末に残っている記録（1点 ￥800）は取り消して、前の人の数に置き換えます。取り消した記録は［記録］の画面から元に戻せます。')

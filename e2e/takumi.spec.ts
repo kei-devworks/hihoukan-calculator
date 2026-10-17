@@ -397,7 +397,8 @@ test('2台で引き継ぐ: 前の人のリンクを次の人の端末で開き�
   await expect(next).toHaveURL(/\/takumi\/$/)
   await expect(dialog.getByText('前の人の 20:50時点（5分前）の数を読み取りました（6品目）。')).toBeVisible()
   await expect(dialog.getByLabel('ホタテ 前の人の数')).toHaveValue('2')
-  await dialog.getByRole('radio', { name: 'ゼロから引き継ぐ' }).click()
+  // 種類は、はじめからゼロから引き継ぐ
+  await expect(dialog.getByRole('radio', { name: 'ゼロから引き継ぐ' })).toBeChecked()
   await expect(dialog.getByText('前の人の数の合計は、前の人の合計 ￥12,900 と合っています。')).toBeVisible()
   await dialog.getByRole('button', { name: '引き継ぐ（10点 ￥12,900）' }).click()
   await expect(dialog).toBeHidden()
