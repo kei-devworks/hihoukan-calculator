@@ -35,6 +35,7 @@ node scripts/make-icons.mjs                       # favicon.svg から PNG の�
   | デプロイ・ホスティングの変更、Pages の制約に関わる変更 | `docs/deployment.md` |
   | テストの方針・道具の変更 | `docs/testing.md` |
   | コマンド・セットアップの変更 | `README.md`、この CLAUDE.md |
+  | 保守の手順・公開先の URL・Pages の設定・CI の変更（管理者の交代に効くもの） | `docs/maintenance.md` |
 
 - 公開したあと、ページ・品目・単価の id は変えない（保存済みの数が読めなくなる）。名前は変えてよい
 - `localStorage` のキーは `hihoukan-calc:` で始める。`kei-devworks.github.io` の下のサイトは保存場所を共有するため（docs/deployment.md）。`localStorage.clear()` は使わない

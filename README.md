@@ -40,3 +40,4 @@ node scripts/make-icons.mjs  # public/favicon.svg を直したら、PNG のア�
 - [docs/architecture.md](docs/architecture.md) — 構成、集計の設定（`TallyConfig`）、保存の形と決まりごと
 - [docs/deployment.md](docs/deployment.md) — デプロイのしくみ、GitHub Pages で使えるかの精査と注意点
 - [docs/testing.md](docs/testing.md) — テストの方針と流し方
+- [docs/maintenance.md](docs/maintenance.md) — 日々の保守と、管理者の交代・リポジトリの譲渡の手順

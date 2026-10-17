@@ -2,6 +2,8 @@
 
 公開先: https://kei-devworks.github.io/hihoukan-calculator/
 
+リポジトリの持ち主が変わると、公開先の URL も端末の保存場所も変わる（Pages は転送されない）。管理者を代えるときは [maintenance.md](maintenance.md#管理者を代えるとき)。
+
 ## しくみ
 
 - `main` に push（PR をマージ）すると [deploy.yml](../.github/workflows/deploy.yml) が動き、
