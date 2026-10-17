@@ -23,6 +23,7 @@ import { copyText, selectContents } from './clipboard'
 import { h } from './dom'
 import { holdButton } from './hold-button'
 import { noticeBar } from './notice-bar'
+import { viewTabs } from './view-tabs'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
 export type MountOptions = {
@@ -131,7 +132,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       input.value = String(priceOf(config, store.current, def.id))
     })
   }
-  const pricesSummary = h('summary')
+  const pricesTitle = h('h2', { id: 'prices-title' })
   const resetPricesButton = h('button', { type: 'button', class: 'ghost', text: 'すべて既定に戻す' })
   resetPricesButton.addEventListener('click', () => change(resetPrices(store.current)))
 
@@ -169,17 +170,20 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   const dockObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(syncDockSpace) : null
   dockObserver?.observe(dock)
 
-  root.replaceChildren(
-    pageHeader(config.title, [
-      h('div', { class: 'timebar' }, [h('label', { for: timeInput.id, text: '報告時刻' }), timeInput, nowButton]),
-      status.saveStatus,
-    ]),
-    status.storageWarning,
-    status.carriedNotice,
+  // ---- 画面の切り替え ----
+  // 「数える」はいつも使う画面（今と同じ並び）。ほかは見出しの下のボタンで切り替え、縦に長くしない
+  const countPanel = h('div', { class: 'view-panel' }, [
     ...sectionCards,
     h('div', { class: 'total' }, [h('span', { text: '合計' }), total]),
-    h('details', { class: 'prices' }, [
-      pricesSummary,
+    h('section', { class: 'card' }, [
+      h('div', { class: 'rhead' }, [h('h2', { text: '報告文' }), copyButton]),
+      report,
+      h('div', { class: 'foot' }, [resetButton]),
+    ]),
+  ])
+  const itemsPanel = h('div', { class: 'view-panel' }, [
+    h('section', { class: 'card prices' }, [
+      pricesTitle,
       h(
         'div',
         { class: 'pgrid' },
@@ -187,11 +191,25 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       ),
       h('div', { class: 'foot' }, [resetPricesButton]),
     ]),
-    h('section', { class: 'card' }, [
-      h('div', { class: 'rhead' }, [h('h2', { text: '報告文' }), copyButton]),
-      report,
-      h('div', { class: 'foot' }, [resetButton]),
+  ])
+  const tabs = viewTabs(
+    [
+      { id: 'count', label: '数える', panel: countPanel },
+      { id: 'items', label: '品目', panel: itemsPanel },
+    ],
+    { label: '画面の切り替え', onChange: () => window.scrollTo({ top: 0 }) },
+  )
+
+  root.replaceChildren(
+    pageHeader(config.title, [
+      h('div', { class: 'timebar' }, [h('label', { for: timeInput.id, text: '報告時刻' }), timeInput, nowButton]),
+      status.saveStatus,
     ]),
+    status.storageWarning,
+    status.carriedNotice,
+    tabs.element,
+    countPanel,
+    itemsPanel,
     dock,
   )
 
@@ -244,7 +262,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       hint.textContent = changed ? `（既定 ¥${formatNumber(def.default)}）` : ''
       input.classList.toggle('changed', changed)
     }
-    pricesSummary.textContent = changedPrices > 0 ? `単価設定（${changedPrices}件 変更あり）` : '単価設定'
+    pricesTitle.textContent = changedPrices > 0 ? `単価設定（${changedPrices}件 変更あり）` : '単価設定'
     resetPricesButton.disabled = changedPrices === 0
 
     status.update({

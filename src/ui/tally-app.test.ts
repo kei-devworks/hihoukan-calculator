@@ -148,7 +148,7 @@ describe('mountTallyApp', () => {
 
     expect(text('[data-item="a"] .nm')).toBe('1,200円')
     expect(text('#total')).toBe('￥1,200-')
-    expect(text('details.prices summary')).toBe('単価設定（1件 変更あり）')
+    expect(text('#prices-title')).toBe('単価設定（1件 変更あり）')
 
     mount(storage)
     expect(text('#total')).toBe('￥1,200-')

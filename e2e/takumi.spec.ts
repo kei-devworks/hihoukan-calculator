@@ -136,7 +136,7 @@ test('単価を変えると名前と合計に反映し、リロード後も残�
   await open(page)
   await tap(page, '1,000円を1つ増やす', 2)
 
-  await page.getByText('単価設定').click()
+  await page.getByRole('tab', { name: '品目' }).click()
   await page.getByLabel('串①').fill('1200')
   await expect(page.locator('[data-item="skewer1"] .nm')).toHaveText('1,200円')
   await expect(total(page)).toHaveText('￥2,400-')
@@ -144,7 +144,8 @@ test('単価を変えると名前と合計に反映し、リロード後も残�
 
   await page.reload()
   await expect(total(page)).toHaveText('￥2,400-')
-  await page.getByText('単価設定（1件 変更あり）').click()
+  await page.getByRole('tab', { name: '品目' }).click()
+  await expect(page.getByRole('heading', { name: '単価設定（1件 変更あり）' })).toBeVisible()
   await page.getByRole('button', { name: 'すべて既定に戻す' }).click()
   await expect(total(page)).toHaveText('￥2,000-')
 })
@@ -183,9 +184,24 @@ test('ポータルから開けて、一覧に戻れる', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('秘宝館 計算機')
 })
 
+test('見出しの下のボタンで「数える」と「品目」を切り替える。開いたときは「数える」', async ({ page }) => {
+  await open(page)
+  const countTab = page.getByRole('tab', { name: '数える' })
+  await expect(countTab).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('button', { name: 'ホタテを1つ増やす' })).toBeVisible()
+  await expect(page.getByLabel('串①')).toBeHidden()
+
+  await page.getByRole('tab', { name: '品目' }).click()
+  await expect(page.getByLabel('串①')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'ホタテを1つ増やす' })).toBeHidden()
+
+  await page.reload()
+  await expect(countTab).toHaveAttribute('aria-selected', 'true')
+})
+
 test('スマホの幅で横にはみ出さない', async ({ page }) => {
   await open(page)
-  await page.getByText('単価設定').click()
+  await page.getByRole('tab', { name: '品目' }).click()
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(0)
 })
