@@ -48,7 +48,7 @@ export function openCheckout(
   const lines = h('p', { class: 'checkout-lines' })
   const tendered = h('b', { class: 'checkout-tendered' })
   const breakdown = h('small', { class: 'checkout-breakdown' })
-  const change = h('div', { class: 'checkout-change', 'aria-live': 'polite' })
+  const change = h('p', { class: 'checkout-line checkout-change', 'aria-live': 'polite' })
   const undoOne = h('button', { type: 'button', class: 'ghost', text: '1つ戻す' })
   const undoAll = h('button', { type: 'button', class: 'ghost', text: '0に戻す' })
   const coins = new Set(cash.coins)
@@ -57,7 +57,8 @@ export function openCheckout(
       type: 'button',
       class: coins.has(d) ? 'tender coin' : 'tender',
       'aria-label': `${formatNumber(d)}円を預かりに足す`,
-      text: formatNumber(d),
+      // 押すたびに預かりに足すことがわかるよう、＋を付ける
+      text: `＋${formatNumber(d)}`,
     })
     button.addEventListener('click', () => {
       actions.addTender(orderId, d)
@@ -76,19 +77,18 @@ export function openCheckout(
   const backButton = h('button', { type: 'button', class: 'ghost', text: '戻る' })
   const completeButton = h('button', { type: 'button', class: 'solid', text: '完了' })
 
+  // お会計・お預かり・お釣りを、レシートのように同じ大きさで並べる（預かった合計も見やすく）
   const dialog = h('dialog', { class: 'checkout', 'aria-labelledby': 'checkout-title' }, [
-    h('div', { class: 'checkout-head' }, [
-      h('h2', { id: 'checkout-title', text: `お会計（${formatTime(new Date(first.openedAt))} のオーダー）` }),
-      total,
-    ]),
+    h('h2', { id: 'checkout-title', text: `お会計（${formatTime(new Date(first.openedAt))} のオーダー）` }),
     lines,
-    h('p', { class: 'checkout-label', text: 'お預かり（受け取った枚数だけ押す）' }),
-    h('div', { class: 'tenders' }, tenderButtons),
-    h('div', { class: 'checkout-row' }, [
-      h('span', {}, ['お預かり ', tendered, breakdown]),
-      h('span', { class: 'checkout-fix' }, [undoOne, undoAll]),
+    h('div', { class: 'checkout-receipt' }, [
+      h('p', { class: 'checkout-line' }, [h('span', { text: 'お会計' }), total]),
+      h('p', { class: 'checkout-line tendered-line' }, [h('span', {}, ['お預かり', breakdown]), tendered]),
+      change,
     ]),
-    change,
+    h('p', { class: 'checkout-label', text: '受け取ったお札・硬貨を、受け取った枚数だけ押す' }),
+    h('div', { class: 'tenders' }, tenderButtons),
+    h('div', { class: 'checkout-fix' }, [undoOne, undoAll]),
     h('div', { class: 'editor-foot' }, [backButton, completeButton]),
   ])
 
@@ -119,7 +119,7 @@ export function openCheckout(
     undoAll.disabled = paid === 0
 
     const due = changeDue(sum, paid)
-    change.className = `checkout-change ${due.kind}`
+    change.className = `checkout-line checkout-change ${due.kind}`
     if (due.kind === 'none') change.replaceChildren(h('span', { text: '受け取ったお札・硬貨のボタンを押してください' }))
     else if (due.kind === 'short') change.replaceChildren(h('span', { text: 'あと' }), h('b', { text: formatPrice(due.amount) }))
     else change.replaceChildren(h('span', { text: 'お釣り' }), h('b', { text: due.amount === 0 ? 'なし（ちょうど）' : formatPrice(due.amount) }))

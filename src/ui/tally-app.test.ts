@@ -449,6 +449,8 @@ describe('mountTallyApp', () => {
       expect(text('.checkout-total')).toBe('￥2,800')
       expect(text('.checkout-lines')).toBe('2,000円×1・バニラ×1（2点）')
       expect(text('.checkout-change')).toBe('受け取ったお札・硬貨のボタンを押してください')
+      // 押すたびに足すことがわかるよう、ボタンには ＋ を付ける
+      expect([...sheet()!.querySelectorAll('.tender')].map((b) => b.textContent)).toEqual(['＋10,000', '＋5,000', '＋1,000', '＋500', '＋100'])
       inSheet('1,000円を預かりに足す').click()
       inSheet('1,000円を預かりに足す').click()
       expect(text('.checkout-change')).toBe('あと￥800')

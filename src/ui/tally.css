@@ -695,21 +695,8 @@ dialog.checkout[open] {
   gap: 10px;
 }
 
-.checkout-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.checkout-head h2 {
+dialog.checkout h2 {
   font-size: 15px;
-}
-
-.checkout-total {
-  font-size: 30px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 .checkout-lines,
@@ -719,17 +706,64 @@ dialog.checkout[open] {
   color: var(--muted);
 }
 
+/* お会計・お預かり・お釣り。同じ大きさの数字で並べ、お釣りだけ色を付ける */
+.checkout-receipt {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 6px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-line {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.checkout-line + .checkout-line {
+  border-top: 1px solid var(--line);
+}
+
+.checkout-line b {
+  font-size: 28px;
+  white-space: nowrap;
+}
+
+.checkout-breakdown {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.checkout-change b {
+  color: var(--accent);
+}
+
+.checkout-change.short b {
+  color: var(--danger-text);
+}
+
+.checkout-change.none {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* お札の段と硬貨の段に分かれるよう、1段に3つまで並べる */
 .tenders {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
 }
 
 .tender {
   font: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
-  min-height: 52px;
+  min-height: 54px;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--bg);
@@ -746,59 +780,16 @@ dialog.checkout[open] {
   border-radius: 999px;
 }
 
-.checkout-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-
-.checkout-tendered {
-  font-size: 18px;
-}
-
-.checkout-breakdown {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-}
-
 .checkout-fix {
   display: flex;
+  justify-content: flex-end;
   gap: 6px;
 }
 
 .checkout-fix button.ghost {
   min-height: 38px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   font-size: 13px;
-}
-
-.checkout-change {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-}
-
-.checkout-change b {
-  font-size: 32px;
-  color: var(--accent);
-}
-
-.checkout-change.short b {
-  color: var(--danger-text);
-  font-size: 22px;
-}
-
-.checkout-change.none {
-  color: var(--muted);
-  font-size: 14px;
 }
 
 /* 品目と単価（ui/tally-items.ts） */
