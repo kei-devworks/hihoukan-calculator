@@ -272,7 +272,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   dockObserver?.observe(dock)
 
   // ---- 画面の切り替え ----
-  // 「数える」はいつも使う画面（今と同じ並び）。ほかは見出しの下のボタンで切り替え、縦に長くしない
+  // 「注文」はいつも使う画面（今と同じ並び）。ほかは見出しの下のボタンで切り替え、縦に長くしない
   const countPanel = h('div', { class: 'view-panel' }, [
     cardsBox,
     h('div', { class: 'total' }, [h('span', { text: '合計' }), total]),
@@ -310,7 +310,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   const itemsPanel = h('div', { class: 'view-panel' }, [itemsView.element])
   const tabs = viewTabs(
     [
-      { id: 'count', label: '数える', panel: countPanel },
+      { id: 'count', label: '注文', panel: countPanel },
       { id: 'log', label: '記録', panel: logPanel },
       ...(cash ? [{ id: 'cash', label: 'レジ精算', panel: cashPanelView }] : []),
       { id: 'items', label: '品目', panel: itemsPanel },

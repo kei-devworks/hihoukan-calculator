@@ -16,13 +16,13 @@ export type OrderPanelActions = {
   edit: (orderId: number) => void
   /** 会計の画面を開く（設定に cash がないページでは使わない） */
   checkout: (orderId: number) => void
-  /** ほかの画面から「数える」へ戻る */
+  /** ほかの画面から「注文」へ戻る */
   showCount: () => void
 }
 
 export type OrderPanel = {
   element: HTMLElement
-  /** onCount: いま「数える」の画面か */
+  /** onCount: いま「注文」の画面か */
   render: (state: TallyState, now: Date, onCount: boolean) => void
   /** 次に描くとき、この品目の行が見えるようにパネルの中をスクロールし、少し光らせる（＋/− を押した品目） */
   touch: (itemId: string) => void
@@ -32,7 +32,7 @@ export type OrderPanel = {
  * 画面の下に出す「今のオーダー」と「前のオーダー」。
  * - 今のオーダー: 品目ごとに「1,000円 3個 ＋2 → 5個 ［−］［＋］」、［完了］、［このオーダーを取り消す］（長押し）
  * - 閉じたあと: 「前のオーダー 21:05・3点 ￥2,500 ›」。押すと中身を出し直す
- * - ほかの画面にいるあいだにオーダーが開いていれば「今のオーダー … ›」とだけ出し、押すと「数える」に戻る
+ * - ほかの画面にいるあいだにオーダーが開いていれば「今のオーダー … ›」とだけ出し、押すと「注文」に戻る
  */
 export function orderPanel(config: TallyConfig, actions: OrderPanelActions): OrderPanel {
   /** 中身を出している前のオーダーの id（null なら小さく出すだけ） */

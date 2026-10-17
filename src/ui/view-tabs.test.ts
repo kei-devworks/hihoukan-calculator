@@ -4,11 +4,11 @@ import { h } from './dom'
 import { viewTabs } from './view-tabs'
 
 function setup() {
-  const panels = { count: h('div', { text: '数える' }), log: h('div', { text: '記録' }), items: h('div', { text: '品目' }) }
+  const panels = { count: h('div', { text: '注文' }), log: h('div', { text: '記録' }), items: h('div', { text: '品目' }) }
   const onChange = vi.fn()
   const tabs = viewTabs(
     [
-      { id: 'count', label: '数える', panel: panels.count },
+      { id: 'count', label: '注文', panel: panels.count },
       { id: 'log', label: '記録', panel: panels.log },
       { id: 'items', label: '品目', panel: panels.items },
     ],
