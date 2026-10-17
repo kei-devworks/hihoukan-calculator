@@ -280,7 +280,7 @@ describe('mountTallyApp', () => {
       }
     })
 
-    it('ほかの画面にいるあいだは小さく出し、押すと「数える」に戻る', () => {
+    it('ほかの画面にいるあいだは小さく出し、押すと「注文」に戻る', () => {
       mount()
       button('ホタテを1つ増やす').click()
       button('品目').click()
@@ -584,7 +584,7 @@ describe('mountTallyApp', () => {
       expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
       expect(text('#prices-title')).toBe('品目と単価（1品目 追加）')
 
-      button('数える').click()
+      button('注文').click()
       button('チョコトッピングを1つ増やす').click()
       expect(text('#report')).toContain('チョコトッピング×1\n小計￥100-')
       expect(text('#total')).toBe('￥100-')
@@ -618,7 +618,7 @@ describe('mountTallyApp', () => {
       expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
       expect(text(`[data-item="${id}"] .pr`)).toBe('¥150')
 
-      button('数える').click()
+      button('注文').click()
       button('チョコトッピングを1つ増やす').click()
       button('品目').click()
       holdPress('消す')

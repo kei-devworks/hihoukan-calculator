@@ -311,7 +311,7 @@ test('「品目」で見出しに品目を足すと、数えられて報告文�
   await page.locator('.items-section[data-section="soft"]').getByRole('button', { name: '足す', exact: true }).click()
   await expect(page.getByRole('heading', { name: '品目と単価（1品目 追加）' })).toBeVisible()
 
-  await page.getByRole('tab', { name: '数える' }).click()
+  await page.getByRole('tab', { name: '注文' }).click()
   await tap(page, 'バニラを1つ増やす')
   await tap(page, 'チョコトッピングを1つ増やす', 2)
   await expect(report(page)).toContainText('バニラ×1\nチョコトッピング×2\n小計￥1,000-')
@@ -330,16 +330,23 @@ test('ポータルから開けて、一覧に戻れる', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('秘宝館 計算機')
 })
 
-test('見出しの下のボタンで「数える」と「品目」を切り替える。開いたときは「数える」', async ({ page }) => {
+test('見出しの下のボタンで「注文」と「品目」を切り替える。開いたときは「注文」', async ({ page }) => {
   await open(page)
-  const countTab = page.getByRole('tab', { name: '数える' })
+  const countTab = page.getByRole('tab', { name: '注文' })
   await expect(countTab).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('button', { name: 'ホタテを1つ増やす' })).toBeVisible()
   await expect(page.getByLabel('串①')).toBeHidden()
 
+  // 選んだボタンは見た目が変わる（CSS が当たっていないと、どのボタンも同じ灰色のままになる）
+  const background = (name: string) => page.getByRole('tab', { name }).evaluate((e) => getComputedStyle(e).backgroundColor)
+  const selectedLook = await background('注文')
+  expect(await background('品目')).not.toBe(selectedLook)
+
   await page.getByRole('tab', { name: '品目' }).click()
   await expect(page.getByLabel('串①')).toBeVisible()
   await expect(page.getByRole('button', { name: 'ホタテを1つ増やす' })).toBeHidden()
+  expect(await background('品目')).toBe(selectedLook)
+  expect(await background('注文')).not.toBe(selectedLook)
 
   await page.reload()
   await expect(countTab).toHaveAttribute('aria-selected', 'true')
@@ -348,7 +355,7 @@ test('見出しの下のボタンで「数える」と「品目」を切り替�
 test('スマホの幅で横にはみ出さない', async ({ page }) => {
   await open(page)
   await countSample(page)
-  for (const tab of ['数える', '記録', 'レジ精算', '品目']) {
+  for (const tab of ['注文', '記録', 'レジ精算', '品目']) {
     await page.getByRole('tab', { name: tab }).click()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect(overflow, tab).toBeLessThanOrEqual(0)
