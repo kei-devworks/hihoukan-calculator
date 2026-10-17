@@ -337,9 +337,16 @@ test('見出しの下のボタンで「数える」と「品目」を切り替�
   await expect(page.getByRole('button', { name: 'ホタテを1つ増やす' })).toBeVisible()
   await expect(page.getByLabel('串①')).toBeHidden()
 
+  // 選んだボタンは見た目が変わる（CSS が当たっていないと、どのボタンも同じ灰色のままになる）
+  const background = (name: string) => page.getByRole('tab', { name }).evaluate((e) => getComputedStyle(e).backgroundColor)
+  const selectedLook = await background('数える')
+  expect(await background('品目')).not.toBe(selectedLook)
+
   await page.getByRole('tab', { name: '品目' }).click()
   await expect(page.getByLabel('串①')).toBeVisible()
   await expect(page.getByRole('button', { name: 'ホタテを1つ増やす' })).toBeHidden()
+  expect(await background('品目')).toBe(selectedLook)
+  expect(await background('数える')).not.toBe(selectedLook)
 
   await page.reload()
   await expect(countTab).toHaveAttribute('aria-selected', 'true')

@@ -124,8 +124,14 @@ test('弓道と手裏剣をタブで切り替え、それぞれレジ精算を�
   await fillDay(page) // 弓道 ￥21,000、手裏剣 ￥1,500
   await expect(page.getByRole('tab', { name: '弓道 ￥21,000' })).toBeVisible()
   await expect(page.getByRole('tab', { name: '手裏剣 ￥1,500' })).toBeVisible()
+  // 選んだタブは見た目が変わる（CSS が当たっていないと、どのタブも同じ灰色のままになる）。fillDay は手裏剣のタブで終わる
+  const background = (name: RegExp) => page.getByRole('tab', { name }).evaluate((e) => getComputedStyle(e).backgroundColor)
+  const selectedLook = await background(/^手裏剣/)
+  expect(await background(/^弓道/)).not.toBe(selectedLook)
 
   await fill(page, '弓道 売上のポケット 1万円札の枚数', '2')
+  expect(await background(/^弓道/)).toBe(selectedLook)
+  expect(await background(/^手裏剣/)).not.toBe(selectedLook)
   await fill(page, '弓道 売上のポケット 千円札の枚数', '1')
   await expect(page.locator('#panel-kyudo .cash-verdict[aria-live]')).toHaveText('ぴったり合っています。')
   await page.getByRole('button', { name: '弓道の精算を終える' }).click()

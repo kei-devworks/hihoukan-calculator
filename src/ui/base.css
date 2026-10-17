@@ -578,6 +578,7 @@ button.hold-button.holding::after {
   margin: 0;
   padding-left: 1.2em;
   font-size: 14px;
+}
 
 /* レジ精算（ui/cash-panel.ts）。タクミとネコ・グリコで使う。囲みの枠は使わず、見出しで区切る */
 .cash-h {
