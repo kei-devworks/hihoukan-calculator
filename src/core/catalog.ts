@@ -83,6 +83,7 @@ export function validateCatalog(catalog: Catalog): string[] {
   for (const id of dupes(priceIds)) errors.push(`単価の id「${id}」が重複しています`)
   for (const p of catalog.prices) {
     if (!idPattern.test(p.id)) errors.push(`単価の id「${p.id}」に使えない文字があります`)
+    if (p.id.startsWith('x-')) errors.push(`単価の id「${p.id}」は x- で始めないでください（画面で足した品目に使う）`)
     if (!isCount(p.default)) errors.push(`単価「${p.id}」の既定値は 0 以上の整数にしてください`)
   }
 
@@ -92,6 +93,7 @@ export function validateCatalog(catalog: Catalog): string[] {
   for (const id of dupes(items.map((i) => i.id))) errors.push(`品目の id「${id}」が重複しています`)
   for (const item of items) {
     if (!idPattern.test(item.id)) errors.push(`品目の id「${item.id}」に使えない文字があります`)
+    if (item.id.startsWith('x-')) errors.push(`品目の id「${item.id}」は x- で始めないでください（画面で足した品目に使う）`)
     if (!priceIds.includes(item.priceId)) {
       errors.push(`品目「${item.id}」の単価「${item.priceId}」が prices にありません`)
     }

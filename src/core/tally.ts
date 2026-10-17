@@ -27,9 +27,25 @@ export type Counts = Record<string, number>
 /** 単価 id → 円 */
 export type Prices = Record<string, number>
 
+/** 画面から足した品目（その端末だけ）。id は 'x-' で始める（設定の品目と重ならないように） */
+export type CustomItem = {
+  id: string
+  /** どの見出しに足したか（設定の見出しの id） */
+  sectionId: string
+  /** 名前。null なら値段で呼ぶ（「7,000円」、報告文は「7,000×2」） */
+  name: string | null
+  /** 単価（円） */
+  price: number
+}
+
+/** 足した品目の名前の長さの上限 */
+export const CUSTOM_NAME_MAX = 20
+
 export type TallyState = {
   /** オーダーの記録（古い順）。個数はここから数える（core/orders.ts） */
   orders: Order[]
+  /** 画面から足した品目（足した順） */
+  customItems: CustomItem[]
   /** 既定から変えた単価だけを持つ（既定のままのものは持たない） */
   priceOverrides: Prices
   /** レジ精算で数えた枚数（設定に cash があるページだけ使う） */
@@ -39,7 +55,7 @@ export type TallyState = {
 }
 
 export function initialState(): TallyState {
-  return { orders: [], priceOverrides: {}, cash: emptyCashCount(), updatedAt: null }
+  return { orders: [], customItems: [], priceOverrides: {}, cash: emptyCashCount(), updatedAt: null }
 }
 
 /** 品目 id → 個数（取り消したオーダーを除く、すべてのオーダーの合計） */
@@ -55,7 +71,35 @@ export function countOf(state: TallyState, itemId: string): number {
   return countsOf(state)[itemId] ?? 0
 }
 
+/**
+ * 設定の見出しに、画面から足した品目を最後に加えたもの。画面・合計・報告文はすべてこれを使う。
+ * 足した品目は、自分の id を単価の id にする（priceOf が足した品目の単価を返す）
+ */
+export function sectionsOf(config: TallyConfig, state: TallyState): TallySection[] {
+  if (state.customItems.length === 0) return config.sections
+  return config.sections.map((section) => ({
+    ...section,
+    items: [
+      ...section.items,
+      ...state.customItems
+        .filter((c) => c.sectionId === section.id)
+        .map((c): TallyItem => (c.name === null ? { id: c.id, priceId: c.id } : { id: c.id, name: c.name, priceId: c.id })),
+    ],
+  }))
+}
+
+/** 設定の品目と足した品目（見出しの順） */
+export function itemsOf(config: TallyConfig, state: TallyState): TallyItem[] {
+  return sectionsOf(config, state).flatMap((s) => s.items)
+}
+
+export function customItemOf(state: TallyState, id: string): CustomItem | null {
+  return state.customItems.find((c) => c.id === id) ?? null
+}
+
 export function priceOf(config: TallyConfig, state: TallyState, priceId: string): number {
+  const custom = customItemOf(state, priceId)
+  if (custom) return custom.price
   return state.priceOverrides[priceId] ?? defaultPrice(config, priceId)
 }
 
@@ -77,13 +121,13 @@ export function sectionTotal(config: TallyConfig, state: TallyState, section: Ta
 }
 
 export function grandTotal(config: TallyConfig, state: TallyState): number {
-  return config.sections.reduce((sum, section) => sum + sectionTotal(config, state, section), 0)
+  return sectionsOf(config, state).reduce((sum, section) => sum + sectionTotal(config, state, section), 0)
 }
 
 /** オーダー（の中身）の金額。いまの単価で計算する */
 export function linesTotal(config: TallyConfig, state: TallyState, lines: OrderLines): number {
   let sum = 0
-  for (const item of allItems(config)) sum += (lines[item.id] ?? 0) * priceOf(config, state, item.priceId)
+  for (const item of itemsOf(config, state)) sum += (lines[item.id] ?? 0) * priceOf(config, state, item.priceId)
   return sum
 }
 
@@ -135,7 +179,18 @@ export function resetPrices(state: TallyState): TallyState {
 export function parseState(config: TallyConfig, raw: unknown): TallyState {
   const state = initialState()
   if (!isRecord(raw)) return state
-  const itemIds = new Set(allItems(config).map((i) => i.id))
+  // 足した品目を先に読む（オーダーの中身にその品目が入っているため）。見出しが設定から消えた品目は捨てる
+  if (Array.isArray(raw.customItems)) {
+    const sectionIds = new Set(config.sections.map((s) => s.id))
+    const configIds = new Set(allItems(config).map((i) => i.id))
+    for (const value of raw.customItems) {
+      const item = parseCustomItem(value)
+      if (item && sectionIds.has(item.sectionId) && !configIds.has(item.id) && !state.customItems.some((c) => c.id === item.id)) {
+        state.customItems.push(item)
+      }
+    }
+  }
+  const itemIds = new Set(itemsOf(config, state).map((i) => i.id))
 
   if (Array.isArray(raw.orders)) {
     for (const value of raw.orders) {
@@ -189,6 +244,63 @@ function parseLines(raw: unknown, itemIds: Set<string>): OrderLines {
 }
 
 const isDateOrNull = (v: unknown): v is string | null => v === null || isDateString(v)
+
+const CUSTOM_ID = /^x-[a-z0-9-]+$/
+
+function parseCustomItem(raw: unknown): CustomItem | null {
+  if (!isRecord(raw)) return null
+  const { id, sectionId, name, price } = raw
+  if (typeof id !== 'string' || !CUSTOM_ID.test(id) || typeof sectionId !== 'string') return null
+  if (!isCount(price) || price === 0) return null
+  const cleanName = typeof name === 'string' && name.trim() !== '' ? name.trim().slice(0, CUSTOM_NAME_MAX) : null
+  return { id, sectionId, name: cleanName, price }
+}
+
+/** 足した品目の名前を整える（前後の空白を除き、長すぎれば切る。空なら null = 値段で呼ぶ） */
+export function normalizeCustomName(name: string): string | null {
+  const t = name.trim().slice(0, CUSTOM_NAME_MAX)
+  return t === '' ? null : t
+}
+
+/** ＋ 品目を足す。単価は 1 円以上の整数。id は時刻から作り、重なれば番号を足す */
+export function addCustomItem(state: TallyState, sectionId: string, name: string, price: number, now: Date): TallyState {
+  if (!Number.isInteger(price) || price <= 0) throw new Error(`単価は 1 以上の整数にしてください: ${price}`)
+  const base = `x-${now.getTime().toString(36)}`
+  let id = base
+  for (let n = 2; state.customItems.some((c) => c.id === id); n++) id = `${base}-${n}`
+  const item: CustomItem = { id, sectionId, name: normalizeCustomName(name), price }
+  return { ...state, customItems: [...state.customItems, item], updatedAt: now.toISOString() }
+}
+
+/** 足した品目の名前・単価を直す */
+export function updateCustomItem(
+  state: TallyState,
+  id: string,
+  change: { name?: string; price?: number },
+  now: Date,
+): TallyState {
+  const item = customItemOf(state, id)
+  if (!item) return state
+  const price = change.price !== undefined && Number.isInteger(change.price) && change.price > 0 ? change.price : item.price
+  const name = change.name !== undefined ? normalizeCustomName(change.name) : item.name
+  if (price === item.price && name === item.name) return state
+  return {
+    ...state,
+    customItems: state.customItems.map((c) => (c.id === id ? { ...c, name, price } : c)),
+    updatedAt: now.toISOString(),
+  }
+}
+
+/** 足した品目を消す。今日の記録からもその品目を除き、中身がなくなったオーダーは記録から消す */
+export function removeCustomItem(state: TallyState, id: string, now: Date): TallyState {
+  if (!customItemOf(state, id)) return state
+  const orders = state.orders.flatMap((o) => {
+    if (!(id in o.lines)) return [o]
+    const lines = Object.fromEntries(Object.entries(o.lines).filter(([itemId]) => itemId !== id))
+    return pieces(lines) === 0 ? [] : [{ ...o, lines }]
+  })
+  return { ...state, customItems: state.customItems.filter((c) => c.id !== id), orders, updatedAt: now.toISOString() }
+}
 
 function parseOrder(raw: unknown, itemIds: Set<string>): Order | null {
   if (!isRecord(raw)) return null

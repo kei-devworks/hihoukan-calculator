@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sampleConfig as config, stateWithCounts } from './fixtures'
 import { addItem, removeItem } from './orders'
 import {
+  addCustomItem,
   allItems,
   carriedOverSince,
   countsOf,
@@ -11,9 +12,13 @@ import {
   initialState,
   linesTotal,
   parseState,
+  itemsOf,
   priceOf,
+  removeCustomItem,
   reportName,
   resetCounts,
+  sectionsOf,
+  updateCustomItem,
   resetPrices,
   sectionTotal,
   setPrice,
@@ -291,5 +296,78 @@ describe('validateConfig', () => {
         expect.stringContaining('「unused」はどの品目にも使われていません'),
       ]),
     )
+  })
+
+  it('設定の品目・単価の id は x- で始めない（画面で足した品目に使う）', () => {
+    const errors = validateConfig({
+      ...config,
+      prices: [{ id: 'x-a', label: 'A', default: 100 }],
+      sections: [{ id: 's', title: 'S', items: [{ id: 'x-b', priceId: 'x-a' }] }],
+    })
+    expect(errors).toEqual(
+      expect.arrayContaining([expect.stringContaining('品目の id「x-b」は x- で始めない'), expect.stringContaining('単価の id「x-a」は x- で始めない')]),
+    )
+  })
+})
+
+describe('画面から足した品目', () => {
+  const add = (state: TallyState, sectionId: string, name: string, price: number, at = now) => addCustomItem(state, sectionId, name, price, at)
+
+  it('見出しの最後に足し、単価はその品目の値段。名前が空なら値段で呼ぶ', () => {
+    let state = add(initialState(), 'soft', ' チョコトッピング ', 100)
+    state = add(state, 'meat', '', 7000, new Date(now.getTime() + 1))
+    const [choco, skewer] = state.customItems
+    expect(choco).toMatchObject({ sectionId: 'soft', name: 'チョコトッピング', price: 100 })
+    expect(choco!.id).toMatch(/^x-[a-z0-9-]+$/)
+    expect(sectionsOf(config, state).map((sec) => sec.items.map((i) => i.id).at(-1))).toEqual([skewer!.id, choco!.id])
+    const items = itemsOf(config, state)
+    expect(displayName(config, state, items.find((i) => i.id === skewer!.id)!)).toBe('7,000円')
+    expect(reportName(config, state, items.find((i) => i.id === skewer!.id)!)).toBe('7,000')
+    expect(priceOf(config, state, choco!.id)).toBe(100)
+  })
+
+  it('同じ時刻に足しても id は重ならない。単価が 1 円未満・整数でないときは足さない（例外）', () => {
+    const state = add(add(initialState(), 'soft', 'A', 100), 'soft', 'B', 100)
+    expect(new Set(state.customItems.map((c) => c.id)).size).toBe(2)
+    expect(() => add(initialState(), 'soft', 'A', 0)).toThrow()
+    expect(() => add(initialState(), 'soft', 'A', 1.5)).toThrow()
+  })
+
+  it('数えると合計に入り、名前と単価を直せる（直した単価は今日の記録にも効く）', () => {
+    let state = add(initialState(), 'soft', 'チョコ', 100)
+    const id = state.customItems[0]!.id
+    state = addItem(addItem(state, id, now), 'vanilla', now)
+    expect(grandTotal(config, state)).toBe(900)
+    state = updateCustomItem(state, id, { name: 'チョコトッピング', price: 150 }, now)
+    expect(state.customItems[0]).toMatchObject({ name: 'チョコトッピング', price: 150 })
+    expect(grandTotal(config, state)).toBe(950)
+    // 0 円や小数の単価は受け付けず、元のまま
+    expect(updateCustomItem(state, id, { price: 0 }, now)).toBe(state)
+  })
+
+  it('消すと今日の記録からも除き、中身がなくなったオーダーは消す', () => {
+    let state = add(initialState(), 'soft', 'チョコ', 100)
+    const id = state.customItems[0]!.id
+    state = addItem(addItem(state, id, now), 'vanilla', now) // 1件目 {チョコ, バニラ}
+    state = addItem(state, id, new Date(now.getTime() + 10 * 60_000)) // 2件目 {チョコ}
+    const removed = removeCustomItem(state, id, now)
+    expect(removed.customItems).toEqual([])
+    expect(removed.orders.map((o) => o.lines)).toEqual([{ vanilla: 1 }])
+  })
+
+  it('保存した足した品目と、その品目の記録を読み戻す。見出しが消えた品目・壊れた値は捨てる', () => {
+    let state = add(initialState(), 'soft', 'チョコ', 100)
+    state = addItem(state, state.customItems[0]!.id, now)
+    expect(parseState(config, JSON.parse(JSON.stringify(state)))).toEqual(state)
+    const parsed = parseState(config, {
+      customItems: [
+        { id: 'x-ok', sectionId: 'meat', name: '', price: 7000 },
+        { id: 'x-gone', sectionId: 'removed', name: 'A', price: 100 },
+        { id: 'bad id', sectionId: 'meat', name: 'B', price: 100 },
+        { id: 'x-free', sectionId: 'meat', name: 'C', price: 0 },
+        { id: 'a', sectionId: 'meat', name: '設定の品目と重なる', price: 100 },
+      ],
+    })
+    expect(parsed.customItems).toEqual([{ id: 'x-ok', sectionId: 'meat', name: null, price: 7000 }])
   })
 })

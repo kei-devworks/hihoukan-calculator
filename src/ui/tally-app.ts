@@ -4,7 +4,6 @@ import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
 import { clearCashCount, floatUnused } from '../core/cash'
-import { allItems } from '../core/catalog'
 import { addItemForCustomer } from '../core/checkout'
 import {
   addTender,
@@ -21,17 +20,25 @@ import {
   type Order,
 } from '../core/orders'
 import {
+  addCustomItem,
   carriedOverSince,
   countOf,
+  customItemOf,
   displayName,
   grandTotal,
+  itemsOf,
   linesTotal,
   priceOf,
+  removeCustomItem,
   resetCounts,
   resetPrices,
+  sectionsOf,
   sectionTotal,
   setPrice,
+  updateCustomItem,
   type TallyConfig,
+  type TallyItem,
+  type TallySection,
   type TallyState,
 } from '../core/tally'
 import { TallyStore } from '../core/tally-store'
@@ -44,6 +51,7 @@ import { holdButton } from './hold-button'
 import { noticeBar } from './notice-bar'
 import { describeChanges, openOrderEditor } from './order-editor'
 import { orderPanel } from './order-panel'
+import { tallyItems } from './tally-items'
 import { tallyLog } from './tally-log'
 import { viewTabs } from './view-tabs'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
@@ -92,17 +100,19 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     ],
   })
 
-  // ---- 品目の行と小計 ----
-  const rows = config.sections.flatMap((section) =>
-    section.items.map((item) => ({
-      item,
-      name: h('span', { class: 'nm' }),
-      priceTag: item.name ? h('span', { class: 'pr' }) : null,
-      count: h('span', { class: 'n' }),
-      minus: h('button', { type: 'button', class: 'step', text: '−' }),
-      plus: h('button', { type: 'button', class: 'step', text: '＋' }),
-    })),
-  )
+  // ---- 品目の行と小計（画面から足した品目も、その見出しの最後に並ぶ。品目が増減したら作り直す） ----
+  type Row = {
+    item: TallyItem
+    name: HTMLElement
+    priceTag: HTMLElement | null
+    count: HTMLElement
+    minus: HTMLButtonElement
+    plus: HTMLButtonElement
+  }
+  let rows: Row[] = []
+  let subtotals: { section: TallySection; value: HTMLElement }[] = []
+  const cardsBox = h('div', { class: 'view-panel' })
+  let cardsKey = ''
   const addOne = (itemId: string) => {
     orders.touch(itemId)
     // 会計が済んだオーダーのあとに押した分は、次のお客さんのオーダーになる
@@ -119,55 +129,69 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     const where = from.kind === 'handover' ? 'まとめて入れた数' : 'オーダー'
     change(state, fromOpen ? undefined : `${formatTime(new Date(from.openedAt))} の${where}から${name}を1つ減らしました`)
   }
-  for (const row of rows) {
-    row.minus.addEventListener('click', () => removeOne(row.item.id))
-    row.plus.addEventListener('click', () => addOne(row.item.id))
+  /** 品目の並びが変わったときだけ、カードを作り直す（数の表示は render で合わせる） */
+  function buildCards(state: TallyState) {
+    const sections = sectionsOf(config, state)
+    // 名前の有無で値段の表示（「ホタテ ¥1,000」）が変わるので、それも並びの一部にする
+    const key = sections.map((s) => s.items.map((i) => `${i.id}${i.name ? '+' : ''}`).join(',')).join('|')
+    if (key === cardsKey) return
+    cardsKey = key
+    rows = sections.flatMap((section) =>
+      section.items.map((item) => {
+        const row: Row = {
+          item,
+          name: h('span', { class: 'nm' }),
+          priceTag: item.name ? h('span', { class: 'pr' }) : null,
+          count: h('span', { class: 'n' }),
+          minus: h('button', { type: 'button', class: 'step', text: '−' }),
+          plus: h('button', { type: 'button', class: 'step', text: '＋' }),
+        }
+        row.minus.addEventListener('click', () => removeOne(item.id))
+        row.plus.addEventListener('click', () => addOne(item.id))
+        return row
+      }),
+    )
+    subtotals = sections.map((section) => ({ section, value: h('span') }))
+    cardsBox.replaceChildren(
+      ...sections.map((section, i) =>
+        h('section', { class: i % 2 === 0 ? 'card' : 'card alt', 'data-section': section.id }, [
+          h('h2', { text: section.title }),
+          ...rows
+            .filter((row) => section.items.includes(row.item))
+            .map((row) =>
+              h('div', { class: 'row', 'data-item': row.item.id }, [
+                h('div', { class: 'label' }, row.priceTag ? [row.name, row.priceTag] : [row.name]),
+                h('div', { class: 'ctrl' }, [row.minus, row.count, row.plus]),
+              ]),
+            ),
+          h('div', { class: 'sub' }, [h('span', { text: '小計' }), subtotals[i]!.value]),
+        ]),
+      ),
+    )
   }
-
-  const subtotals = config.sections.map((section) => ({ section, value: h('span') }))
-  const sectionCards = config.sections.map((section, i) =>
-    h('section', { class: i % 2 === 0 ? 'card' : 'card alt', 'data-section': section.id }, [
-      h('h2', { text: section.title }),
-      ...rows
-        .filter((row) => section.items.includes(row.item))
-        .map((row) =>
-          h('div', { class: 'row', 'data-item': row.item.id }, [
-            h('div', { class: 'label' }, row.priceTag ? [row.name, row.priceTag] : [row.name]),
-            h('div', { class: 'ctrl' }, [row.minus, row.count, row.plus]),
-          ]),
-        ),
-      h('div', { class: 'sub' }, [h('span', { text: '小計' }), subtotals[i]!.value]),
-    ]),
-  )
 
   const total = h('b', { id: 'total' })
 
-  // ---- 単価設定 ----
-  const priceFields = config.prices.map((def) => ({
-    def,
-    input: h('input', {
-      type: 'number',
-      id: `price-${def.id}`,
-      inputmode: 'numeric',
-      min: 0,
-      step: 10,
-      enterkeyhint: 'done',
-    }),
-    hint: h('span', { class: 'default-hint' }),
-  }))
-  for (const { def, input } of priceFields) {
-    input.addEventListener('input', () => {
-      // 打ち直しの途中で空になっても 0 円にはしない
-      if (input.value.trim() === '' || !Number.isFinite(input.valueAsNumber)) return
-      change(setPrice(config, store.current, def.id, input.valueAsNumber))
-    })
-    input.addEventListener('blur', () => {
-      input.value = String(priceOf(config, store.current, def.id))
-    })
-  }
-  const pricesTitle = h('h2', { id: 'prices-title' })
-  const resetPricesButton = h('button', { type: 'button', class: 'ghost', text: 'すべて既定に戻す' })
-  resetPricesButton.addEventListener('click', () => change(resetPrices(store.current)))
+  // ---- 品目と単価 ----
+  const itemsView = tallyItems(config, {
+    setPrice: (priceId, value) => change(setPrice(config, store.current, priceId, value)),
+    resetPrices: () => change(resetPrices(store.current)),
+    addItem: (sectionId, name, price) => {
+      const next = addCustomItem(store.current, sectionId, name, price, now())
+      const added = next.customItems.at(-1)!
+      const section = config.sections.find((sec) => sec.id === sectionId)
+      change(next)
+      notice.show(`${displayName(config, next, itemsOf(config, next).find((i) => i.id === added.id)!)}（${formatPrice(price)}）を${section?.title ?? ''}に足しました`)
+    },
+    updateItem: (id, changeTo) => change(updateCustomItem(store.current, id, changeTo, now())),
+    removeItem: (id) => {
+      const item = itemsOf(config, store.current).find((i) => i.id === id)
+      if (!item || !customItemOf(store.current, id)) return
+      const name = displayName(config, store.current, item)
+      const n = countOf(store.current, id)
+      change(removeCustomItem(store.current, id, now()), n > 0 ? `${name}を消しました（今日の ${n}個 も消しました）` : `${name}を消しました`)
+    },
+  })
 
   // ---- 報告文 ----
   const report = h('pre', { class: 'report', id: 'report' })
@@ -250,7 +274,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   // ---- 画面の切り替え ----
   // 「数える」はいつも使う画面（今と同じ並び）。ほかは見出しの下のボタンで切り替え、縦に長くしない
   const countPanel = h('div', { class: 'view-panel' }, [
-    ...sectionCards,
+    cardsBox,
     h('div', { class: 'total' }, [h('span', { text: '合計' }), total]),
     h('section', { class: 'card' }, [
       h('div', { class: 'rhead' }, [h('h2', { text: '報告文' }), copyButton]),
@@ -273,23 +297,17 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     : null
   const cashPanelView = h('div', { class: 'view-panel' }, cash ? [cash.element] : [])
   /** 差と同じ額の品目を探すための名前と単価。単価を共有する品目は単価の名前（「ソフト（共通）」）で呼ぶ */
-  const sameAmountCandidates = (state: TallyState) =>
-    config.prices.map((def) => {
-      const users = allItems(config).filter((item) => item.priceId === def.id)
+  const sameAmountCandidates = (state: TallyState) => [
+    ...config.prices.map((def) => {
+      const users = config.sections.flatMap((s) => s.items).filter((item) => item.priceId === def.id)
       const name = users.length === 1 ? displayName(config, state, users[0]!) : def.label
       return { name, price: priceOf(config, state, def.id) }
-    })
-  const itemsPanel = h('div', { class: 'view-panel' }, [
-    h('section', { class: 'card prices' }, [
-      pricesTitle,
-      h(
-        'div',
-        { class: 'pgrid' },
-        priceFields.flatMap(({ input, def, hint }) => [h('label', { for: input.id }, [def.label, hint]), input]),
-      ),
-      h('div', { class: 'foot' }, [resetPricesButton]),
-    ]),
-  ])
+    }),
+    ...itemsOf(config, state)
+      .filter((item) => customItemOf(state, item.id))
+      .map((item) => ({ name: displayName(config, state, item), price: priceOf(config, state, item.priceId) })),
+  ]
+  const itemsPanel = h('div', { class: 'view-panel' }, [itemsView.element])
   const tabs = viewTabs(
     [
       { id: 'count', label: '数える', panel: countPanel },
@@ -343,9 +361,12 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   function render() {
     const state = store.current
     const at = now()
+    buildCards(state)
+    // 足した品目は名前・単価が変わるので、行を作ったときの品目ではなく、いまの品目で表示する
+    const itemsNow = new Map(itemsOf(config, state).map((i) => [i.id, i]))
 
     for (const row of rows) {
-      const name = displayName(config, state, row.item)
+      const name = displayName(config, state, itemsNow.get(row.item.id) ?? row.item)
       const n = countOf(state, row.item.id)
       row.name.textContent = name
       if (row.priceTag) row.priceTag.textContent = `¥${formatNumber(priceOf(config, state, row.item.priceId))}`
@@ -360,18 +381,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     const reportText = buildSalesReport(config, state, timeInput.value || nearestHour(at))
     if (report.textContent !== reportText) report.textContent = reportText
 
-    let changedPrices = 0
-    for (const { def, input, hint } of priceFields) {
-      const price = priceOf(config, state, def.id)
-      const changed = price !== def.default
-      if (changed) changedPrices++
-      // 入力中の欄は書き換えない（打っている途中の値を消さないように）
-      if (document.activeElement !== input) input.value = String(price)
-      hint.textContent = changed ? `（既定 ¥${formatNumber(def.default)}）` : ''
-      input.classList.toggle('changed', changed)
-    }
-    pricesTitle.textContent = changedPrices > 0 ? `単価設定（${changedPrices}件 変更あり）` : '単価設定'
-    resetPricesButton.disabled = changedPrices === 0
+    itemsView.render(state)
 
     status.update({
       available: store.available,

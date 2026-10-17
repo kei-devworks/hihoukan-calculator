@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { sampleConfig as config, stateWithCounts } from './fixtures'
 import { buildSalesReport } from './report'
-import { initialState, setPrice, type TallyState } from './tally'
+import { addCustomItem, initialState, setPrice, type TallyState } from './tally'
+import { addItem } from './orders'
 
 const now = new Date('2026-10-15T21:00:00+09:00')
 
@@ -47,5 +48,29 @@ describe('buildSalesReport', () => {
     const report = buildSalesReport(config, state, '12:00')
     expect(report).toContain('1,500×2\n小計￥3,000-')
     expect(report).toContain('合計￥3,000-')
+  })
+
+  it('画面から足した品目は、その見出しの最後に並ぶ（名前がなければ値段で呼ぶ）', () => {
+    let state = addCustomItem(withCounts({ a: 1, vanilla: 2 }), 'soft', 'チョコトッピング', 100, now)
+    state = addCustomItem(state, 'meat', '', 7000, new Date(now.getTime() + 1))
+    for (const c of state.customItems) state = addItem(state, c.id, now)
+    expect(buildSalesReport(config, state, '21:00')).toBe(
+      [
+        '売上報告',
+        '21:00時点',
+        '',
+        '◾️肉',
+        '1,000×1',
+        '7,000×1',
+        '小計￥8,000-',
+        '',
+        '◾️ソフト',
+        'バニラ×2',
+        'チョコトッピング×1',
+        '小計￥1,700-',
+        '',
+        '合計￥9,700-',
+      ].join('\n'),
+    )
   })
 })

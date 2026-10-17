@@ -1,7 +1,6 @@
-import { allItems } from '../core/catalog'
 import { formatPrice } from '../core/format'
 import { cleanLines, editSteps, findOrder, lineChanges, type OrderLines } from '../core/orders'
-import { displayName, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
+import { displayName, itemsOf, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
 import { formatTime } from '../core/time'
 import { h } from './dom'
 import { holdButton } from './hold-button'
@@ -15,7 +14,7 @@ export type OrderEditorActions = {
 
 /** 「1,000円 2→1・ホタテ 0→1」（知らせと変更の記録に使う） */
 export function describeChanges(config: TallyConfig, state: TallyState, before: OrderLines, after: OrderLines): string {
-  const items = allItems(config)
+  const items = itemsOf(config, state)
   return lineChanges(
     before,
     after,
@@ -38,7 +37,7 @@ export function openOrderEditor(
 ): HTMLDialogElement | null {
   const order = findOrder(state, orderId)
   if (!order) return null
-  const items = allItems(config)
+  const items = itemsOf(config, state)
   const draft: OrderLines = { ...order.lines }
   /** ［＋ 品目を足す］で足した品目（0 に戻しても行を残す） */
   const added: string[] = []
