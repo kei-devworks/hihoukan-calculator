@@ -25,7 +25,7 @@ byId('share-site').addEventListener('click', () => {
   openShareDialog({
     title: 'このサイトを共有',
     url: new URL('./', location.href).href,
-    note: 'スマホのカメラで読み取ると、このページが開きます。',
+    note: 'カメラで読み取ると、このページが開きます。',
     qrLabel: 'このサイトの入口の QR コード',
   })
 })
