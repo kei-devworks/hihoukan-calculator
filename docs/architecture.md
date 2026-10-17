@@ -38,6 +38,7 @@ src/
     time.ts        報告時刻・営業日・日時の表示
     format.ts      金額の表示
     qr.ts          QR コードの点の並び（qrcode-generator は使うときだけ読み込む）
+    qr-read.ts     画像から QR コードを読む（jsQR は使うときだけ読み込む）
   ui/            DOM の共通部品と共通スタイル
     page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
@@ -54,12 +55,14 @@ src/
     dom.ts         要素を作る小さなヘルパー
     qr.ts          QR コードを SVG で描く（いつも白地に黒）
     share-dialog.ts  リンクを QR・共有シート（AirDrop・LINE など）・コピーで渡すダイアログ
+    qr-scanner.ts  ページの中のカメラで QR コードを読む
   pages/         Vite の入口。1ページ = 1フォルダ
     index.html     ポータル
     registry.ts    ポータルに並べるページの一覧
     takumi/        タクミ売上カウンター（config.ts に品目・単価）
     neko/          ネコ・グリコ売上カウンター（config.ts に品目・単価）
     kinmu/         勤務時間報告（config.ts に初めて使うときの勤務時間）
+    check/         実機の確認のページ（ページの中のカメラで QR を読めるかなど。ポータルには載せない）
 e2e/             Playwright
 public/          そのまま配信するファイル（アイコン: favicon.svg・favicon-32.png・apple-touch-icon.png）
 scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg から PNG のアイコンを作る）
