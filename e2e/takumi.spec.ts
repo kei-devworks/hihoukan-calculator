@@ -176,6 +176,47 @@ test('同じ端末の別のタブで数えた分も、表示に反映される',
   await expect(total(page)).toHaveText('￥1,600-')
 })
 
+test('押すと画面の下に今のオーダーが出て、［完了］で閉じると前のオーダーから出し直せる', async ({ page }) => {
+  await open(page)
+  await tap(page, '1,000円を1つ増やす', 2)
+  await tap(page, 'ビールを1つ増やす')
+  const panel = page.getByRole('region', { name: '今のオーダー' })
+  await expect(panel).toBeVisible()
+  await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜3点￥2,500')
+  await expect(panel.locator('[data-item="skewer1"] .order-change')).toHaveText('0個 ＋2 → 2個')
+  await expect(panel.locator('[data-item="beer"] .order-change')).toHaveText('0個 ＋1 → 1個')
+
+  await panel.getByRole('button', { name: '完了' }).click()
+  await expect(panel).toBeHidden()
+  await page.getByRole('button', { name: '前のオーダー 20:50・3点 ￥2,500 ›' }).click()
+  const previous = page.getByRole('region', { name: '前のオーダー' })
+  await expect(previous.locator('.order-line')).toHaveText(['1,000円×2', 'ビール×1'])
+
+  // 次のお客さんの分は新しいオーダーになり、元の数に前のオーダーの分が入る
+  await tap(page, '1,000円を1つ増やす')
+  await expect(panel.locator('[data-item="skewer1"] .order-change')).toHaveText('2個 ＋1 → 3個')
+})
+
+test('今のオーダーは、長押しで取り消し、画面の下の［元に戻す］で戻せる', async ({ page }) => {
+  await open(page)
+  await tap(page, 'ホタテを1つ増やす', 2)
+  await holdPress(page, 'このオーダーを取り消す', '長押しでオーダーを取り消す')
+  await expect(total(page)).toHaveText('￥0-')
+  await expect(page.getByText('20:50 のオーダー（￥2,000）を取り消しました')).toBeVisible()
+  await page.getByRole('button', { name: '元に戻す' }).click()
+  await expect(total(page)).toHaveText('￥2,000-')
+})
+
+test('最後に押してから3分たつと、今のオーダーは自動で閉じる', async ({ page }) => {
+  await page.clock.install({ time: evening })
+  await page.goto('takumi/')
+  await tap(page, 'ホタテを1つ増やす')
+  await expect(page.getByRole('region', { name: '今のオーダー' })).toBeVisible()
+  await page.clock.runFor(3 * 60_000 + 1000)
+  await expect(page.getByRole('region', { name: '今のオーダー' })).toBeHidden()
+  await expect(page.getByRole('button', { name: /^前のオーダー 20:50/ })).toBeVisible()
+})
+
 test('ポータルから開けて、一覧に戻れる', async ({ page }) => {
   await page.goto('./')
   await page.getByRole('link', { name: /タクミ売上カウンター/ }).click()

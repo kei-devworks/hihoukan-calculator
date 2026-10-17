@@ -1,14 +1,15 @@
 import './tally.css'
-import { formatNumber, formatYen } from '../core/format'
+import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
-import { addItem, removeItem } from '../core/orders'
+import { addItem, cancelOrder, closeOrder, findOrder, openOrder, ORDER_IDLE_MS, removeItem } from '../core/orders'
 import {
   carriedOverSince,
   countOf,
   displayName,
   grandTotal,
+  linesTotal,
   priceOf,
   resetCounts,
   resetPrices,
@@ -23,6 +24,7 @@ import { copyText, selectContents } from './clipboard'
 import { h } from './dom'
 import { holdButton } from './hold-button'
 import { noticeBar } from './notice-bar'
+import { orderPanel } from './order-panel'
 import { viewTabs } from './view-tabs'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
@@ -49,6 +51,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   let lastSave: SaveResult | null = null
   /** 報告時刻を手で変えたか。変えていなければ、時間がたつといまの時刻に合わせ直す */
   let timeEdited = false
+  /** 今のオーダーが閉じる時刻に描き直すためのタイマー */
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
 
   // ---- 見出し・報告時刻・保存の状態 ----
   const timeInput = h('input', { type: 'time', id: 'report-time' })
@@ -79,16 +83,24 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       plus: h('button', { type: 'button', class: 'step', text: '＋' }),
     })),
   )
+  const addOne = (itemId: string) => {
+    orders.touch(itemId)
+    change(addItem(store.current, itemId, now()))
+  }
+  const removeOne = (itemId: string) => {
+    const item = rows.find((row) => row.item.id === itemId)?.item
+    if (!item) return
+    orders.touch(itemId)
+    const name = displayName(config, store.current, item)
+    const { state, from, fromOpen } = removeItem(store.current, itemId, now())
+    if (!from) return
+    // 今のオーダーの押しまちがいはその場で見えるので知らせない。前のオーダーから減らしたときは、どこから減ったかを知らせる
+    const where = from.kind === 'handover' ? 'まとめて入れた数' : 'オーダー'
+    change(state, fromOpen ? undefined : `${formatTime(new Date(from.openedAt))} の${where}から${name}を1つ減らしました`)
+  }
   for (const row of rows) {
-    row.minus.addEventListener('click', () => {
-      const name = displayName(config, store.current, row.item)
-      const { state, from, fromOpen } = removeItem(store.current, row.item.id, now())
-      if (!from) return
-      // 今のオーダーの押しまちがいはその場で見えるので知らせない。前のオーダーから減らしたときは、どこから減ったかを知らせる
-      const where = from.kind === 'handover' ? 'まとめて入れた数' : 'オーダー'
-      change(state, fromOpen ? undefined : `${formatTime(new Date(from.openedAt))} の${where}から${name}を1つ減らしました`)
-    })
-    row.plus.addEventListener('click', () => change(addItem(store.current, row.item.id, now())))
+    row.minus.addEventListener('click', () => removeOne(row.item.id))
+    row.plus.addEventListener('click', () => addOne(row.item.id))
   }
 
   const subtotals = config.sections.map((section) => ({ section, value: h('span') }))
@@ -160,9 +172,21 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     }
   })
 
-  // ---- 画面の下に重ねて出すもの（お知らせ） ----
+  // ---- 画面の下に重ねて出すもの（お知らせ・今のオーダー） ----
   const notice = noticeBar()
-  const dock = h('div', { class: 'dock' }, [notice.element])
+  const orders = orderPanel(config, {
+    add: addOne,
+    remove: removeOne,
+    complete: (id) => change(closeOrder(store.current, id, now())),
+    cancel: (id) => {
+      const order = findOrder(store.current, id)
+      if (!order) return
+      const price = formatPrice(linesTotal(config, store.current, order.lines))
+      change(cancelOrder(store.current, id, now()), `${formatTime(new Date(order.openedAt))} のオーダー（${price}）を取り消しました`)
+    },
+    showCount: () => tabs.select('count'),
+  })
+  const dock = h('div', { class: 'dock' }, [notice.element, orders.element])
   // 下に重ねたものの高さだけ、ページの下に余白を足す（いちばん下の行やボタンが隠れないように）
   const syncDockSpace = () => {
     root.style.paddingBottom = dock.offsetHeight > 0 ? `calc(max(40px, env(safe-area-inset-bottom, 0px)) + ${dock.offsetHeight}px)` : ''
@@ -197,7 +221,13 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       { id: 'count', label: '数える', panel: countPanel },
       { id: 'items', label: '品目', panel: itemsPanel },
     ],
-    { label: '画面の切り替え', onChange: () => window.scrollTo({ top: 0 }) },
+    {
+      label: '画面の切り替え',
+      onChange: () => {
+        window.scrollTo({ top: 0 })
+        render()
+      },
+    },
   )
 
   root.replaceChildren(
@@ -272,6 +302,12 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       carriedSince: carriedOverSince(config, state, at),
       now: at,
     })
+
+    orders.render(state, at, tabs.current === 'count')
+    // 今のオーダーが3分で閉じるときに描き直す（30秒ごとの描き直しを待たない）
+    clearTimeout(idleTimer)
+    const open = openOrder(state, at)
+    if (open) idleTimer = setTimeout(render, Date.parse(open.lastAt) + ORDER_IDLE_MS - at.getTime() + 50)
   }
 
   // ---- 報告時刻 ----
@@ -311,6 +347,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       stopFresh()
       dockObserver?.disconnect()
       notice.hide()
+      clearTimeout(idleTimer)
       clearTimeout(copyTimer)
     },
   }

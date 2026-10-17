@@ -207,4 +207,88 @@ describe('mountTallyApp', () => {
     button('今').click()
     expect(time.value).toBe('21:00')
   })
+
+  describe('今のオーダー（画面の下）', () => {
+    const panel = () => document.querySelector<HTMLElement>('.order-panel:not(.view)')!
+    const lines = () => [...panel().querySelectorAll('.order-line')].map((l) => l.textContent)
+    const chip = () => document.querySelector<HTMLButtonElement>('.order-chip')!
+
+    it('＋ を押すと出て、品目ごとに「元の数 ＋足した数 → 今日の数」を並べる', () => {
+      mount()
+      expect(panel().hidden).toBe(true)
+      button('1,000円を1つ増やす').click()
+      button('1,000円を1つ増やす').click()
+      button('ホタテを1つ増やす').click()
+      expect(panel().hidden).toBe(false)
+      expect(text('.order-panel .order-sum')).toBe('今のオーダー 20:40〜3点￥3,000')
+      expect(lines()).toEqual(['1,000円0個 ＋2 → 2個−＋', 'ホタテ0個 ＋1 → 1個−＋'])
+    })
+
+    it('前のオーダーの数は「元の数」に入る。パネルの −/＋ でも直せる', () => {
+      mount()
+      button('ホタテを1つ増やす').click()
+      clock = new Date('2026-10-15T20:45:00+09:00')
+      button('ホタテを1つ増やす').click()
+      expect(lines()).toEqual(['ホタテ1個 ＋1 → 2個−＋'])
+      button('今のオーダーのホタテを1つ増やす').click()
+      expect(lines()).toEqual(['ホタテ1個 ＋2 → 3個−＋'])
+      button('今のオーダーのホタテを1つ減らす').click()
+      button('今のオーダーのホタテを1つ減らす').click()
+      expect(panel().hidden).toBe(true)
+      expect(text('#total')).toBe('￥1,000-')
+    })
+
+    it('［完了］で閉じると「前のオーダー」を小さく出し、押すと中身を出し直す', () => {
+      mount()
+      button('1,000円を1つ増やす').click()
+      button('バニラを1つ増やす').click()
+      button('完了').click()
+      expect(panel().hidden).toBe(true)
+      expect(chip().textContent).toBe('前のオーダー 20:40・2点 ￥1,800 ›')
+      chip().click()
+      const view = document.querySelector<HTMLElement>('.order-panel.view')!
+      expect(view.hidden).toBe(false)
+      expect([...view.querySelectorAll('.order-line')].map((l) => l.textContent)).toEqual(['1,000円×1', 'バニラ×1'])
+      button('前のオーダーを閉じる').click()
+      expect(view.hidden).toBe(true)
+      expect(chip().hidden).toBe(false)
+    })
+
+    it('［このオーダーを取り消す］は長押しで取り消し、知らせから元に戻せる', () => {
+      mount()
+      button('ホタテを1つ増やす').click()
+      button('バニラを1つ増やす').click()
+      holdPress('このオーダーを取り消す')
+      expect(text('#total')).toBe('￥0-')
+      expect(panel().hidden).toBe(true)
+      expect(text('.notice-bar-text')).toBe('20:40 のオーダー（￥1,800）を取り消しました')
+      button('元に戻す').click()
+      expect(text('#total')).toBe('￥1,800-')
+    })
+
+    it('最後に押してから3分たつと、自動で閉じる', () => {
+      vi.useFakeTimers()
+      try {
+        mount()
+        button('ホタテを1つ増やす').click()
+        clock = new Date('2026-10-15T20:43:00+09:00')
+        vi.advanceTimersByTime(3 * 60_000 + 100)
+        expect(panel().hidden).toBe(true)
+        expect(chip().textContent).toBe('前のオーダー 20:40・1点 ￥1,000 ›')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('ほかの画面にいるあいだは小さく出し、押すと「数える」に戻る', () => {
+      mount()
+      button('ホタテを1つ増やす').click()
+      button('品目').click()
+      expect(panel().hidden).toBe(true)
+      expect(chip().textContent).toBe('今のオーダー 20:40〜・1点 ￥1,000 ›')
+      chip().click()
+      expect(document.querySelector('#tab-count')?.getAttribute('aria-selected')).toBe('true')
+      expect(panel().hidden).toBe(false)
+    })
+  })
 })
