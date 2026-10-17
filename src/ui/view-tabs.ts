@@ -12,6 +12,8 @@ export type ViewTabs = {
   /** 切り替えのボタンの並び（tablist） */
   element: HTMLElement
   select: (id: string) => void
+  /** ボタンの文言を変える（売上などを出す） */
+  setLabel: (id: string, label: string) => void
   readonly current: string
 }
 
@@ -64,6 +66,10 @@ export function viewTabs(tabs: ViewTab[], options: { label: string; onChange?: (
   return {
     element,
     select,
+    setLabel: (id, label) => {
+      const i = tabs.findIndex((t) => t.id === id)
+      if (i >= 0 && buttons[i]!.textContent !== label) buttons[i]!.textContent = label
+    },
     get current() {
       return current
     },

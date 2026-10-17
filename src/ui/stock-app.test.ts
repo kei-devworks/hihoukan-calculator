@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { sampleStockConfig as config } from '../core/fixtures'
 import { initialStockState, setField } from '../core/stock'
 import { memoryStorage, type KeyValueStorage } from '../core/storage'
@@ -37,6 +37,22 @@ const button = (name: string) => {
   const found = [...document.querySelectorAll('button')].find((b) => b.textContent === name)
   if (!found) throw new Error(`ボタン「${name}」がありません`)
   return found
+}
+
+/** 長押しのボタン（ui/hold-button.ts）を、タップで構えてから1秒押し続ける */
+const holdPress = (label: string) => {
+  const found = [...document.querySelectorAll<HTMLButtonElement>('button.hold-button')].find(
+    (b) => b.querySelector('.hold-idle')?.textContent === label,
+  )
+  if (!found) throw new Error(`長押しのボタン「${label}」がありません`)
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    found.click()
+    found.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }))
+    vi.advanceTimersByTime(1000)
+  } finally {
+    vi.useRealTimers()
+  }
 }
 
 beforeEach(() => {
@@ -134,20 +150,55 @@ describe('mountStockApp', () => {
     mount(storage)
     expect(visibleAlerts()).toEqual([expect.stringContaining('10/14 10:00 から入れた数字が残っています')])
 
-    button('残数を今日の開店時の在庫にする').click()
-    button('もう一度押すと移す').click()
+    holdPress('残数を今日の開店時の在庫にする')
     expect(visibleAlerts()).toEqual([])
     expect(document.querySelector<HTMLInputElement>('#a-sticker-start')!.value).toBe('12')
     expect(document.querySelector<HTMLInputElement>('#a-sticker-remaining')!.value).toBe('')
   })
 
-  it('リセットは2回押したときだけ全部消す', () => {
+  it('リセットは、タップしただけでは消さず、長押ししたときだけ全部消す', () => {
     mount()
     type('A 絵馬 開店時の在庫', '8')
-    button('リセット').click()
+    const reset = [...document.querySelectorAll<HTMLButtonElement>('button.hold-button')].find(
+      (b) => b.querySelector('.hold-idle')?.textContent === 'リセット',
+    )!
+    reset.click()
+    reset.click()
     expect(document.querySelector<HTMLInputElement>('#a-ema-start')!.value).toBe('8')
-    button('もう一度押すと全部消す').click()
+    holdPress('リセット')
     expect(document.querySelector<HTMLInputElement>('#a-ema-start')!.value).toBe('')
+  })
+
+  it('見出しをタブで切り替え、タブに売上と精算の印を出す', () => {
+    mount()
+    const tabs = () => [...document.querySelectorAll('[role="tab"]')].map((t) => t.textContent)
+    expect(tabs()).toEqual(['A ￥0', 'B ￥0'])
+    expect(document.querySelector<HTMLElement>('#panel-a')!.hidden).toBe(false)
+    expect(document.querySelector<HTMLElement>('#panel-b')!.hidden).toBe(true)
+    type('A ステッカー 開店時の在庫', '5')
+    type('A ステッカー 残数', '3')
+    expect(tabs()).toEqual(['A ￥2,000', 'B ￥0'])
+    document.querySelector<HTMLButtonElement>('#tab-b')!.click()
+    expect(document.querySelector<HTMLElement>('#panel-b')!.hidden).toBe(false)
+  })
+
+  it('見出しごとにレジ精算をし、精算を終えると印が付く。そのあと数が変わったら知らせる', () => {
+    mount()
+    type('A ステッカー 開店時の在庫', '5')
+    type('A ステッカー 残数', '3') // A の売上 2,000
+    type('A 売上のポケット 千円札の枚数', '2')
+    expect(text('#panel-a .cash-verdict')).toBe('ぴったり合っています。')
+    expect(text('#panel-b .cash-verdict')).toBe('売上のポケットの枚数を入れると、Bの売上と比べます。')
+
+    clock = new Date('2026-10-15T21:30:00+09:00')
+    button('Aの精算を終える').click()
+    expect(text('#tab-a')).toBe('A ￥2,000 ✓')
+    expect(text('#panel-a .settle-status')).toBe('✓ 21:30 に精算を終えました。')
+
+    type('A ステッカー 残数', '2')
+    expect(text('#tab-a')).toBe('A ￥3,000 ！')
+    expect(text('#panel-a .settle-status')).toBe('21:30 に精算したあとで数が変わりました。数え直したら、もう一度押してください。')
+    expect(text('#panel-a .cash-verdict')).toBe('お金のほうが ￥1,000 少ない。残数の数えまちがいや、お釣りのまちがいがないか確かめてください（ステッカー 1つ分と同じ額）。')
   })
 
   it('保存できない端末では、消えることを知らせる', () => {

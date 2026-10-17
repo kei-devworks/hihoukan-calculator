@@ -16,6 +16,10 @@ export type CashPanelOptions = {
   cash: CashConfig
   /** 要素の id の頭（1つのページに複数置くときに分ける） */
   idPrefix: string
+  /** 見出し（省略すると「レジ精算」） */
+  title?: string
+  /** 欄の読み上げ名の頭（1つのページに複数置くときに分ける。例: '弓道 '） */
+  labelPrefix?: string
   /** 比べる相手の名前（「カウンターの合計」「弓道の売上」） */
   expectedLabel: string
   /** 差が出たときに添える言葉 */
@@ -56,6 +60,7 @@ function readCount(text: string): number | null | undefined {
  */
 export function cashPanel(options: CashPanelOptions): CashPanel {
   const { cash, idPrefix } = options
+  const prefix = options.labelPrefix ?? ''
   const coins = new Set(cash.coins)
   type Field = { field: CashField; denomination: number; input: HTMLInputElement }
   const fields: Field[] = []
@@ -78,7 +83,7 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
   const pocketAmounts = new Map<number, HTMLElement>()
   const pocketRows = denominations(cash).flatMap((d) => {
     const name = denominationName(d, coins.has(d))
-    const input = makeInput('pocket', d, `売上のポケット ${name}の枚数`)
+    const input = makeInput('pocket', d, `${prefix}売上のポケット ${name}の枚数`)
     const amount = h('span', { class: 'cash-yen' })
     pocketAmounts.set(d, amount)
     return [h('label', { for: input.id, text: name }), input, h('span', { class: 'cash-unit', text: '枚' }), amount]
@@ -90,8 +95,8 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
     const name = denominationName(d, true)
     return [
       h('span', { text: name }),
-      makeInput('floatStart', d, `釣り銭準備金 ${name} 開店時の枚数`),
-      makeInput('floatNow', d, `釣り銭準備金 ${name} いまの枚数`),
+      makeInput('floatStart', d, `${prefix}釣り銭準備金 ${name} 開店時の枚数`),
+      makeInput('floatNow', d, `${prefix}釣り銭準備金 ${name} いまの枚数`),
     ]
   })
   const unusedButton = h('button', { type: 'button', class: 'ghost', text: '使っていない' })
@@ -108,7 +113,7 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
   const clearButton = holdButton({ label: '数え直す', armedLabel: '長押しで枚数を消す', onConfirm: options.onClear })
 
   const element = h('section', { class: 'card cash', 'aria-labelledby': `${idPrefix}-title` }, [
-    h('h2', { id: `${idPrefix}-title`, text: 'レジ精算' }),
+    h('h2', { id: `${idPrefix}-title`, text: options.title ?? 'レジ精算' }),
     h('h3', { class: 'cash-h', text: '売上のポケット' }),
     h('div', { class: 'cash-grid' }, pocketRows),
     h('p', { class: 'cash-sum' }, [h('span', { text: 'ポケットの合計' }), pocketTotal]),
