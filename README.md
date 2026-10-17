@@ -27,6 +27,7 @@ npm test               # 単体テスト
 npm run test:e2e       # E2E（ビルドして iPhone・Android のエミュレーションで確認）
 npm run test:e2e:live  # 本番の URL に対して E2E
 npm run build          # dist/ にビルド
+node scripts/make-icons.mjs  # public/favicon.svg を直したら、PNG のアイコンを作り直す
 ```
 
 `main` にマージすると GitHub Pages に自動でデプロイされます。

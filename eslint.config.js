@@ -16,7 +16,7 @@ export default defineConfig(
     rules: { 'no-irregular-whitespace': ['error', { skipComments: true }] },
   },
   {
-    files: ['*.config.{ts,js}', 'e2e/**/*.ts'],
+    files: ['*.config.{ts,js}', 'e2e/**/*.ts', 'scripts/**/*.{ts,mjs}'],
     languageOptions: { globals: globals.node },
   },
 )

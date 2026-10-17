@@ -51,6 +51,8 @@ src/
     neko/          ネコ売上カウンター（config.ts に品目・単価）
     kinmu/         勤務時間報告（config.ts に初めて使うときの勤務時間）
 e2e/             Playwright
+public/          そのまま配信するファイル（アイコン: favicon.svg・favicon-32.png・apple-touch-icon.png）
+scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg から PNG のアイコンを作る）
 ```
 
 ページを足す手順は [adding-a-page.md](adding-a-page.md)。
@@ -68,6 +70,10 @@ e2e/             Playwright
 | `JsonStore`（`core/json-store.ts`） | 状態を `hihoukan-calc:<ページの id>:v<版>` に保存・復元する。読み戻しはページごとの `parse` 関数に任せ、壊れた値でも例外にしない |
 | `earlierBusinessDay`（`core/time.ts`） | 「数え始めた時刻」が前の営業日かを判定する（前日の数字が残っている知らせに使う） |
 | `pageHeader` / `pageStatus` / `keepFresh`（`ui/page-parts.ts`） | 「‹ 一覧」と題名、保存の状態と赤い警告、前の営業日の黄色い知らせ、30秒ごと・画面復帰・別タブ・戻るボタンでの再描画 |
+| アイコン（`public/`） | どのページの `<head>` にも、タブのアイコン（射的の的。`favicon.svg` と、SVG を表示できない iOS 26 より前の Safari 向けの `favicon-32.png`）とホーム画面のアイコン（`apple-touch-icon.png`）を書く |
+
+アイコンは `/favicon.svg` のようにサイトの根からのパスで書く。ビルドすると、ページの場所に合わせた相対パス（`takumi/` なら `../favicon.svg`）に直る。
+PNG は `favicon.svg` から `node scripts/make-icons.mjs` で作る（SVG を直したら作り直してコミットする）。
 
 ## 「個数 × 単価」の集計（tally）
 

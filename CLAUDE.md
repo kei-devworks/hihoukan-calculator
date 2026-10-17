@@ -9,6 +9,7 @@
 npm run typecheck && npm run lint && npm test   # CI の check と同じ
 npm run test:e2e                                  # E2E（iPhone・Android エミュレーション）
 npm run build
+node scripts/make-icons.mjs                       # favicon.svg から PNG のアイコンを作り直す
 ```
 
 ## 構成
