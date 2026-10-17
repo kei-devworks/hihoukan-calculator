@@ -104,6 +104,40 @@ describe('mountTallyApp', () => {
     expect(text('#total')).toBe('￥0-')
   })
 
+  it('リセットのあとは、知らせの［元に戻す］で戻せる', () => {
+    mount()
+    button('ホタテを1つ増やす').click()
+    holdPress('リセット')
+    expect(text('.notice-bar-text')).toBe('全部 0 にしました')
+    button('元に戻す').click()
+    expect(text('#total')).toBe('￥1,000-')
+    expect(text('.notice-bar-text')).toBe('元に戻しました')
+  })
+
+  it('− で前のオーダーから減らしたときは、どのオーダーから減ったかを知らせ、戻せる', () => {
+    mount()
+    button('ホタテを1つ増やす').click()
+    clock = new Date('2026-10-15T20:45:00+09:00') // 3分すぎた。今のオーダーではなくなる
+    button('ホタテを1つ減らす').click()
+    expect(text('#total')).toBe('￥0-')
+    expect(text('.notice-bar-text')).toBe('20:40 のオーダーからホタテを1つ減らしました')
+    button('元に戻す').click()
+    expect(text('#total')).toBe('￥1,000-')
+  })
+
+  it('今のオーダーから − したときは知らせず、ほかの操作をすると知らせは消える', () => {
+    mount()
+    button('ホタテを1つ増やす').click()
+    button('ホタテを1つ減らす').click()
+    expect(document.querySelector<HTMLElement>('.notice-bar')!.hidden).toBe(true)
+
+    button('ホタテを1つ増やす').click()
+    holdPress('リセット')
+    expect(document.querySelector<HTMLElement>('.notice-bar')!.hidden).toBe(false)
+    button('バニラを1つ増やす').click()
+    expect(document.querySelector<HTMLElement>('.notice-bar')!.hidden).toBe(true)
+  })
+
   it('単価を変えると、名前・合計・保存に反映し、要約に「変更あり」と出す', () => {
     const { storage } = mount()
     button('1,000円を1つ増やす').click()

@@ -119,3 +119,25 @@ details.prices summary {
   align-items: center;
   gap: 10px;
 }
+
+/* 画面の下に重ねて出すもの（お知らせ・今のオーダー）。ページの幅にそろえて、下の安全領域の上に置く */
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 max(12px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px))
+    max(12px, env(safe-area-inset-left, 0px));
+  pointer-events: none;
+}
+
+.dock > * {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}

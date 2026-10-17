@@ -109,6 +109,18 @@ test('リセットは、タップしただけでは 0 にならず、長押し�
   await expect(total(page)).toHaveText('￥0-')
 })
 
+test('リセットのあと、画面の下の［元に戻す］で戻せる', async ({ page }) => {
+  await open(page)
+  await countSample(page)
+  await holdPress(page, 'リセット', '長押しで全部 0 にする')
+  await expect(total(page)).toHaveText('￥0-')
+  await expect(page.getByText('全部 0 にしました')).toBeVisible()
+  await page.getByRole('button', { name: '元に戻す' }).click()
+  await expect(total(page)).toHaveText('￥12,900-')
+  await page.reload()
+  await expect(total(page)).toHaveText('￥12,900-')
+})
+
 test('リセットをタップしてから4秒たつと、押し直しになる', async ({ page }) => {
   await page.clock.install({ time: evening })
   await page.goto('takumi/')

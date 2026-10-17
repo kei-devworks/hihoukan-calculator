@@ -18,10 +18,11 @@ import {
   type TallyState,
 } from '../core/tally'
 import { TallyStore } from '../core/tally-store'
-import { formatMonthDayTime, nearestHour } from '../core/time'
+import { formatMonthDayTime, formatTime, nearestHour } from '../core/time'
 import { copyText, selectContents } from './clipboard'
 import { h } from './dom'
 import { holdButton } from './hold-button'
+import { noticeBar } from './notice-bar'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
 export type MountOptions = {
@@ -61,7 +62,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
         label: '0 に戻して今日を始める',
         armedLabel: '長押しで全部 0 にする',
         hold: true,
-        onConfirm: () => change(resetCounts(store.current)),
+        onConfirm: () => change(resetCounts(store.current), '全部 0 にしました'),
       },
     ],
   })
@@ -78,7 +79,14 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     })),
   )
   for (const row of rows) {
-    row.minus.addEventListener('click', () => change(removeItem(store.current, row.item.id, now()).state))
+    row.minus.addEventListener('click', () => {
+      const name = displayName(config, store.current, row.item)
+      const { state, from, fromOpen } = removeItem(store.current, row.item.id, now())
+      if (!from) return
+      // 今のオーダーの押しまちがいはその場で見えるので知らせない。前のオーダーから減らしたときは、どこから減ったかを知らせる
+      const where = from.kind === 'handover' ? 'まとめて入れた数' : 'オーダー'
+      change(state, fromOpen ? undefined : `${formatTime(new Date(from.openedAt))} の${where}から${name}を1つ減らしました`)
+    })
     row.plus.addEventListener('click', () => change(addItem(store.current, row.item.id, now())))
   }
 
@@ -133,7 +141,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   const resetButton = holdButton({
     label: 'リセット',
     armedLabel: '長押しで全部 0 にする',
-    onConfirm: () => change(resetCounts(store.current)),
+    onConfirm: () => change(resetCounts(store.current), '全部 0 にしました'),
   })
 
   let copyTimer: ReturnType<typeof setTimeout> | undefined
@@ -150,6 +158,16 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       flashCopy('選択したので長押しでコピー', 2600)
     }
   })
+
+  // ---- 画面の下に重ねて出すもの（お知らせ） ----
+  const notice = noticeBar()
+  const dock = h('div', { class: 'dock' }, [notice.element])
+  // 下に重ねたものの高さだけ、ページの下に余白を足す（いちばん下の行やボタンが隠れないように）
+  const syncDockSpace = () => {
+    root.style.paddingBottom = dock.offsetHeight > 0 ? `calc(max(40px, env(safe-area-inset-bottom, 0px)) + ${dock.offsetHeight}px)` : ''
+  }
+  const dockObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(syncDockSpace) : null
+  dockObserver?.observe(dock)
 
   root.replaceChildren(
     pageHeader(config.title, [
@@ -174,10 +192,24 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       report,
       h('div', { class: 'foot' }, [resetButton]),
     ]),
+    dock,
   )
 
   // ---- 状態の変更と描画 ----
-  function change(next: TallyState) {
+  /**
+   * 状態を変えて保存し、描き直す。undoText を渡すと、変える前に戻せる知らせを出す。
+   * ほかの操作をしたら知らせは消す（戻す先が古くなり、あとの操作まで消えてしまうため）
+   */
+  function change(next: TallyState, undoText?: string) {
+    const before = store.current
+    if (undoText) {
+      notice.show(undoText, () => {
+        lastSave = store.update(before)
+        render()
+      })
+    } else {
+      notice.hide()
+    }
     lastSave = store.update(next)
     render()
   }
@@ -244,7 +276,14 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     followClock()
     render()
   }
-  const stopFresh = keepFresh(store, { onTick: refresh, onReload: refresh })
+  const stopFresh = keepFresh(store, {
+    onTick: refresh,
+    onReload: () => {
+      // 別のタブで変わったら、戻す先が古くなるので知らせを消す
+      notice.hide()
+      refresh()
+    },
+  })
 
   refresh()
 
@@ -252,6 +291,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     store,
     unmount: () => {
       stopFresh()
+      dockObserver?.disconnect()
+      notice.hide()
       clearTimeout(copyTimer)
     },
   }

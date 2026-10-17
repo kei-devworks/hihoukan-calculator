@@ -481,3 +481,45 @@ button.hold-button.holding::after {
   transform: scaleX(1);
   transition: transform var(--hold-ms, 1s) linear;
 }
+
+/* 画面の下に出す知らせ（ui/notice-bar.ts）。背景と文字の色を入れ替えて、ページの上に浮かせる */
+.notice-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  border-radius: 12px;
+  padding: 6px 6px 6px 14px;
+  font-size: 14px;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+
+.notice-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-bar button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.notice-bar-undo {
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+.notice-bar-close {
+  font-size: 20px;
+  line-height: 1;
+  border: 0;
+  padding: 4px 8px;
+}
