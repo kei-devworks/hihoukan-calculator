@@ -3,6 +3,7 @@
  * 品目・単価・見出しは TallyConfig に書き、画面・保存・報告文はすべて設定から作る（docs/architecture.md）
  */
 
+import { clearCashCount, emptyCashCount, parseCashCount, type CashCount } from './cash'
 import { allItems, defaultPrice, validateCatalog, type Catalog, type CatalogItem, type CatalogSection } from './catalog'
 import { formatNumber } from './format'
 import { isCount, isDateString, isRecord } from './guards'
@@ -31,12 +32,14 @@ export type TallyState = {
   orders: Order[]
   /** 既定から変えた単価だけを持つ（既定のままのものは持たない） */
   priceOverrides: Prices
+  /** レジ精算で数えた枚数（設定に cash があるページだけ使う） */
+  cash: CashCount
   /** 最後に記録を変えた時刻（ISO 8601）。記録がなければ null */
   updatedAt: string | null
 }
 
 export function initialState(): TallyState {
-  return { orders: [], priceOverrides: {}, updatedAt: null }
+  return { orders: [], priceOverrides: {}, cash: emptyCashCount(), updatedAt: null }
 }
 
 /** 品目 id → 個数（取り消したオーダーを除く、すべてのオーダーの合計） */
@@ -98,9 +101,9 @@ export function startedAtOf(state: TallyState): string | null {
   return opened.length === 0 ? null : opened.reduce((min, at) => (Date.parse(at) < Date.parse(min) ? at : min))
 }
 
-/** 記録をすべて消して 0 に戻す。単価の変更は残す */
+/** 記録をすべて消して 0 に戻す。レジ精算はポケットといまの枚数を消す。単価の変更と、釣り銭準備金の開店時の枚数は残す */
 export function resetCounts(state: TallyState): TallyState {
-  return { ...state, orders: [], updatedAt: null }
+  return { ...state, orders: [], cash: clearCashCount(state.cash), updatedAt: null }
 }
 
 /**
@@ -170,7 +173,10 @@ export function parseState(config: TallyConfig, raw: unknown): TallyState {
       if (isCount(p) && p !== def.default) state.priceOverrides[def.id] = p
     }
   }
-  if (state.orders.length > 0) state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
+  // レジ精算の枚数は版 2 のあとから足した項目。なければ空にする
+  if (config.cash) state.cash = parseCashCount(raw.cash, config.cash)
+  const counted = Object.keys(state.cash.pocket).length > 0 || Object.keys(state.cash.floatNow).length > 0
+  if (state.orders.length > 0 || counted) state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
   return state
 }
 

@@ -523,3 +523,131 @@ button.hold-button.holding::after {
   border: 0;
   padding: 4px 8px;
 }
+
+/* レジ精算（ui/cash-panel.ts）。タクミとネコ・グリコで使う。囲みの枠は使わず、見出しで区切る */
+.cash-h {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.cash h2 + .cash-h {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.cash-grid {
+  display: grid;
+  grid-template-columns: 5.4em 5.2em auto minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-grid input,
+.float-grid input {
+  width: 100%;
+  min-width: 0;
+  text-align: right;
+}
+
+.cash-unit,
+.cash-th {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cash-th {
+  text-align: center;
+}
+
+.cash-yen {
+  text-align: right;
+  color: var(--muted);
+}
+
+.cash-sum {
+  margin: 6px 0 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.float-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.2em 5.2em;
+  gap: 6px 8px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 15px;
+}
+
+.float-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.float-foot button.ghost {
+  min-height: 38px;
+  padding: 6px 12px;
+}
+
+/* 計算はレシートのように並べる */
+.cash-calc {
+  margin-top: 12px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-calc p {
+  margin: 2px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cash-calc .eq {
+  border-top: 1px solid var(--line);
+  padding-top: 4px;
+  font-weight: 700;
+}
+
+.cash-calc .eq b {
+  font-size: 19px;
+}
+
+.cash-verdict {
+  margin: 8px 0 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.cash-verdict.ok {
+  background: color-mix(in srgb, #2e7d32 16%, var(--surface));
+}
+
+.cash-verdict.warn {
+  background: var(--notice-bg);
+  color: var(--notice-fg);
+}
+
+.cash-verdict.none {
+  background: var(--bg);
+  color: var(--muted);
+}
