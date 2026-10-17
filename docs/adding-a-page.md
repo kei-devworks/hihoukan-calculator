@@ -52,6 +52,7 @@ mountTallyApp(byId('app'), kiosk)
 ### 3. HTML `src/pages/kiosk/index.html`
 
 `src/pages/takumi/index.html` を写して、`<title>` だけ変える。
+`<meta name="robots" content="noindex, nofollow" />`（検索に出さない）とアイコンの行は消さない（消すとテストが落ちる。docs/deployment.md）。
 
 ### 4. ポータルに載せる `src/pages/registry.ts`
 
