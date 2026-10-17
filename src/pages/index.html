@@ -18,9 +18,18 @@
   </head>
   <body>
     <main class="wrap">
-      <header>
-        <h1>秘宝館 計算機</h1>
-        <p class="lead">使うページを選んでください。</p>
+      <header class="portal-head">
+        <div>
+          <h1>秘宝館 計算機</h1>
+          <p class="lead">使うページを選んでください。</p>
+        </div>
+        <button type="button" class="ghost icon-button" id="share-site" aria-label="このサイトを共有">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" />
+            <path d="M8.5 10h-2A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5h-2" />
+          </svg>
+          共有
+        </button>
       </header>
       <ul class="page-list" id="page-list"></ul>
     </main>

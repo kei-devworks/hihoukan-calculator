@@ -3,7 +3,8 @@
 ## 全体像
 
 - サーバーのない静的サイト。GitHub Pages に置く（[deployment.md](deployment.md)）
-- 1ページ = 1つの集計ツール。ページは `src/pages/<名前>/` に置き、ポータル（`src/pages/index.html`）から開く
+- 1ページ = 1つの集計ツール。ページは `src/pages/<名前>/` に置き、ポータル（`src/pages/index.html`）から開く。
+  ポータルの右上の［共有］で、入口のリンクを QR・共有シート・コピーで渡せる（`ui/share-dialog.ts`）
 - ページの種類は3つ。どれも設定を書くだけで作れる
 
   | 種類 | やること | 例 |
@@ -32,6 +33,7 @@ src/
     guards.ts      保存値を読み戻すときの型の確かめ
     time.ts        報告時刻・営業日・日時の表示
     format.ts      金額の表示
+    qr.ts          QR コードの点の並び（qrcode-generator は使うときだけ読み込む）
   ui/            DOM の共通部品と共通スタイル
     page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
@@ -44,6 +46,8 @@ src/
     clipboard.ts   コピー（Clipboard API → execCommand → 選択して長押し）
     confirm-button.ts  2回押すと実行するボタン（リセット用）
     dom.ts         要素を作る小さなヘルパー
+    qr.ts          QR コードを SVG で描く（いつも白地に黒）
+    share-dialog.ts  リンクを QR・共有シート（AirDrop・LINE など）・コピーで渡すダイアログ
   pages/         Vite の入口。1ページ = 1フォルダ
     index.html     ポータル
     registry.ts    ポータルに並べるページの一覧
