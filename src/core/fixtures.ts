@@ -1,5 +1,5 @@
 import type { StockConfig } from './stock'
-import type { TallyConfig } from './tally'
+import { initialState, type TallyConfig, type TallyState } from './tally'
 
 /** テスト用の「在庫の差」の設定。2つの見出しで単価を共有する */
 export const sampleStockConfig: StockConfig = {
@@ -61,4 +61,18 @@ export const sampleConfig: TallyConfig = {
       ],
     },
   ],
+}
+
+/** テスト用: 品目 id → 個数 を、1件の閉じたオーダーにした状態（個数・合計・報告文だけを見るテスト向け） */
+export function stateWithCounts(counts: Record<string, number>, at: Date): TallyState {
+  const iso = at.toISOString()
+  const lines = Object.fromEntries(Object.entries(counts).filter(([, n]) => n > 0))
+  if (Object.keys(lines).length === 0) return initialState()
+  return {
+    ...initialState(),
+    orders: [
+      { id: 1, kind: 'order', openedAt: iso, lastAt: iso, closedAt: iso, lines, tenders: [], edits: [], cancelledAt: null, source: null },
+    ],
+    updatedAt: iso,
+  }
 }

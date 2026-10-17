@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { sampleConfig as config } from './fixtures'
+import { sampleConfig as config, stateWithCounts } from './fixtures'
+import { addItem, removeItem } from './orders'
 import {
   allItems,
-  bump,
   carriedOverSince,
+  countsOf,
   displayName,
   grandTotal,
   hasCounts,
   initialState,
+  linesTotal,
   parseState,
   priceOf,
   reportName,
@@ -15,6 +17,7 @@ import {
   resetPrices,
   sectionTotal,
   setPrice,
+  startedAtOf,
   validateConfig,
   type TallyConfig,
   type TallyState,
@@ -28,45 +31,30 @@ const soft = section('soft')
 
 /** 品目 id と個数の組から状態を作る */
 function withCounts(counts: Record<string, number>): TallyState {
-  let state = initialState()
-  for (const [id, n] of Object.entries(counts)) state = bump(state, id, n, now)
-  return state
+  return stateWithCounts(counts, now)
 }
 
-describe('bump', () => {
-  it('個数を増減し、更新時刻を記録する', () => {
-    const state = bump(bump(initialState(), 'a', 1, now), 'a', 1, now)
-    expect(state.counts).toEqual({ a: 2 })
-    expect(state.updatedAt).toBe(now.toISOString())
-    expect(bump(state, 'a', -1, now).counts).toEqual({ a: 1 })
+describe('countsOf（個数はすべてのオーダーから数える）', () => {
+  it('オーダーをまたいで品目ごとに足し、取り消したオーダーは入れない', () => {
+    const at = (min: number) => new Date(now.getTime() + min * 60_000)
+    let state = addItem(addItem(initialState(), 'a', at(0)), 'b', at(0))
+    state = addItem(state, 'a', at(10)) // 3分たったので次のオーダー
+    expect(state.orders).toHaveLength(2)
+    expect(countsOf(state)).toEqual({ a: 2, b: 1 })
+
+    const cancelled = { ...state, orders: state.orders.map((o) => (o.id === 1 ? { ...o, cancelledAt: at(11).toISOString() } : o)) }
+    expect(countsOf(cancelled)).toEqual({ a: 1 })
   })
 
-  it('0 より下にはならず、0 になった品目は持たない', () => {
-    const state = bump(withCounts({ a: 1 }), 'a', -5, now)
-    expect(state.counts).toEqual({})
-  })
-
-  it('元の状態は書き換えない', () => {
-    const before = withCounts({ a: 1 })
-    bump(before, 'a', 1, now)
-    expect(before.counts).toEqual({ a: 1 })
-  })
-
-  it('0 から数え始めた時刻を記録し、あとから足しても変えない', () => {
-    const later = new Date('2026-10-15T15:00:00+09:00')
-    const state = bump(bump(initialState(), 'a', 1, now), 'b', 1, later)
-    expect(state.startedAt).toBe(now.toISOString())
-    expect(state.updatedAt).toBe(later.toISOString())
-  })
-
-  it('全部 0 に戻ると、数え始めの時刻も消える', () => {
-    expect(bump(withCounts({ a: 1 }), 'a', -1, now).startedAt).toBeNull()
+  it('オーダーの中身の金額は、いまの単価で出す', () => {
+    const state = setPrice(config, initialState(), 'a', 1200)
+    expect(linesTotal(config, state, { a: 2, vanilla: 1 })).toBe(2 * 1200 + 800)
   })
 })
 
 describe('carriedOverSince（前の営業日の数字が残っているか）', () => {
   // dayStartHour は 4。深夜 3:59 までは前日の営業日
-  const startedAt = (iso: string) => bump(initialState(), 'a', 1, new Date(iso))
+  const startedAt = (iso: string) => addItem(initialState(), 'a', new Date(iso))
 
   it('前の営業日に数え始めていれば、その時刻を返す', () => {
     const state = startedAt('2026-10-14T18:00:00+09:00')
@@ -76,8 +64,17 @@ describe('carriedOverSince（前の営業日の数字が残っているか）', 
   })
 
   it('残った数字に今日の分を足しても、前の営業日の数字のまま', () => {
-    const state = bump(startedAt('2026-10-14T18:00:00+09:00'), 'b', 1, new Date('2026-10-15T10:00:00+09:00'))
+    const state = addItem(startedAt('2026-10-14T18:00:00+09:00'), 'b', new Date('2026-10-15T10:00:00+09:00'))
     expect(carriedOverSince(config, state, new Date('2026-10-15T10:01:00+09:00'))).not.toBeNull()
+  })
+
+  it('数え始めた時刻は、取り消していないいちばん古いオーダーの時刻', () => {
+    const state = addItem(startedAt('2026-10-14T18:00:00+09:00'), 'b', new Date('2026-10-15T10:00:00+09:00'))
+    expect(startedAtOf(state)).toBe(new Date('2026-10-14T18:00:00+09:00').toISOString())
+    // 前の日のオーダーを − で空にすると取り消し済みになり、今日の数字だけになる
+    const { state: today } = removeItem(state, 'a', new Date('2026-10-15T10:01:00+09:00'))
+    expect(startedAtOf(today)).toBe(new Date('2026-10-15T10:00:00+09:00').toISOString())
+    expect(carriedOverSince(config, today, new Date('2026-10-15T10:02:00+09:00'))).toBeNull()
   })
 
   it('深夜営業で日付をまたいでも、同じ営業日なら null', () => {
@@ -162,31 +159,85 @@ describe('品目名', () => {
 })
 
 describe('resetCounts', () => {
-  it('個数と時刻を消し、単価の変更は残す', () => {
+  it('オーダーの記録と時刻を消し、単価の変更は残す', () => {
     const state = setPrice(config, withCounts({ a: 2, vanilla: 1 }), 'a', 1200)
     const reset = resetCounts(state)
-    expect(reset.counts).toEqual({})
+    expect(reset.orders).toEqual([])
+    expect(countsOf(reset)).toEqual({})
     expect(reset.updatedAt).toBeNull()
-    expect(reset.startedAt).toBeNull()
+    expect(startedAtOf(reset)).toBeNull()
     expect(reset.priceOverrides).toEqual({ a: 1200 })
   })
 })
 
 describe('parseState（保存されていた値を戻す）', () => {
-  it('正しい値はそのまま戻る', () => {
-    const state = setPrice(config, withCounts({ a: 2, vanilla: 1 }), 'soft', 900)
+  const at = (min: number) => new Date(now.getTime() + min * 60_000)
+
+  it('正しい値はそのまま戻る（閉じたオーダー・今のオーダー・直した記録・取り消し・預かり）', () => {
+    let state = addItem(addItem(initialState(), 'a', at(0)), 'a', at(1))
+    state = addItem(state, 'hotate', at(10))
+    state = removeItem(state, 'a', at(11)).state // 前のオーダーから減らす（直した記録が残る）
+    state = setPrice(config, state, 'soft', 900)
+    state = { ...state, orders: state.orders.map((o) => (o.id === 1 ? { ...o, tenders: [1000, 500] } : o)) }
     expect(parseState(config, JSON.parse(JSON.stringify(state)))).toEqual(state)
   })
 
-  it.each([null, undefined, 'text', 123, [], { counts: 'x' }])('壊れた値 %j は空の状態になる', (raw) => {
+  it.each([null, undefined, 'text', 123, [], { orders: 'x' }, { counts: 'x' }])('壊れた値 %j は空の状態になる', (raw) => {
     expect(parseState(config, raw)).toEqual(initialState())
   })
 
-  it('設定にない品目・負の数・小数・数でない値は捨てる', () => {
+  it('壊れたオーダー・設定にない品目・空のオーダー・順番の狂った id は捨てる', () => {
+    const base = { kind: 'order', openedAt: at(0).toISOString(), lastAt: at(0).toISOString(), closedAt: null, cancelledAt: null }
     const state = parseState(config, {
-      counts: { a: 2, removed: 5, b: -1, hotate: 1.5, vanilla: '3', matcha: 0 },
+      orders: [
+        { ...base, id: 1, lines: { a: 2, removed: 5, b: -1, hotate: 1.5, vanilla: '3' } },
+        { ...base, id: 2, lines: { removed: 1 } }, // 中身が全部消える
+        { ...base, id: 1, lines: { a: 1 } }, // id が戻っている
+        { ...base, id: 3, kind: 'other', lines: { a: 1 } },
+        { ...base, id: 4, openedAt: 'yesterday', lines: { a: 1 } },
+        { ...base, id: 5, lines: { matcha: 1 }, tenders: [1000, -5, 'x'], edits: [{ at: 'bad' }, { at: at(1).toISOString(), before: { matcha: 2 } }] },
+      ],
+      updatedAt: at(2).toISOString(),
     })
-    expect(state.counts).toEqual({ a: 2 })
+    expect(state.orders.map((o) => o.id)).toEqual([1, 5])
+    expect(state.orders[0]!.lines).toEqual({ a: 2 })
+    expect(state.orders[1]!.tenders).toEqual([1000])
+    expect(state.orders[1]!.edits).toEqual([{ at: at(1).toISOString(), before: { matcha: 2 } }])
+    expect(state.updatedAt).toBe(at(2).toISOString())
+  })
+
+  it('版 1 の保存（品目ごとの個数）は、数え始めた時刻の「まとめて入れた数」1件にする', () => {
+    const started = '2026-10-14T09:00:00.000Z'
+    const state = parseState(config, {
+      counts: { a: 2, removed: 5, b: -1, vanilla: 1 },
+      priceOverrides: { a: 1200 },
+      updatedAt: '2026-10-14T10:00:00.000Z',
+      startedAt: started,
+    })
+    expect(state.orders).toEqual([
+      {
+        id: 1,
+        kind: 'handover',
+        openedAt: started,
+        lastAt: started,
+        closedAt: started,
+        lines: { a: 2, vanilla: 1 },
+        tenders: [],
+        edits: [],
+        cancelledAt: null,
+        source: '更新前の記録',
+      },
+    ])
+    expect(countsOf(state)).toEqual({ a: 2, vanilla: 1 })
+    expect(state.priceOverrides).toEqual({ a: 1200 })
+    expect(startedAtOf(state)).toBe(started)
+  })
+
+  it('版 1 で数え始めの時刻がなければ更新時刻を使い、どちらもなければ前の日の数字として扱う', () => {
+    const updated = '2026-10-14T10:00:00.000Z'
+    expect(parseState(config, { counts: { a: 1 }, updatedAt: updated }).orders[0]!.openedAt).toBe(updated)
+    const unknown = parseState(config, { counts: { a: 1 } })
+    expect(carriedOverSince(config, unknown, now)).not.toBeNull()
   })
 
   it('設定にない単価・既定と同じ単価は捨てる', () => {
@@ -194,17 +245,10 @@ describe('parseState（保存されていた値を戻す）', () => {
     expect(state.priceOverrides).toEqual({ b: 2500 })
   })
 
-  it('日時として読めない時刻は捨てる。数え始めがなければ更新時刻で代える', () => {
-    const iso = '2026-10-14T09:00:00.000Z'
-    expect(parseState(config, { counts: { a: 1 }, updatedAt: 'yesterday' }).updatedAt).toBeNull()
-    expect(parseState(config, { counts: { a: 1 }, updatedAt: iso }).startedAt).toBe(iso)
-  })
-
-  it('数えていなければ、時刻は残っていても持たない', () => {
-    const iso = '2026-10-14T09:00:00.000Z'
-    const state = parseState(config, { counts: {}, updatedAt: iso, startedAt: iso })
+  it('記録がなければ、更新時刻は残っていても持たない', () => {
+    const state = parseState(config, { orders: [], updatedAt: '2026-10-14T09:00:00.000Z' })
     expect(state.updatedAt).toBeNull()
-    expect(state.startedAt).toBeNull()
+    expect(hasCounts(state)).toBe(false)
   })
 })
 

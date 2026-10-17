@@ -420,3 +420,106 @@ dialog.share-dialog[open] {
   display: flex;
   justify-content: center;
 }
+
+/* タップで構えて、長押しで実行するボタン（ui/hold-button.ts）。ふだんは赤い枠、構えたら赤い背景。
+   2つの文言を同じ場所に重ね、見えない方は visibility で隠す（ボタンの大きさが変わらない・読み上げは見えている方だけ） */
+button.hold-button {
+  position: relative;
+  overflow: hidden;
+  display: inline-grid;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--danger-text);
+  border: 1.5px solid var(--danger);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hold-button .hold-idle,
+.hold-button .hold-armed {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.hold-button .hold-armed {
+  visibility: hidden;
+}
+
+button.hold-button.armed {
+  background: var(--danger);
+  color: #fff;
+}
+
+button.hold-button.armed .hold-idle {
+  visibility: hidden;
+}
+
+button.hold-button.armed .hold-armed {
+  visibility: visible;
+}
+
+/* 押している間、左から濃い色で埋まる */
+button.hold-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+button.hold-button.holding::after {
+  transform: scaleX(1);
+  transition: transform var(--hold-ms, 1s) linear;
+}
+
+/* 画面の下に出す知らせ（ui/notice-bar.ts）。背景と文字の色を入れ替えて、ページの上に浮かせる */
+.notice-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  border-radius: 12px;
+  padding: 6px 6px 6px 14px;
+  font-size: 14px;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+
+.notice-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-bar button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.notice-bar-undo {
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+.notice-bar-close {
+  font-size: 20px;
+  line-height: 1;
+  border: 0;
+  padding: 4px 8px;
+}

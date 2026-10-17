@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { sampleConfig as config } from './fixtures'
+import { sampleConfig as config, stateWithCounts } from './fixtures'
 import { buildSalesReport } from './report'
-import { bump, initialState, setPrice, type TallyState } from './tally'
+import { initialState, setPrice, type TallyState } from './tally'
 
 const now = new Date('2026-10-15T21:00:00+09:00')
 
 function withCounts(counts: Record<string, number>): TallyState {
-  let state = initialState()
-  for (const [id, n] of Object.entries(counts)) state = bump(state, id, n, now)
-  return state
+  return stateWithCounts(counts, now)
 }
 
 describe('buildSalesReport', () => {

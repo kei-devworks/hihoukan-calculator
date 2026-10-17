@@ -1,14 +1,27 @@
 import './tally.css'
-import { formatNumber, formatYen } from '../core/format'
+import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
 import {
-  bump,
+  addItem,
+  cancelOrder,
+  closeOrder,
+  editOrder,
+  findOrder,
+  openOrder,
+  ORDER_IDLE_MS,
+  removeItem,
+  restoreOrder,
+  revertEdit,
+  type Order,
+} from '../core/orders'
+import {
   carriedOverSince,
   countOf,
   displayName,
   grandTotal,
+  linesTotal,
   priceOf,
   resetCounts,
   resetPrices,
@@ -18,10 +31,15 @@ import {
   type TallyState,
 } from '../core/tally'
 import { TallyStore } from '../core/tally-store'
-import { formatMonthDayTime, nearestHour } from '../core/time'
+import { formatMonthDayTime, formatTime, nearestHour } from '../core/time'
 import { copyText, selectContents } from './clipboard'
-import { confirmButton } from './confirm-button'
 import { h } from './dom'
+import { holdButton } from './hold-button'
+import { noticeBar } from './notice-bar'
+import { describeChanges, openOrderEditor } from './order-editor'
+import { orderPanel } from './order-panel'
+import { tallyLog } from './tally-log'
+import { viewTabs } from './view-tabs'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
 export type MountOptions = {
@@ -47,6 +65,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   let lastSave: SaveResult | null = null
   /** 報告時刻を手で変えたか。変えていなければ、時間がたつといまの時刻に合わせ直す */
   let timeEdited = false
+  /** 今のオーダーが閉じる時刻に描き直すためのタイマー */
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
 
   // ---- 見出し・報告時刻・保存の状態 ----
   const timeInput = h('input', { type: 'time', id: 'report-time' })
@@ -59,8 +79,9 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     carriedActions: [
       {
         label: '0 に戻して今日を始める',
-        armedLabel: 'もう一度押すと全部 0',
-        onConfirm: () => change(resetCounts(store.current)),
+        armedLabel: '長押しで全部 0 にする',
+        hold: true,
+        onConfirm: () => change(resetCounts(store.current), '全部 0 にしました'),
       },
     ],
   })
@@ -76,9 +97,24 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       plus: h('button', { type: 'button', class: 'step', text: '＋' }),
     })),
   )
+  const addOne = (itemId: string) => {
+    orders.touch(itemId)
+    change(addItem(store.current, itemId, now()))
+  }
+  const removeOne = (itemId: string) => {
+    const item = rows.find((row) => row.item.id === itemId)?.item
+    if (!item) return
+    orders.touch(itemId)
+    const name = displayName(config, store.current, item)
+    const { state, from, fromOpen } = removeItem(store.current, itemId, now())
+    if (!from) return
+    // 今のオーダーの押しまちがいはその場で見えるので知らせない。前のオーダーから減らしたときは、どこから減ったかを知らせる
+    const where = from.kind === 'handover' ? 'まとめて入れた数' : 'オーダー'
+    change(state, fromOpen ? undefined : `${formatTime(new Date(from.openedAt))} の${where}から${name}を1つ減らしました`)
+  }
   for (const row of rows) {
-    row.minus.addEventListener('click', () => change(bump(store.current, row.item.id, -1, now())))
-    row.plus.addEventListener('click', () => change(bump(store.current, row.item.id, 1, now())))
+    row.minus.addEventListener('click', () => removeOne(row.item.id))
+    row.plus.addEventListener('click', () => addOne(row.item.id))
   }
 
   const subtotals = config.sections.map((section) => ({ section, value: h('span') }))
@@ -122,18 +158,17 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       input.value = String(priceOf(config, store.current, def.id))
     })
   }
-  const pricesSummary = h('summary')
+  const pricesTitle = h('h2', { id: 'prices-title' })
   const resetPricesButton = h('button', { type: 'button', class: 'ghost', text: 'すべて既定に戻す' })
   resetPricesButton.addEventListener('click', () => change(resetPrices(store.current)))
 
   // ---- 報告文 ----
   const report = h('pre', { class: 'report', id: 'report' })
   const copyButton = h('button', { type: 'button', class: 'solid', text: 'コピー' })
-  const resetButton = h('button', { type: 'button', class: 'ghost' })
-  confirmButton(resetButton, {
+  const resetButton = holdButton({
     label: 'リセット',
-    armedLabel: 'もう一度押すと全部 0',
-    onConfirm: () => change(resetCounts(store.current)),
+    armedLabel: '長押しで全部 0 にする',
+    onConfirm: () => change(resetCounts(store.current), '全部 0 にしました'),
   })
 
   let copyTimer: ReturnType<typeof setTimeout> | undefined
@@ -151,17 +186,69 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     }
   })
 
-  root.replaceChildren(
-    pageHeader(config.title, [
-      h('div', { class: 'timebar' }, [h('label', { for: timeInput.id, text: '報告時刻' }), timeInput, nowButton]),
-      status.saveStatus,
-    ]),
-    status.storageWarning,
-    status.carriedNotice,
+  // ---- 画面の下に重ねて出すもの（お知らせ・今のオーダー） ----
+  const notice = noticeBar()
+  const orderTime = (order: Order) => formatTime(new Date(order.openedAt))
+  const cancelOne = (id: number) => {
+    const order = findOrder(store.current, id)
+    if (!order) return
+    const price = formatPrice(linesTotal(config, store.current, order.lines))
+    change(cancelOrder(store.current, id, now()), `${orderTime(order)} のオーダー（${price}）を取り消しました`)
+  }
+  const editOne = (id: number) =>
+    openOrderEditor(config, store.current, id, {
+      save: (orderId, lines) => {
+        const order = findOrder(store.current, orderId)
+        if (!order) return
+        const changes = describeChanges(config, store.current, order.lines, lines)
+        change(editOrder(store.current, orderId, lines, now()), `${orderTime(order)} のオーダーを変更しました（${changes}）`)
+      },
+      cancel: cancelOne,
+      revert: (orderId, index) => {
+        const order = findOrder(store.current, orderId)
+        if (!order) return
+        change(revertEdit(store.current, orderId, index, now()), `${orderTime(order)} のオーダーを変更の前に戻しました`)
+      },
+    })
+  const log = tallyLog(config, {
+    edit: editOne,
+    restore: (id) => {
+      const order = findOrder(store.current, id)
+      if (!order) return
+      change(restoreOrder(store.current, id, now()), `${orderTime(order)} の取り消したオーダーを戻しました`)
+    },
+  })
+  const orders = orderPanel(config, {
+    add: addOne,
+    remove: removeOne,
+    complete: (id) => change(closeOrder(store.current, id, now())),
+    cancel: cancelOne,
+    edit: editOne,
+    showCount: () => tabs.select('count'),
+  })
+  const dock = h('div', { class: 'dock' }, [notice.element, orders.element])
+  // 下に重ねたものの高さだけ、ページの下に余白を足す（いちばん下の行やボタンが隠れないように）
+  const syncDockSpace = () => {
+    root.style.paddingBottom = dock.offsetHeight > 0 ? `calc(max(40px, env(safe-area-inset-bottom, 0px)) + ${dock.offsetHeight}px)` : ''
+  }
+  const dockObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(syncDockSpace) : null
+  dockObserver?.observe(dock)
+
+  // ---- 画面の切り替え ----
+  // 「数える」はいつも使う画面（今と同じ並び）。ほかは見出しの下のボタンで切り替え、縦に長くしない
+  const countPanel = h('div', { class: 'view-panel' }, [
     ...sectionCards,
     h('div', { class: 'total' }, [h('span', { text: '合計' }), total]),
-    h('details', { class: 'prices' }, [
-      pricesSummary,
+    h('section', { class: 'card' }, [
+      h('div', { class: 'rhead' }, [h('h2', { text: '報告文' }), copyButton]),
+      report,
+      h('div', { class: 'foot' }, [resetButton]),
+    ]),
+  ])
+  const logPanel = h('div', { class: 'view-panel' }, [log.element])
+  const itemsPanel = h('div', { class: 'view-panel' }, [
+    h('section', { class: 'card prices' }, [
+      pricesTitle,
       h(
         'div',
         { class: 'pgrid' },
@@ -169,15 +256,51 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       ),
       h('div', { class: 'foot' }, [resetPricesButton]),
     ]),
-    h('section', { class: 'card' }, [
-      h('div', { class: 'rhead' }, [h('h2', { text: '報告文' }), copyButton]),
-      report,
-      h('div', { class: 'foot' }, [resetButton]),
+  ])
+  const tabs = viewTabs(
+    [
+      { id: 'count', label: '数える', panel: countPanel },
+      { id: 'log', label: '記録', panel: logPanel },
+      { id: 'items', label: '品目', panel: itemsPanel },
+    ],
+    {
+      label: '画面の切り替え',
+      onChange: () => {
+        window.scrollTo({ top: 0 })
+        render()
+      },
+    },
+  )
+
+  root.replaceChildren(
+    pageHeader(config.title, [
+      h('div', { class: 'timebar' }, [h('label', { for: timeInput.id, text: '報告時刻' }), timeInput, nowButton]),
+      status.saveStatus,
     ]),
+    status.storageWarning,
+    status.carriedNotice,
+    tabs.element,
+    countPanel,
+    logPanel,
+    itemsPanel,
+    dock,
   )
 
   // ---- 状態の変更と描画 ----
-  function change(next: TallyState) {
+  /**
+   * 状態を変えて保存し、描き直す。undoText を渡すと、変える前に戻せる知らせを出す。
+   * ほかの操作をしたら知らせは消す（戻す先が古くなり、あとの操作まで消えてしまうため）
+   */
+  function change(next: TallyState, undoText?: string) {
+    const before = store.current
+    if (undoText) {
+      notice.show(undoText, () => {
+        lastSave = store.update(before)
+        render()
+      })
+    } else {
+      notice.hide()
+    }
     lastSave = store.update(next)
     render()
   }
@@ -212,7 +335,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       hint.textContent = changed ? `（既定 ¥${formatNumber(def.default)}）` : ''
       input.classList.toggle('changed', changed)
     }
-    pricesSummary.textContent = changedPrices > 0 ? `単価設定（${changedPrices}件 変更あり）` : '単価設定'
+    pricesTitle.textContent = changedPrices > 0 ? `単価設定（${changedPrices}件 変更あり）` : '単価設定'
     resetPricesButton.disabled = changedPrices === 0
 
     status.update({
@@ -222,6 +345,14 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       carriedSince: carriedOverSince(config, state, at),
       now: at,
     })
+
+    orders.render(state, at, tabs.current === 'count')
+    // 記録の画面は、開いているときだけ描く（ほかの画面のときに、押すたびに作り直さない）
+    if (tabs.current === 'log') log.render(state, at)
+    // 今のオーダーが3分で閉じるときに描き直す（30秒ごとの描き直しを待たない）
+    clearTimeout(idleTimer)
+    const open = openOrder(state, at)
+    if (open) idleTimer = setTimeout(render, Date.parse(open.lastAt) + ORDER_IDLE_MS - at.getTime() + 50)
   }
 
   // ---- 報告時刻 ----
@@ -244,7 +375,14 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     followClock()
     render()
   }
-  const stopFresh = keepFresh(store, { onTick: refresh, onReload: refresh })
+  const stopFresh = keepFresh(store, {
+    onTick: refresh,
+    onReload: () => {
+      // 別のタブで変わったら、戻す先が古くなるので知らせを消す
+      notice.hide()
+      refresh()
+    },
+  })
 
   refresh()
 
@@ -252,6 +390,9 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     store,
     unmount: () => {
       stopFresh()
+      dockObserver?.disconnect()
+      notice.hide()
+      clearTimeout(idleTimer)
       clearTimeout(copyTimer)
     },
   }

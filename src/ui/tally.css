@@ -76,17 +76,48 @@
   font-weight: 400;
 }
 
-details.prices {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 8px 14px;
-  background: var(--surface);
+/* 画面の切り替えのボタン（ui/view-tabs.ts）。スクロールしても上に残る */
+.view-tabs {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 3px;
+  padding: 3px;
+  background: var(--line);
+  border-radius: 11px;
 }
 
-details.prices summary {
-  cursor: pointer;
+.view-tabs button {
+  font: inherit;
   font-size: 14px;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.view-tabs button[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.view-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.view-panel[hidden] {
+  display: none;
 }
 
 .pgrid {
@@ -118,4 +149,546 @@ details.prices summary {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+}
+
+/* 画面の下に重ねて出すもの（お知らせ・今のオーダー）。ページの幅にそろえて、下の安全領域の上に置く */
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 max(12px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px))
+    max(12px, env(safe-area-inset-left, 0px));
+  pointer-events: none;
+}
+
+.dock > * {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* 今のオーダー・前のオーダー（ui/order-panel.ts） */
+.order-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order-panel {
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 12px 28px -16px rgba(0, 0, 0, 0.5);
+}
+
+.order-panel.view {
+  border-color: var(--line);
+}
+
+.order-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 「今のオーダー 21:05〜」「3点」「￥2,500」を1行に並べる（パネルを低くして、品目のカードを隠しすぎない） */
+.order-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 10px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-title {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.order-total {
+  font-size: 19px;
+}
+
+.order-head button.ghost {
+  min-height: 36px;
+  padding: 4px 14px;
+}
+
+.order-close {
+  font-size: 18px;
+}
+
+/* 品目が増えても、下に重ねたパネルが品目のカードを隠しすぎないよう、3行分の高さでパネルの中をスクロールする */
+.order-lines {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: 116px;
+  overflow-y: auto;
+}
+
+.order-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.order-line:first-child {
+  border-top: 0;
+}
+
+/* ＋/− を押した品目の行を少し光らせる（押したことがわかるように） */
+.order-line.touched {
+  animation: order-touched 0.9s ease-out;
+}
+
+@keyframes order-touched {
+  from {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-line.touched {
+    animation: none;
+  }
+}
+
+.order-name {
+  font-weight: 500;
+  min-width: 0;
+}
+
+.order-change {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.order-added {
+  color: var(--accent);
+}
+
+.order-after {
+  color: var(--fg);
+}
+
+.order-steps {
+  display: flex;
+  gap: 4px;
+}
+
+.mini-step {
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  width: 40px;
+  height: 34px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.order-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-foot button.hold-button {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.order-note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  min-width: 0;
+}
+
+.order-chip {
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 16px;
+  min-height: 44px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -14px rgba(0, 0, 0, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.order-foot.end {
+  justify-content: flex-end;
+}
+
+/* オーダーを直す画面（ui/order-editor.ts）。下から出す */
+dialog.order-editor {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  margin: auto auto 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface);
+  color: var(--fg);
+  overflow-y: auto;
+}
+
+dialog.order-editor::backdrop {
+  background: rgba(10, 14, 20, 0.45);
+}
+
+dialog.order-editor[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-head h2 {
+  font-size: 16px;
+}
+
+.editor-x {
+  font-size: 18px;
+}
+
+.editor-summary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-summary b {
+  color: var(--fg);
+  font-size: 17px;
+}
+
+.editor-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-top: 1px solid var(--line);
+}
+
+.editor-row:first-child {
+  border-top: 0;
+}
+
+.editor-row.changed {
+  background: color-mix(in srgb, var(--accent2) 16%, transparent);
+  border-radius: 8px;
+}
+
+.editor-from {
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-n {
+  min-width: 2ch;
+  text-align: center;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-add-toggle {
+  align-self: flex-start;
+}
+
+.editor-add-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.editor-warning {
+  font-size: 13px;
+}
+
+.editor-history {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.editor-history h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.editor-history-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-history-row button.ghost {
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.editor-danger {
+  display: flex;
+}
+
+.editor-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 記録の画面（ui/tally-log.ts） */
+.log-summary,
+.log-empty {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.log-hours {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.log-hour,
+.log-handover {
+  border-top: 1px solid var(--line);
+}
+
+.log-hour-head {
+  display: grid;
+  grid-template-columns: 4.6em 2.6em minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  list-style: none;
+}
+
+.log-hour-head::-webkit-details-marker {
+  display: none;
+}
+
+.log-hour-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.log-hour-label::after {
+  content: ' ▸';
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.log-hour[open] .log-hour-label::after {
+  content: ' ▾';
+}
+
+.log-count {
+  color: var(--muted);
+  text-align: right;
+}
+
+.log-bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.log-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.log-note {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.log-hour.warn > .log-hour-head {
+  background: var(--notice-bg);
+  color: var(--notice-fg);
+  margin: 0 -14px;
+  padding-inline: 14px;
+}
+
+.log-hour.warn .log-note,
+.log-hour.warn .log-count {
+  color: inherit;
+}
+
+.log-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+}
+
+.log-amounts small {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.log-orders {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8px;
+}
+
+/* 1件を2段にする: 「時刻 | 品目（1行ずつ） | 金額」と、その下に「点数・変更の回数など | ［編集］」 */
+.log-order,
+.log-handover {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr) auto;
+  grid-template-areas:
+    'time items yen'
+    'time meta button';
+  gap: 2px 8px;
+  align-items: start;
+  padding: 8px 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-order > .log-time,
+.log-handover > .log-time {
+  grid-area: time;
+}
+
+.log-order > .log-items,
+.log-handover > .log-items {
+  grid-area: items;
+}
+
+.log-order > .log-yen,
+.log-handover > .log-yen {
+  grid-area: yen;
+  justify-self: end;
+}
+
+.log-order > button,
+.log-handover > button {
+  grid-area: button;
+  justify-self: end;
+  min-height: 34px;
+  padding: 4px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.log-order {
+  border-top: 1px dashed var(--line);
+}
+
+.log-time {
+  color: var(--muted);
+}
+
+.log-items {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.log-yen {
+  white-space: nowrap;
+}
+
+.log-meta {
+  grid-area: meta;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.log-order.cancelled .log-items,
+.log-order.cancelled .log-yen {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.log-badge,
+.log-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent2);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 7px;
+  align-self: flex-start;
 }

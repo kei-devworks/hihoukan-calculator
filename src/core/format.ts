@@ -9,3 +9,8 @@ export function formatNumber(n: number): string {
 export function formatYen(n: number): string {
   return `￥${formatNumber(n)}-`
 }
+
+/** 画面の中の金額「￥1,234」（報告文と違い、最後の「-」をつけない） */
+export function formatPrice(n: number): string {
+  return `￥${formatNumber(n)}`
+}

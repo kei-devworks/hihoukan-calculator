@@ -6,6 +6,7 @@ import type { SaveResult } from '../core/json-store'
 import { businessDate, formatMonthDayTime, formatTime } from '../core/time'
 import { confirmButton, type ConfirmButtonOptions } from './confirm-button'
 import { h } from './dom'
+import { holdButton } from './hold-button'
 
 /** 「‹ 一覧」と題名。extra は題名の下に並べる（報告時刻の欄など） */
 export function pageHeader(title: string, extra: Node[] = []): HTMLElement {
@@ -22,8 +23,8 @@ export type PageStatusOptions = {
   idleText: string
   /** 前の営業日の数字が残っているときの知らせの文（知らせを使わないページは省く） */
   carriedText?: (since: Date) => string
-  /** 知らせに並べるボタン（2回押しで実行） */
-  carriedActions?: ConfirmButtonOptions[]
+  /** 知らせに並べるボタン。2回押しで実行する。hold なら、タップで構えて長押しで実行する（ui/hold-button.ts） */
+  carriedActions?: (ConfirmButtonOptions & { hold?: boolean })[]
 }
 
 export type PageStatusView = {
@@ -47,6 +48,7 @@ export function pageStatus(options: PageStatusOptions): PageStatusView {
   const storageWarning = h('p', { class: 'notice warn', role: 'alert', hidden: true })
   const carriedText = h('p')
   const buttons = (options.carriedActions ?? []).map((action) => {
+    if (action.hold) return holdButton(action)
     const button = h('button', { type: 'button', class: 'ghost' })
     confirmButton(button, action)
     return button
