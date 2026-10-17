@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   addItem,
+  cancelOrder,
   closeOrder,
+  editOrder,
   isOpen,
   openOrder,
   ORDER_IDLE_MS,
   pieces,
   previousOrder,
   removeItem,
+  restoreOrder,
+  revertEdit,
 } from './orders'
 import { countsOf, initialState, type TallyState } from './tally'
 
@@ -127,5 +131,77 @@ describe('pieces', () => {
   it('品目の数を足す', () => {
     expect(pieces({ a: 2, b: 1 })).toBe(3)
     expect(pieces({})).toBe(0)
+  })
+})
+
+describe('editOrder（編集の画面で保存）', () => {
+  const two = () => press(initialState(), ['a', 0], ['a', 0], ['b', 10]) // 1件目 {a:2}、2件目 {b:1}
+
+  it('中身を差し替え、直す前の中身を記録に残す。0 の品目は持たない', () => {
+    const state = editOrder(two(), 1, { a: 1, hotate: 2, matcha: 0 }, at(20))
+    const order = state.orders[0]!
+    expect(order.lines).toEqual({ a: 1, hotate: 2 })
+    expect(order.edits).toEqual([{ at: at(20).toISOString(), before: { a: 2 } }])
+    expect(countsOf(state)).toEqual({ a: 1, b: 1, hotate: 2 })
+    expect(state.updatedAt).toBe(at(20).toISOString())
+  })
+
+  it('変わっていなければ何もしない（記録も増やさない）', () => {
+    const state = two()
+    expect(editOrder(state, 1, { a: 2 }, at(20))).toBe(state)
+  })
+
+  it('中身を空にして保存したら、中身を残したまま取り消し済みにする', () => {
+    const order = editOrder(two(), 1, {}, at(20)).orders[0]!
+    expect(order.cancelledAt).toBe(at(20).toISOString())
+    expect(order.lines).toEqual({ a: 2 })
+  })
+
+  it('ない id なら何もしない', () => {
+    const state = two()
+    expect(editOrder(state, 99, { a: 1 }, at(20))).toBe(state)
+  })
+})
+
+describe('cancelOrder・restoreOrder（取り消しと元に戻す）', () => {
+  it('取り消したオーダーは数に入れず、閉じる。元に戻すと数に入る', () => {
+    let state = press(initialState(), ['a', 0], ['b', 0.5]) // 今のオーダー {a:1, b:1}
+    state = cancelOrder(state, 1, at(1))
+    expect(countsOf(state)).toEqual({})
+    expect(state.orders[0]).toMatchObject({ cancelledAt: at(1).toISOString(), closedAt: at(1).toISOString() })
+    expect(openOrder(state, at(1.5))).toBeNull()
+
+    state = restoreOrder(state, 1, at(2))
+    expect(countsOf(state)).toEqual({ a: 1, b: 1 })
+    expect(state.orders[0]!.cancelledAt).toBeNull()
+    // 閉じたまま（戻したあとに押した分は、新しいオーダーになる）
+    expect(addItem(state, 'a', at(2.5)).orders).toHaveLength(2)
+  })
+
+  it('取り消し済みをもう一度取り消しても、取り消していないものを戻しても、何もしない', () => {
+    const cancelled = cancelOrder(press(initialState(), ['a', 0]), 1, at(1))
+    expect(cancelOrder(cancelled, 1, at(2))).toBe(cancelled)
+    const live = press(initialState(), ['a', 0])
+    expect(restoreOrder(live, 1, at(1))).toBe(live)
+  })
+})
+
+describe('revertEdit（この変更の前に戻す）', () => {
+  it('直す前の中身に戻し、戻したことも記録に残す（戻したあとでも、また戻せる）', () => {
+    let state = press(initialState(), ['a', 0], ['a', 0])
+    state = editOrder(state, 1, { a: 1, b: 1 }, at(10))
+    state = revertEdit(state, 1, 0, at(11))
+    const order = state.orders[0]!
+    expect(order.lines).toEqual({ a: 2 })
+    expect(order.edits).toEqual([
+      { at: at(10).toISOString(), before: { a: 2 } },
+      { at: at(11).toISOString(), before: { a: 1, b: 1 } },
+    ])
+    expect(revertEdit(state, 1, 1, at(12)).orders[0]!.lines).toEqual({ a: 1, b: 1 })
+  })
+
+  it('ない記録なら何もしない', () => {
+    const state = press(initialState(), ['a', 0])
+    expect(revertEdit(state, 1, 0, at(1))).toBe(state)
   })
 })

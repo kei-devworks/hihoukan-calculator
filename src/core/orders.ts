@@ -155,3 +155,44 @@ export function closeOrder(state: TallyState, id: number, now: Date): TallyState
   const at = now.toISOString()
   return replaceOrder(state, { ...order, closedAt: at }, at)
 }
+
+function sameLines(a: OrderLines, b: OrderLines): boolean {
+  const ka = Object.keys(a)
+  return ka.length === Object.keys(b).length && ka.every((id) => a[id] === b[id])
+}
+
+/**
+ * オーダーの中身を直す（編集の画面で保存したとき）。直す前の中身を記録（edits）に残す。
+ * 中身を空にしたら取り消しにする（中身は残す）。変わっていなければ何もしない
+ */
+export function editOrder(state: TallyState, id: number, lines: OrderLines, now: Date): TallyState {
+  const order = findOrder(state, id)
+  if (!order) return state
+  const next = cleanLines(lines)
+  if (sameLines(next, order.lines)) return state
+  if (pieces(next) === 0) return cancelOrder(state, id, now)
+  const at = now.toISOString()
+  return replaceOrder(state, { ...order, lines: next, edits: [...order.edits, { at, before: order.lines }] }, at)
+}
+
+/** オーダーを取り消す。数には入れないが、元に戻せるよう記録に残す */
+export function cancelOrder(state: TallyState, id: number, now: Date): TallyState {
+  const order = findOrder(state, id)
+  if (!order || order.cancelledAt !== null) return state
+  const at = now.toISOString()
+  return replaceOrder(state, { ...order, closedAt: order.closedAt ?? at, cancelledAt: at }, at)
+}
+
+/** 取り消したオーダーを元に戻す */
+export function restoreOrder(state: TallyState, id: number, now: Date): TallyState {
+  const order = findOrder(state, id)
+  if (!order || order.cancelledAt === null) return state
+  const at = now.toISOString()
+  return replaceOrder(state, { ...order, cancelledAt: null }, at)
+}
+
+/** 直す前の中身（edits[index]）に戻す。戻したことも直した記録に残る（戻したあとでも、また戻せる） */
+export function revertEdit(state: TallyState, id: number, index: number, now: Date): TallyState {
+  const edit = findOrder(state, id)?.edits[index]
+  return edit ? editOrder(state, id, edit.before, now) : state
+}
