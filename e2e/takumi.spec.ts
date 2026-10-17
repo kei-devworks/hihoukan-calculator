@@ -272,6 +272,26 @@ test('会計で、受け取ったお札・硬貨を押すとお釣りが出て�
   await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜1点￥1,000')
 })
 
+test('レジ精算で、ポケットと釣り銭準備金の枚数から売上のお金を出し、カウンターの合計と比べる', async ({ page }) => {
+  await open(page)
+  await countSample(page) // ￥12,900
+  await page.getByRole('tab', { name: 'レジ精算' }).click()
+  await page.getByLabel('売上のポケット 1万円札の枚数').fill('1')
+  await page.getByLabel('売上のポケット 千円札の枚数').fill('3')
+  await page.getByLabel('釣り銭準備金 100円玉 開店時の枚数').fill('30')
+  await page.getByLabel('釣り銭準備金 100円玉 いまの枚数').fill('29')
+  await expect(page.locator('.cash-calc .eq b')).toHaveText('￥12,900')
+  await expect(page.locator('.cash-verdict[aria-live]')).toHaveText('ぴったり合っています。')
+
+  await page.reload()
+  await page.getByRole('tab', { name: 'レジ精算' }).click()
+  await expect(page.getByLabel('売上のポケット 千円札の枚数')).toHaveValue('3')
+  await page.getByLabel('売上のポケット 千円札の枚数').fill('4')
+  await expect(page.locator('.cash-verdict[aria-live]')).toHaveText(
+    'お金のほうが ￥1,000 多い。押し忘れがないか記録を見てください（1,000円・ホタテ 1つ分と同じ額）。',
+  )
+})
+
 test('最後に押してから3分たつと、今のオーダーは自動で閉じる', async ({ page }) => {
   await page.clock.install({ time: evening })
   await page.goto('takumi/')
@@ -307,7 +327,10 @@ test('見出しの下のボタンで「数える」と「品目」を切り替�
 
 test('スマホの幅で横にはみ出さない', async ({ page }) => {
   await open(page)
-  await page.getByRole('tab', { name: '品目' }).click()
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-  expect(overflow).toBeLessThanOrEqual(0)
+  await countSample(page)
+  for (const tab of ['数える', '記録', 'レジ精算', '品目']) {
+    await page.getByRole('tab', { name: tab }).click()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow, tab).toBeLessThanOrEqual(0)
+  }
 })

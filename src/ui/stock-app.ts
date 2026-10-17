@@ -1,6 +1,7 @@
 import './stock.css'
+import { clearCashCount, floatUnused } from '../core/cash'
 import { defaultPrice } from '../core/catalog'
-import { formatNumber, formatYen } from '../core/format'
+import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import {
   carryRemainingToStart,
@@ -8,8 +9,12 @@ import {
   grandStockTotal,
   itemResult,
   resetStock,
+  sectionCashOf,
   sectionResult,
   setField,
+  setSectionCash,
+  settleSection,
+  settlementOf,
   stockCarriedOverSince,
   STOCK_FIELDS,
   type ItemResult,
@@ -19,10 +24,12 @@ import {
 } from '../core/stock'
 import { StockStore } from '../core/stock-store'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
-import { formatMonthDayTime } from '../core/time'
-import { confirmButton } from './confirm-button'
+import { formatMonthDayTime, formatTime } from '../core/time'
+import { cashPanel, type CashPanel } from './cash-panel'
 import { h } from './dom'
+import { holdButton } from './hold-button'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
+import { viewTabs } from './view-tabs'
 
 export type MountOptions = {
   /** 保存先。省略すると端末の localStorage（使えなければ保存しない） */
@@ -90,13 +97,15 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
     carriedActions: [
       {
         label: '残数を今日の開店時の在庫にする',
-        armedLabel: 'もう一度押すと移す',
+        armedLabel: '長押しで残数を開店時に移す',
+        hold: true,
         onConfirm: () => change(carryRemainingToStart(store.current, now())),
       },
       {
         label: '全部消して始める',
-        armedLabel: 'もう一度押すと全部消す',
-        onConfirm: () => change(resetStock()),
+        armedLabel: '長押しで全部消す',
+        hold: true,
+        onConfirm: () => change(resetStock(store.current)),
       },
     ],
   })
@@ -191,12 +200,56 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
     h('div', { class: 'stock-grand' }, [h('span', { text: `合計（${config.sections.map((s) => s.title).join('＋')}）` }), grand]),
   ])
 
-  const resetButton = h('button', { type: 'button', class: 'ghost' })
-  confirmButton(resetButton, {
+  const resetButton = holdButton({
     label: 'リセット',
-    armedLabel: 'もう一度押すと全部消す',
-    onConfirm: () => change(resetStock()),
+    armedLabel: '長押しで全部消す',
+    onConfirm: () => change(resetStock(store.current)),
   })
+
+  // ---- 見出しごとのレジ精算と、精算を終える ----
+  const cashConfig = config.cash
+  const sectionTools = config.sections.map((section) => {
+    const cash: CashPanel | null = cashConfig
+      ? cashPanel({
+          cash: cashConfig,
+          idPrefix: `cash-${section.id}`,
+          title: `${section.title}のレジ精算`,
+          labelPrefix: `${section.title} `,
+          expectedLabel: `${section.title}の売上`,
+          hints: {
+            over: '残数や追加の入れまちがいがないか確かめてください',
+            under: '残数の数えまちがいや、お釣りのまちがいがないか確かめてください',
+          },
+          onChange: (next) => change(setSectionCash(store.current, section.id, next, now())),
+          onFloatUnused: () => change(setSectionCash(store.current, section.id, floatUnused(sectionCashOf(store.current, section.id)), now())),
+          onClear: () => change(setSectionCash(store.current, section.id, clearCashCount(sectionCashOf(store.current, section.id)), now())),
+        })
+      : null
+    const settleStatus = h('p', { class: 'settle-status' })
+    const settleButton = h('button', { type: 'button', class: 'solid' })
+    settleButton.addEventListener('click', () => change(settleSection(store.current, section, now())))
+    const settleCard = h('section', { class: 'card settle', 'aria-label': `${section.title}の精算` }, [settleStatus, h('div', { class: 'foot' }, [settleButton])])
+    return { section, cash, settleStatus, settleButton, settleCard }
+  })
+
+  // ---- 見出し（弓道・手裏剣）を切り替える。1つの見出しの中で、在庫 → 売上 → レジ精算 → 精算を終える、が終わる ----
+  const panels = config.sections.map((section, i) =>
+    h('div', { class: 'view-panel' }, [
+      sectionCards[i]!,
+      ...(sectionTools[i]!.cash ? [sectionTools[i]!.cash!.element] : []),
+      sectionTools[i]!.settleCard,
+    ]),
+  )
+  const tabs = viewTabs(
+    config.sections.map((section, i) => ({ id: section.id, label: section.title, panel: panels[i]! })),
+    {
+      label: '見出しの切り替え',
+      onChange: () => {
+        window.scrollTo({ top: 0 })
+        render()
+      },
+    },
+  )
 
   root.replaceChildren(
     pageHeader(config.title, [
@@ -208,7 +261,8 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
     ]),
     status.storageWarning,
     status.carriedNotice,
-    ...sectionCards,
+    tabs.element,
+    ...panels,
     resultCard,
     h('div', { class: 'foot' }, [resetButton]),
   )
@@ -253,6 +307,26 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
       view.note.hidden = notes.length === 0
     }
     grand.textContent = formatYen(grandStockTotal(config, state))
+
+    for (const tool of sectionTools) {
+      const r = sectionResult(config, state, tool.section)
+      const settled = settlementOf(state, tool.section)
+      // タブに売上と精算の印を出す（✓ 精算済み、！ 精算のあとに数が変わった）
+      tabs.setLabel(tool.section.id, `${tool.section.title} ${formatPrice(r.amount)}${settled ? (settled.changed ? ' ！' : ' ✓') : ''}`)
+      tool.cash?.render(
+        sectionCashOf(state, tool.section.id),
+        r.amount,
+        tool.section.items.map((item) => ({ name: item.name ?? '', price: defaultPrice(config, item.priceId) })),
+      )
+      const name = tool.section.title
+      tool.settleButton.textContent = settled ? `${name}の精算をやり直す` : `${name}の精算を終える`
+      tool.settleStatus.dataset.tone = settled?.changed ? 'warn' : settled ? 'ok' : 'muted'
+      tool.settleStatus.textContent = !settled
+        ? `在庫とお金を数え終えたら押してください。タブに ✓ が付きます。`
+        : settled.changed
+          ? `${formatTime(new Date(settled.at))} に精算したあとで数が変わりました。数え直したら、もう一度押してください。`
+          : `✓ ${formatTime(new Date(settled.at))} に精算を終えました。`
+    }
 
     status.update({
       available: store.available,

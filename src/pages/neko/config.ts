@@ -8,6 +8,8 @@ export const neko: StockConfig = {
   id: 'neko',
   title: 'ネコ・グリコ売上カウンター',
   dayStartHour: 4,
+  // お札と 500円玉・100円玉だけを受け取る（タクミと同じ）。見出しごとのレジ精算の欄になる
+  cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
   prices: [
     { id: 'sticker', label: 'ステッカー', default: 1000 },
     { id: 'ema', label: '絵馬', default: 500 },

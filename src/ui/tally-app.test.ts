@@ -449,6 +449,8 @@ describe('mountTallyApp', () => {
       expect(text('.checkout-total')).toBe('￥2,800')
       expect(text('.checkout-lines')).toBe('2,000円×1・バニラ×1（2点）')
       expect(text('.checkout-change')).toBe('受け取ったお札・硬貨のボタンを押してください')
+      // 押すたびに足すことがわかるよう、ボタンには ＋ を付ける
+      expect([...sheet()!.querySelectorAll('.tender')].map((b) => b.textContent)).toEqual(['＋10,000', '＋5,000', '＋1,000', '＋500', '＋100'])
       inSheet('1,000円を預かりに足す').click()
       inSheet('1,000円を預かりに足す').click()
       expect(text('.checkout-change')).toBe('あと￥800')
@@ -494,6 +496,69 @@ describe('mountTallyApp', () => {
       expect(sheet()).toBeNull()
       expect(document.querySelector<HTMLElement>('.order-panel:not(.view)')!.hidden).toBe(true)
       expect(text('.order-chip')).toBe('前のオーダー 20:40・2点 ￥2,800 ›')
+    })
+  })
+
+  describe('レジ精算', () => {
+    const fill = (id: string, value: string) => {
+      const input = document.querySelector<HTMLInputElement>(`#${id}`)!
+      input.value = value
+      input.dispatchEvent(new Event('input'))
+    }
+
+    it('ポケットの枚数と、釣り銭準備金の開店時・いまから売上のお金を出し、カウンターの合計と比べる', () => {
+      mount()
+      button('2,000円を1つ増やす').click()
+      button('ホタテを1つ増やす').click() // 3,000
+      button('レジ精算').click()
+      expect(text('.cash-verdict')).toBe('売上のポケットの枚数を入れると、カウンターの合計と比べます。')
+      fill('cash-pocket-1000', '4')
+      fill('cash-floatStart-100', '30')
+      fill('cash-floatNow-100', '20') // 1,000 使った
+      expect(text('.cash-calc .eq b')).toBe('￥3,000')
+      expect(text('.cash-verdict')).toBe('ぴったり合っています。')
+      fill('cash-floatNow-100', '22') // 使ったのは 800 → 売上のお金 3,200
+      expect(text('.cash-verdict')).toBe('お金のほうが ￥200 多い。押し忘れがないか記録を見てください。')
+      // ポケット 3,600 − 使った 800 ＝ 2,800 で、3,000 より 200 少ない
+      fill('cash-pocket-1000', '3')
+      fill('cash-pocket-500', '1')
+      fill('cash-pocket-100', '1')
+      expect(text('.cash-verdict')).toBe('お金のほうが ￥200 少ない。押しまちがいやお釣りのまちがいがないか確かめてください。')
+    })
+
+    it('差がどれかの単価と同じなら、その品目を添える（単価を共有する品目は単価の名前）', () => {
+      mount()
+      button('バニラを1つ増やす').click() // 800
+      button('レジ精算').click()
+      fill('cash-pocket-1000', '1')
+      fill('cash-pocket-500', '1')
+      fill('cash-pocket-100', '1') // 1,600
+      expect(text('.cash-verdict')).toBe('お金のほうが ￥800 多い。押し忘れがないか記録を見てください（ソフト（共通） 1つ分と同じ額）。')
+    })
+
+    it('［使っていない］でいまの準備金を開店時と同じにし、数えていなければ知らせる', () => {
+      mount()
+      button('レジ精算').click()
+      fill('cash-pocket-1000', '1')
+      fill('cash-floatStart-500', '6')
+      expect(text('.cash-verdict.warn:not([aria-live])')).toContain('いまの釣り銭準備金を数えるか')
+      button('使っていない').click()
+      expect(document.querySelector<HTMLInputElement>('#cash-floatNow-500')!.value).toBe('6')
+      expect(document.querySelectorAll('.cash-verdict.warn:not([hidden])')).toHaveLength(1)
+    })
+
+    it('枚数は保存し、リセットではポケットといまの枚数を消して開店時の枚数を残す', () => {
+      const { storage } = mount()
+      button('レジ精算').click()
+      fill('cash-pocket-1000', '3')
+      fill('cash-floatStart-100', '30')
+      fill('cash-floatNow-100', '25')
+      mount(storage)
+      expect(document.querySelector<HTMLInputElement>('#cash-pocket-1000')!.value).toBe('3')
+      holdPress('リセット')
+      expect(document.querySelector<HTMLInputElement>('#cash-pocket-1000')!.value).toBe('')
+      expect(document.querySelector<HTMLInputElement>('#cash-floatStart-100')!.value).toBe('30')
+      expect(document.querySelector<HTMLInputElement>('#cash-floatNow-100')!.value).toBe('')
     })
   })
 })

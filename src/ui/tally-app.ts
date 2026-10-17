@@ -3,6 +3,8 @@ import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
+import { clearCashCount, floatUnused } from '../core/cash'
+import { allItems } from '../core/catalog'
 import { addItemForCustomer } from '../core/checkout'
 import {
   addTender,
@@ -34,6 +36,7 @@ import {
 } from '../core/tally'
 import { TallyStore } from '../core/tally-store'
 import { formatMonthDayTime, formatTime, nearestHour } from '../core/time'
+import { cashPanel } from './cash-panel'
 import { openCheckout } from './checkout-sheet'
 import { copyText, selectContents } from './clipboard'
 import { h } from './dom'
@@ -256,6 +259,26 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     ]),
   ])
   const logPanel = h('div', { class: 'view-panel' }, [log.element])
+  // レジ精算は、受け取るお金の額面（cash）を設定に書いたページだけ
+  const cash = config.cash
+    ? cashPanel({
+        cash: config.cash,
+        idPrefix: 'cash',
+        expectedLabel: 'カウンターの合計',
+        hints: { over: '押し忘れがないか記録を見てください', under: '押しまちがいやお釣りのまちがいがないか確かめてください' },
+        onChange: (next) => change({ ...store.current, cash: next, updatedAt: now().toISOString() }),
+        onFloatUnused: () => change({ ...store.current, cash: floatUnused(store.current.cash), updatedAt: now().toISOString() }),
+        onClear: () => change({ ...store.current, cash: clearCashCount(store.current.cash) }, 'レジ精算の枚数を消しました'),
+      })
+    : null
+  const cashPanelView = h('div', { class: 'view-panel' }, cash ? [cash.element] : [])
+  /** 差と同じ額の品目を探すための名前と単価。単価を共有する品目は単価の名前（「ソフト（共通）」）で呼ぶ */
+  const sameAmountCandidates = (state: TallyState) =>
+    config.prices.map((def) => {
+      const users = allItems(config).filter((item) => item.priceId === def.id)
+      const name = users.length === 1 ? displayName(config, state, users[0]!) : def.label
+      return { name, price: priceOf(config, state, def.id) }
+    })
   const itemsPanel = h('div', { class: 'view-panel' }, [
     h('section', { class: 'card prices' }, [
       pricesTitle,
@@ -271,6 +294,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     [
       { id: 'count', label: '数える', panel: countPanel },
       { id: 'log', label: '記録', panel: logPanel },
+      ...(cash ? [{ id: 'cash', label: 'レジ精算', panel: cashPanelView }] : []),
       { id: 'items', label: '品目', panel: itemsPanel },
     ],
     {
@@ -292,6 +316,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     tabs.element,
     countPanel,
     logPanel,
+    cashPanelView,
     itemsPanel,
     dock,
   )
@@ -359,6 +384,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     orders.render(state, at, tabs.current === 'count')
     // 記録の画面は、開いているときだけ描く（ほかの画面のときに、押すたびに作り直さない）
     if (tabs.current === 'log') log.render(state, at)
+    cash?.render(state.cash, grandTotal(config, state), sameAmountCandidates(state))
     // 今のオーダーが3分で閉じるときに描き直す（30秒ごとの描き直しを待たない）
     clearTimeout(idleTimer)
     const open = openOrder(state, at)
