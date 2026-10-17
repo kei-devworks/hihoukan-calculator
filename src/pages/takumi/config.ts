@@ -9,6 +9,8 @@ export const takumi: TallyConfig = {
   title: 'タクミ売上カウンター',
   reportTitle: '売上報告',
   dayStartHour: 4,
+  // お札と 500円玉・100円玉だけを受け取る。会計の預かりのボタンになる
+  cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
   prices: [
     { id: 'skewer1', label: '串①', default: 1000 },
     { id: 'skewer2', label: '串②', default: 2000 },

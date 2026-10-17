@@ -36,6 +36,7 @@ export const sampleConfig: TallyConfig = {
   title: 'テスト売上',
   reportTitle: '売上報告',
   dayStartHour: 4,
+  cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
   prices: [
     { id: 'a', label: '串A', default: 1000 },
     { id: 'b', label: '串B', default: 2000 },

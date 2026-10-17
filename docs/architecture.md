@@ -25,6 +25,8 @@ src/
     tally-store.ts TallyState を端末に保存・復元する
     orders.ts      オーダーの記録と増減（＋/−・閉じる・直す・取り消す・元に戻す）
     hourly.ts      オーダーを1時間ごとにまとめる（記録と推移）
+    checkout.ts    会計の預かりとお釣り
+    cash.ts        お金の額面の設定（会計のボタン・レジ精算の欄）
     report.ts      売上報告の定型文
     stock.ts       「在庫の差」の記録・計算・保存値の読み戻し
     stock-store.ts StockState を端末に保存・復元する
@@ -73,7 +75,7 @@ scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg か�
 
 | 土台 | 中身 |
 | --- | --- |
-| `Catalog`（`core/catalog.ts`） | ページの id・題名・営業日の切り替わり・単価（`prices`）・見出しごとの品目（`sections`）。`validateCatalog` で書き間違いを見つける |
+| `Catalog`（`core/catalog.ts`） | ページの id・題名・営業日の切り替わり・単価（`prices`）・見出しごとの品目（`sections`）・受け取るお金の額面（`cash`。書いたときだけ会計とレジ精算を出す）。`validateCatalog` で書き間違いを見つける |
 | `JsonStore`（`core/json-store.ts`） | 状態を `hihoukan-calc:<ページの id>:v<版>` に保存・復元する。読み戻しはページごとの `parse` 関数に任せ、壊れた値でも例外にしない |
 | `earlierBusinessDay`（`core/time.ts`） | 「数え始めた時刻」が前の営業日かを判定する（前日の数字が残っている知らせに使う） |
 | `pageHeader` / `pageStatus` / `keepFresh`（`ui/page-parts.ts`） | 「‹ 一覧」と題名、保存の状態と赤い警告、前の営業日の黄色い知らせ、30秒ごと・画面復帰・別タブ・戻るボタンでの再描画 |
@@ -145,6 +147,8 @@ type Order = {
 - 直す（`editOrder`）と、直す前の中身を `edits` に残す。中身を空にして保存すると取り消しになる。
   `revertEdit` で直す前に戻せ、戻したことも `edits` に残る
 - 取り消す（`cancelOrder`）と数に入れないが、オーダーは消さずに残す。`restoreOrder` で元に戻せる
+- 会計の預かりは押した額面の並び（`tenders`）で持つ（`addTender` / `removeTender`）。預かりが合計に届いたオーダー（`isPaid`）は、
+  次の ＋（`addItemForCustomer`）で閉じて、次のお客さんのオーダーを始める
 - 1時間ごとの推移（`hourlyEntries`）は、オーダーを始めた時刻で分け、件数・売上・その時間の終わりまでの累計を出す。
   まとめて入れた数（引き継ぎ・更新前の記録）は時間の売上に入れず別の行にし、累計には入れる。
   オーダーのない時間は `empty`。引き継ぎと同じ時間か、そのあとオーダーより先に引き継ぎが来る時間は `covered`（押し忘れとみなさない）
