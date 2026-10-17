@@ -7,7 +7,7 @@
 | ページ | 内容 |
 | --- | --- |
 | [タクミ売上カウンター](https://kei-devworks.github.io/hihoukan-calculator/takumi/) | 串・ホタテ・ビール・ソフトクリームの売上を数え、1時間ごとの売上報告の定型文をコピーする（[使い方](docs/usage.md#タクミ売上カウンター)） |
-| [ネコ売上カウンター](https://kei-devworks.github.io/hihoukan-calculator/neko/) | 弓道・手裏剣のステッカー・絵馬・手形を、開店時の在庫・追加・残数から売上にする。弓道と手裏剣は分けて出す（[使い方](docs/usage.md#ネコ売上カウンター)） |
+| [ネコ・グリコ売上カウンター](https://kei-devworks.github.io/hihoukan-calculator/neko/) | ネコとグリコの両方の店で使う。弓道・手裏剣のステッカー・絵馬・手形を、開店時の在庫・追加・残数から売上にする。弓道と手裏剣は分けて出す（[使い方](docs/usage.md#ネコグリコ売上カウンター)） |
 | [勤務時間報告](https://kei-devworks.github.io/hihoukan-calculator/kinmu/) | 勤務日・勤務時間・休憩・交通費から報告文を作ってコピーする。交通費のパターンと前回の勤務日・勤務時間を覚えておく（[使い方](docs/usage.md#勤務時間報告)） |
 
 どのページも数字は端末に保存され、再読み込みしても消えません。

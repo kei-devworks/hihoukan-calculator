@@ -3,7 +3,7 @@
 | ページ | 開く |
 | --- | --- |
 | [タクミ売上カウンター](#タクミ売上カウンター) | https://kei-devworks.github.io/hihoukan-calculator/takumi/ |
-| [ネコ売上カウンター](#ネコ売上カウンター) | https://kei-devworks.github.io/hihoukan-calculator/neko/ |
+| [ネコ・グリコ売上カウンター](#ネコグリコ売上カウンター) | https://kei-devworks.github.io/hihoukan-calculator/neko/ |
 | [勤務時間報告](#勤務時間報告) | https://kei-devworks.github.io/hihoukan-calculator/kinmu/ |
 
 どのページも、数字は**その端末のブラウザに自動で保存**される（[数字の保存](#数字の保存)）。
@@ -34,8 +34,9 @@
 
 値上げなどで**全端末の単価を変えるとき**は、端末ごとに変えずに、ページの設定（`src/pages/takumi/config.ts`）を直してデプロイする。
 
-## ネコ売上カウンター
+## ネコ・グリコ売上カウンター
 
+ネコとグリコの両方の店で使う（ページの URL は `/neko/` のまま）。
 弓道と手裏剣のステッカー（1,000円）・絵馬（500円）・手形（500円）を、**在庫の数から**売上にする。
 売上は弓道と手裏剣で**分けて**出る。定型文のコピーはない。
 

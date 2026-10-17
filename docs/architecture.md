@@ -10,7 +10,7 @@
   | 種類 | やること | 例 |
   | --- | --- | --- |
   | 個数 × 単価（tally） | 売れるたびに＋/− で数える。報告文をコピーする | タクミ（`takumi/`） |
-  | 在庫の差（stock） | 開店時・追加・残数を数字で入れ、減った分を売上にする | ネコ（`neko/`） |
+  | 在庫の差（stock） | 開店時・追加・残数を数字で入れ、減った分を売上にする | ネコ・グリコ（`neko/`） |
   | 勤務時間報告（work-report） | 勤務日・勤務時間・交通費から報告文を作ってコピーする | 勤務時間報告（`kinmu/`） |
 
 - 数字は**各端末のブラウザ（localStorage）にだけ**保存する。端末どうしで共有はしない
@@ -52,7 +52,7 @@ src/
     index.html     ポータル
     registry.ts    ポータルに並べるページの一覧
     takumi/        タクミ売上カウンター（config.ts に品目・単価）
-    neko/          ネコ売上カウンター（config.ts に品目・単価）
+    neko/          ネコ・グリコ売上カウンター（config.ts に品目・単価）
     kinmu/         勤務時間報告（config.ts に初めて使うときの勤務時間）
 e2e/             Playwright
 public/          そのまま配信するファイル（アイコン: favicon.svg・favicon-32.png・apple-touch-icon.png）
@@ -141,13 +141,13 @@ type TallyState = {
 
 ## 「在庫の差」の集計（stock）
 
-ネコのように「開店時に在庫を記録し、あとで残数を数え直して、減った分を売上にする」ページ。
+ネコ・グリコのように「開店時に在庫を記録し、あとで残数を数え直して、減った分を売上にする」ページ。
 設定（`StockConfig`）は `Catalog` そのもので、見出し（弓道・手裏剣）ごとに売上を分けて出す。定型文はない。
 
 ```ts
 const config: StockConfig = {
   id: 'neko',
-  title: 'ネコ売上カウンター',
+  title: 'ネコ・グリコ売上カウンター',
   dayStartHour: 4,
   prices: [{ id: 'sticker', label: 'ステッカー', default: 1000 } /* … */],
   sections: [

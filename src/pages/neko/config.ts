@@ -1,12 +1,12 @@
 import type { StockConfig } from '../../core/stock'
 
 /**
- * ネコの売上カウンター。開店時に在庫を記録し、閉店時などに残数を数え直して、減った分を売上にする。
+ * ネコ・グリコの売上カウンター（ネコとグリコの両方の店で使う）。開店時に在庫を記録し、閉店時などに残数を数え直して、減った分を売上にする。
  * 弓道と手裏剣は売上を分けて出す。値上げなどは prices の default を直してデプロイする。id は保存のキーなので変えない
  */
 export const neko: StockConfig = {
   id: 'neko',
-  title: 'ネコ売上カウンター',
+  title: 'ネコ・グリコ売上カウンター',
   dayStartHour: 4,
   prices: [
     { id: 'sticker', label: 'ステッカー', default: 1000 },
