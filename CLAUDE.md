@@ -25,6 +25,7 @@ node scripts/make-icons.mjs                       # favicon.svg から PNG の�
 ## 決まりごと
 
 - 作業はブランチを切って PR にする。CI（check・e2e）が全部通ったら `gh pr merge --merge --delete-branch` でマージしてよい
+- コミットは PR より細かく、まとまりごとに分ける（コード・テスト・ドキュメントを一緒に）
 - 実装を変えたら、対応するドキュメントを**同じ PR**で更新する
 
   | 変更内容 | 更新するドキュメント |
