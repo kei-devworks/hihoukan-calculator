@@ -323,3 +323,100 @@ pre.report {
   color: var(--muted);
   font-size: 14px;
 }
+
+.portal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* アイコンと短い文字のボタン（ポータルの［共有］など） */
+button.icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  color: var(--accent);
+}
+
+button.icon-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* QR・共有シート・コピーでリンクを渡すダイアログ（ui/share-dialog.ts） */
+dialog.share-dialog {
+  width: min(360px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px 16px 14px;
+  background: var(--surface);
+  color: var(--fg);
+}
+
+dialog.share-dialog::backdrop {
+  background: rgba(10, 14, 20, 0.45);
+}
+
+dialog.share-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share-dialog h2 {
+  font-size: 16px;
+}
+
+.qr-box {
+  align-self: center;
+  width: min(240px, 100%);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 6px;
+  color: #1a1e26;
+  font-size: 13px;
+  text-align: center;
+}
+
+.qr-box svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.share-note,
+.share-url {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.share-url {
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.share-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.share-close {
+  display: flex;
+  justify-content: center;
+}

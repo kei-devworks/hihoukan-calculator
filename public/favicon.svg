@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- 射的の的。外側の線はダークモードのタブでも見えるよう明るくする -->
+  <style>
+    .rim { stroke: #1a1e26; }
+    @media (prefers-color-scheme: dark) { .rim { stroke: #e7eaee; } }
+  </style>
+  <circle class="rim" cx="32" cy="32" r="29" fill="#ffffff" stroke-width="4" />
+  <circle cx="32" cy="32" r="21" fill="#c62828" />
+  <circle cx="32" cy="32" r="13.5" fill="#ffffff" />
+  <circle cx="32" cy="32" r="6.5" fill="#c62828" />
+</svg>

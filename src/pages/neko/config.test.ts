@@ -15,7 +15,7 @@ function day(entries: Record<string, [number, number | null, number]>): StockSta
   return state
 }
 
-describe('ネコ売上カウンター', () => {
+describe('ネコ・グリコ売上カウンター', () => {
   it('単価はステッカー 1,000円・絵馬 500円・手形 500円', () => {
     expect(Object.fromEntries(neko.prices.map((p) => [p.label, p.default]))).toEqual({
       ステッカー: 1000,

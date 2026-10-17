@@ -5,7 +5,7 @@ const morning = new Date('2026-10-15T10:00:00+09:00')
 async function open(page: Page, at: Date = morning) {
   await page.clock.setFixedTime(at)
   await page.goto('neko/')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('ネコ売上カウンター')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('ネコ・グリコ売上カウンター')
 }
 
 /** 「弓道 ステッカー 開店時の在庫」のような名前の欄に数字を入れる */
@@ -105,7 +105,7 @@ test('リセットは2回押したときだけ全部消え、リロード後も�
 
 test('ポータルから開けて、一覧に戻れる', async ({ page }) => {
   await page.goto('./')
-  await page.getByRole('link', { name: /ネコ売上カウンター/ }).click()
+  await page.getByRole('link', { name: /ネコ・グリコ売上カウンター/ }).click()
   await expect(page).toHaveURL(/\/hihoukan-calculator\/neko\/$/)
   await page.getByRole('link', { name: '‹ 一覧' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('秘宝館 計算機')

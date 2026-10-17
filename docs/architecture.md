@@ -3,13 +3,14 @@
 ## 全体像
 
 - サーバーのない静的サイト。GitHub Pages に置く（[deployment.md](deployment.md)）
-- 1ページ = 1つの集計ツール。ページは `src/pages/<名前>/` に置き、ポータル（`src/pages/index.html`）から開く
+- 1ページ = 1つの集計ツール。ページは `src/pages/<名前>/` に置き、ポータル（`src/pages/index.html`）から開く。
+  ポータルの右上の［共有］で、入口のリンクを QR・共有シート・コピーで渡せる（`ui/share-dialog.ts`）
 - ページの種類は3つ。どれも設定を書くだけで作れる
 
   | 種類 | やること | 例 |
   | --- | --- | --- |
   | 個数 × 単価（tally） | 売れるたびに＋/− で数える。報告文をコピーする | タクミ（`takumi/`） |
-  | 在庫の差（stock） | 開店時・追加・残数を数字で入れ、減った分を売上にする | ネコ（`neko/`） |
+  | 在庫の差（stock） | 開店時・追加・残数を数字で入れ、減った分を売上にする | ネコ・グリコ（`neko/`） |
   | 勤務時間報告（work-report） | 勤務日・勤務時間・交通費から報告文を作ってコピーする | 勤務時間報告（`kinmu/`） |
 
 - 数字は**各端末のブラウザ（localStorage）にだけ**保存する。端末どうしで共有はしない
@@ -32,6 +33,7 @@ src/
     guards.ts      保存値を読み戻すときの型の確かめ
     time.ts        報告時刻・営業日・日時の表示
     format.ts      金額の表示
+    qr.ts          QR コードの点の並び（qrcode-generator は使うときだけ読み込む）
   ui/            DOM の共通部品と共通スタイル
     page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
@@ -44,13 +46,17 @@ src/
     clipboard.ts   コピー（Clipboard API → execCommand → 選択して長押し）
     confirm-button.ts  2回押すと実行するボタン（リセット用）
     dom.ts         要素を作る小さなヘルパー
+    qr.ts          QR コードを SVG で描く（いつも白地に黒）
+    share-dialog.ts  リンクを QR・共有シート（AirDrop・LINE など）・コピーで渡すダイアログ
   pages/         Vite の入口。1ページ = 1フォルダ
     index.html     ポータル
     registry.ts    ポータルに並べるページの一覧
     takumi/        タクミ売上カウンター（config.ts に品目・単価）
-    neko/          ネコ売上カウンター（config.ts に品目・単価）
+    neko/          ネコ・グリコ売上カウンター（config.ts に品目・単価）
     kinmu/         勤務時間報告（config.ts に初めて使うときの勤務時間）
 e2e/             Playwright
+public/          そのまま配信するファイル（アイコン: favicon.svg・favicon-32.png・apple-touch-icon.png）
+scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg から PNG のアイコンを作る）
 ```
 
 ページを足す手順は [adding-a-page.md](adding-a-page.md)。
@@ -68,6 +74,10 @@ e2e/             Playwright
 | `JsonStore`（`core/json-store.ts`） | 状態を `hihoukan-calc:<ページの id>:v<版>` に保存・復元する。読み戻しはページごとの `parse` 関数に任せ、壊れた値でも例外にしない |
 | `earlierBusinessDay`（`core/time.ts`） | 「数え始めた時刻」が前の営業日かを判定する（前日の数字が残っている知らせに使う） |
 | `pageHeader` / `pageStatus` / `keepFresh`（`ui/page-parts.ts`） | 「‹ 一覧」と題名、保存の状態と赤い警告、前の営業日の黄色い知らせ、30秒ごと・画面復帰・別タブ・戻るボタンでの再描画 |
+| アイコン（`public/`） | どのページの `<head>` にも、タブのアイコン（射的の的。`favicon.svg` と、SVG を表示できない iOS 26 より前の Safari 向けの `favicon-32.png`）とホーム画面のアイコン（`apple-touch-icon.png`）を書く |
+
+アイコンは `/favicon.svg` のようにサイトの根からのパスで書く。ビルドすると、ページの場所に合わせた相対パス（`takumi/` なら `../favicon.svg`）に直る。
+PNG は `favicon.svg` から `node scripts/make-icons.mjs` で作る（SVG を直したら作り直してコミットする）。
 
 ## 「個数 × 単価」の集計（tally）
 
@@ -131,13 +141,13 @@ type TallyState = {
 
 ## 「在庫の差」の集計（stock）
 
-ネコのように「開店時に在庫を記録し、あとで残数を数え直して、減った分を売上にする」ページ。
+ネコ・グリコのように「開店時に在庫を記録し、あとで残数を数え直して、減った分を売上にする」ページ。
 設定（`StockConfig`）は `Catalog` そのもので、見出し（弓道・手裏剣）ごとに売上を分けて出す。定型文はない。
 
 ```ts
 const config: StockConfig = {
   id: 'neko',
-  title: 'ネコ売上カウンター',
+  title: 'ネコ・グリコ売上カウンター',
   dayStartHour: 4,
   prices: [{ id: 'sticker', label: 'ステッカー', default: 1000 } /* … */],
   sections: [
