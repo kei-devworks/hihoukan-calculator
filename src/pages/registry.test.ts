@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, globSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { looksLikeCatalog, validateCatalog } from '../core/catalog'
@@ -39,5 +39,20 @@ describe('各ページの集計の設定', () => {
   it('ページの id（保存のキー）が重複しない', () => {
     const ids = catalogs.map(({ config }) => config.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+// QR やリンクで渡して店の中で使うサイトなので、検索には出さない（docs/deployment.md）。
+// ページを足すときに付け忘れないよう、src/pages の index.html を全部見る
+describe('検索に出さない', () => {
+  const htmlFiles = globSync('**/index.html', { cwd: import.meta.dirname })
+
+  it('ポータルと、ポータルに載っているページの HTML をすべて見ている', () => {
+    expect(htmlFiles.length).toBeGreaterThanOrEqual(pages.length + 1)
+  })
+
+  it.each(htmlFiles)('%s に noindex, nofollow の meta がある', (file) => {
+    const html = readFileSync(resolve(import.meta.dirname, file), 'utf8')
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow" />')
   })
 })
