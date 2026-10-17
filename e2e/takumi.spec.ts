@@ -229,6 +229,28 @@ test('前のオーダーを［編集］で直すと合計が変わり、［元�
   await expect(total(page)).toHaveText('￥2,000-')
 })
 
+test('記録の画面に、オーダーの数・1時間ごとの推移・オーダーの一覧が出て、そこから直せる', async ({ page }) => {
+  await open(page, new Date('2026-10-15T18:10:00+09:00'))
+  await tap(page, 'ホタテを1つ増やす')
+  await page.clock.setFixedTime(new Date('2026-10-15T20:50:00+09:00'))
+  await tap(page, '1,000円を1つ増やす', 2)
+
+  await page.getByRole('tab', { name: '記録' }).click()
+  await expect(page.locator('.log-summary')).toHaveText('2オーダー・最後の記録 20:50（いま）')
+  await expect(page.locator('.log-hour-label')).toHaveText(['18時台', '19時台', '20時台'])
+  await expect(page.locator('.log-hour.warn .log-note')).toHaveText('記録なし（押し忘れ？）')
+  const latest = page.locator('.log-hour[open] .log-order').first()
+  await expect(latest.locator('.log-items')).toHaveText('1,000円 ×2')
+  await expect(latest.locator('.log-yen')).toHaveText('￥2,000')
+
+  await page.getByRole('button', { name: '20:50 のオーダーを編集' }).click()
+  const editor = page.getByRole('dialog', { name: '20:50 のオーダーを編集' })
+  await editor.getByRole('button', { name: '1,000円を1つ減らす' }).click()
+  await editor.getByRole('button', { name: '変更を保存' }).click()
+  await expect(latest.locator('.log-meta')).toContainText('変更 1回')
+  await expect(total(page)).toHaveText('￥2,000-')
+})
+
 test('最後に押してから3分たつと、今のオーダーは自動で閉じる', async ({ page }) => {
   await page.clock.install({ time: evening })
   await page.goto('takumi/')

@@ -374,4 +374,56 @@ describe('mountTallyApp', () => {
       expect(text('.notice-bar-text')).toBe('20:40 のオーダー（￥3,000）を取り消しました')
     })
   })
+
+  describe('記録の画面', () => {
+    const at = (h: number, m: number) => new Date(`2026-10-15T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+09:00`)
+    const hours = () =>
+      [...document.querySelectorAll<HTMLDetailsElement>('.log-hour')].map((d) => ({
+        label: d.querySelector('.log-hour-label')?.textContent,
+        open: d.open,
+        warn: d.classList.contains('warn'),
+        note: d.querySelector('.log-note')?.textContent ?? null,
+      }))
+
+    it('オーダーの数と最後の記録、1時間ごとの推移を出す。記録のない時間は黄色、いまの時間は開いておく', () => {
+      clock = at(18, 10)
+      mount()
+      button('ホタテを1つ増やす').click()
+      clock = at(20, 40)
+      button('1,000円を1つ増やす').click()
+      button('バニラを1つ増やす').click()
+      clock = at(20, 46)
+      button('記録').click()
+      expect(text('.log-summary')).toBe('2オーダー・最後の記録 20:40（6分前）')
+      expect(hours()).toEqual([
+        { label: '18時台', open: false, warn: false, note: null },
+        { label: '19時台', open: false, warn: true, note: '記録なし（押し忘れ？）' },
+        { label: '20時台', open: true, warn: false, note: null },
+      ])
+      const latest = document.querySelector('.log-hour[open] .log-order')!
+      expect(latest.querySelector('.log-items')?.textContent).toBe('1,000円 ×1バニラ ×1')
+      expect(latest.querySelector('.log-yen')?.textContent).toBe('￥1,800')
+    })
+
+    it('記録の［編集］で直す画面を開き、取り消したオーダーは［元に戻す］で戻せる', () => {
+      mount()
+      button('ホタテを1つ増やす').click()
+      holdPress('このオーダーを取り消す')
+      button('記録').click()
+      const row = document.querySelector('.log-order.cancelled')!
+      expect(row.querySelector('.log-meta')?.textContent).toBe('取り消し済み（20:40）')
+      button('20:40 のオーダーを元に戻す').click()
+      expect(text('#total')).toBe('￥1,000-')
+      expect(document.querySelector('.log-order.cancelled')).toBeNull()
+
+      button('20:40 のオーダーを編集').click()
+      expect(document.querySelector('dialog.order-editor')).not.toBeNull()
+    })
+
+    it('記録がなければ、そう知らせる', () => {
+      mount()
+      button('記録').click()
+      expect(text('.log-empty')).toBe('まだ記録がありません。＋ を押すと、ここにオーダーごとに残ります。')
+    })
+  })
 })

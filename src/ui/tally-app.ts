@@ -12,6 +12,7 @@ import {
   openOrder,
   ORDER_IDLE_MS,
   removeItem,
+  restoreOrder,
   revertEdit,
   type Order,
 } from '../core/orders'
@@ -37,6 +38,7 @@ import { holdButton } from './hold-button'
 import { noticeBar } from './notice-bar'
 import { describeChanges, openOrderEditor } from './order-editor'
 import { orderPanel } from './order-panel'
+import { tallyLog } from './tally-log'
 import { viewTabs } from './view-tabs'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
@@ -208,6 +210,14 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
         change(revertEdit(store.current, orderId, index, now()), `${orderTime(order)} のオーダーを変更の前に戻しました`)
       },
     })
+  const log = tallyLog(config, {
+    edit: editOne,
+    restore: (id) => {
+      const order = findOrder(store.current, id)
+      if (!order) return
+      change(restoreOrder(store.current, id, now()), `${orderTime(order)} の取り消したオーダーを戻しました`)
+    },
+  })
   const orders = orderPanel(config, {
     add: addOne,
     remove: removeOne,
@@ -235,6 +245,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
       h('div', { class: 'foot' }, [resetButton]),
     ]),
   ])
+  const logPanel = h('div', { class: 'view-panel' }, [log.element])
   const itemsPanel = h('div', { class: 'view-panel' }, [
     h('section', { class: 'card prices' }, [
       pricesTitle,
@@ -249,6 +260,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   const tabs = viewTabs(
     [
       { id: 'count', label: '数える', panel: countPanel },
+      { id: 'log', label: '記録', panel: logPanel },
       { id: 'items', label: '品目', panel: itemsPanel },
     ],
     {
@@ -269,6 +281,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     status.carriedNotice,
     tabs.element,
     countPanel,
+    logPanel,
     itemsPanel,
     dock,
   )
@@ -334,6 +347,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     })
 
     orders.render(state, at, tabs.current === 'count')
+    // 記録の画面は、開いているときだけ描く（ほかの画面のときに、押すたびに作り直さない）
+    if (tabs.current === 'log') log.render(state, at)
     // 今のオーダーが3分で閉じるときに描き直す（30秒ごとの描き直しを待たない）
     clearTimeout(idleTimer)
     const open = openOrder(state, at)

@@ -54,10 +54,11 @@ function floorHour(date: Date): Date {
 export function hourlyEntries(config: TallyConfig, state: TallyState, now: Date): HourlyEntry[] {
   const all = [...state.orders].sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt))
   const live = all.filter((o) => o.cancelledAt === null)
-  if (live.length === 0) return []
+  // 範囲は取り消したオーダーも含めて決める（取り消したものだけでも、記録の一覧で元に戻せるように）
+  if (all.length === 0) return []
 
-  const firstAt = new Date(live[0]!.openedAt)
-  const lastAt = new Date(live.at(-1)!.openedAt)
+  const firstAt = new Date(all[0]!.openedAt)
+  const lastAt = new Date(all.at(-1)!.openedAt)
   const sameDay = businessDate(now, config.dayStartHour) === businessDate(lastAt, config.dayStartHour)
   const endAt = sameDay && now > lastAt ? now : lastAt
   // 今日の営業日でない記録があれば、時間に日付を付ける（前の営業日の数字が残っているとき）

@@ -497,3 +497,198 @@ dialog.order-editor[open] {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* 記録の画面（ui/tally-log.ts） */
+.log-summary,
+.log-empty {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.log-hours {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.log-hour,
+.log-handover {
+  border-top: 1px solid var(--line);
+}
+
+.log-hour-head {
+  display: grid;
+  grid-template-columns: 4.6em 2.6em minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  list-style: none;
+}
+
+.log-hour-head::-webkit-details-marker {
+  display: none;
+}
+
+.log-hour-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.log-hour-label::after {
+  content: ' ▸';
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.log-hour[open] .log-hour-label::after {
+  content: ' ▾';
+}
+
+.log-count {
+  color: var(--muted);
+  text-align: right;
+}
+
+.log-bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.log-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.log-note {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.log-hour.warn > .log-hour-head {
+  background: var(--notice-bg);
+  color: var(--notice-fg);
+  margin: 0 -14px;
+  padding-inline: 14px;
+}
+
+.log-hour.warn .log-note,
+.log-hour.warn .log-count {
+  color: inherit;
+}
+
+.log-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+}
+
+.log-amounts small {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.log-orders {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8px;
+}
+
+/* 1件を2段にする: 「時刻 | 品目（1行ずつ） | 金額」と、その下に「点数・変更の回数など | ［編集］」 */
+.log-order,
+.log-handover {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr) auto;
+  grid-template-areas:
+    'time items yen'
+    'time meta button';
+  gap: 2px 8px;
+  align-items: start;
+  padding: 8px 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-order > .log-time,
+.log-handover > .log-time {
+  grid-area: time;
+}
+
+.log-order > .log-items,
+.log-handover > .log-items {
+  grid-area: items;
+}
+
+.log-order > .log-yen,
+.log-handover > .log-yen {
+  grid-area: yen;
+  justify-self: end;
+}
+
+.log-order > button,
+.log-handover > button {
+  grid-area: button;
+  justify-self: end;
+  min-height: 34px;
+  padding: 4px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.log-order {
+  border-top: 1px dashed var(--line);
+}
+
+.log-time {
+  color: var(--muted);
+}
+
+.log-items {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.log-yen {
+  white-space: nowrap;
+}
+
+.log-meta {
+  grid-area: meta;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.log-order.cancelled .log-items,
+.log-order.cancelled .log-yen {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.log-badge,
+.log-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent2);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 7px;
+  align-self: flex-start;
+}

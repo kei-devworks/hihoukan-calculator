@@ -58,6 +58,12 @@ describe('hourlyEntries', () => {
     ])
   })
 
+  it('取り消したオーダーしかなくても、その時間を並べる（記録の一覧から元に戻せるように）', () => {
+    const state = cancelOrder(press(initialState(), ['a', t(18, 10)]), 1, t(18, 11))
+    expect(brief(hourlyEntries(config, state, t(18, 20)))).toEqual(['18時台 0件 0 累計0 記録なし いま'])
+    expect(hours(hourlyEntries(config, state, t(18, 20)))[0]!.cancelled.map((o) => o.id)).toEqual([1])
+  })
+
   it('取り消したオーダーは数に入れず、別に持つ', () => {
     let state = press(initialState(), ['a', t(18, 10)], ['b', t(18, 30)])
     state = cancelOrder(state, 2, t(18, 31))
