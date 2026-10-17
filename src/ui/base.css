@@ -523,3 +523,59 @@ button.hold-button.holding::after {
   border: 0;
   padding: 4px 8px;
 }
+
+/* ページの中のカメラで QR を読む（ui/qr-scanner.ts） */
+.qr-scanner {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 1 / 1;
+  align-self: center;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+}
+
+.qr-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.qr-frame {
+  position: absolute;
+  inset: 18%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+/* 確認のページ（pages/check） */
+.check-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.check-facts dt {
+  color: var(--muted);
+}
+
+.check-facts dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.check-step {
+  gap: 10px;
+}
+
+.check-results {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 14px;
+}
