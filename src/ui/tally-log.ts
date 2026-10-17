@@ -1,8 +1,7 @@
-import { allItems } from '../core/catalog'
 import { formatPrice } from '../core/format'
 import { hourlyEntries, type HourEntry } from '../core/hourly'
 import { liveOrders, pieces, type Order } from '../core/orders'
-import { displayName, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
+import { displayName, itemsOf, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
 import { formatTime } from '../core/time'
 import { describePayment } from './checkout-sheet'
 import { h } from './dom'
@@ -22,7 +21,6 @@ export type TallyLog = {
  * 時間の行を開くとオーダーが新しい順に並び、［編集］と、取り消したものには［元に戻す］を置く
  */
 export function tallyLog(config: TallyConfig, actions: TallyLogActions): TallyLog {
-  const items = allItems(config)
   const summary = h('p', { class: 'log-summary' })
   const list = h('div', { class: 'log-hours' })
   const empty = h('p', { class: 'log-empty', text: 'まだ記録がありません。＋ を押すと、ここにオーダーごとに残ります。' })
@@ -37,7 +35,7 @@ export function tallyLog(config: TallyConfig, actions: TallyLogActions): TallyLo
   const closedHours = new Set<number>()
 
   const orderRow = (state: TallyState, order: Order, cancelled: boolean) => {
-    const lines = items.flatMap((item) =>
+    const lines = itemsOf(config, state).flatMap((item) =>
       order.lines[item.id] ? [h('span', { text: `${displayName(config, state, item)} ×${order.lines[item.id]}` })] : [],
     )
     const meta: (Node | string)[] = []

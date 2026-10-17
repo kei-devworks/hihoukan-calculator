@@ -1,9 +1,8 @@
-import { allItems } from '../core/catalog'
 import { denominations } from '../core/cash'
 import { changeDue, tenderBreakdown, tenderTotal } from '../core/checkout'
 import { formatNumber, formatPrice } from '../core/format'
 import { findOrder, pieces, type Order } from '../core/orders'
-import { displayName, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
+import { displayName, itemsOf, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
 import { formatTime } from '../core/time'
 import { h } from './dom'
 
@@ -44,7 +43,6 @@ export function openCheckout(
   const cash = config.cash
   const first = findOrder(getState(), orderId)
   if (!cash || !first) return null
-  const items = allItems(config)
 
   const total = h('b', { class: 'checkout-total' })
   const lines = h('p', { class: 'checkout-lines' })
@@ -112,7 +110,7 @@ export function openCheckout(
     const sum = linesTotal(config, state, order.lines)
     const paid = tenderTotal(order.tenders)
     total.textContent = formatPrice(sum)
-    lines.textContent = `${items
+    lines.textContent = `${itemsOf(config, state)
       .flatMap((item) => (order.lines[item.id] ? [`${displayName(config, state, item)}×${order.lines[item.id]}`] : []))
       .join('・')}（${pieces(order.lines)}点）`
     tendered.textContent = formatPrice(paid)
