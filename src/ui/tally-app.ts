@@ -5,6 +5,8 @@ import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
 import { clearCashCount, floatUnused } from '../core/cash'
 import { addItemForCustomer } from '../core/checkout'
+import { applyHandover, inputFromCode, planHandover, withNewItems, type HandoverInput, type HandoverMode } from '../core/handover'
+import { decodeHandoverCode, HANDOVER_PARAM } from '../core/handover-code'
 import {
   addTender,
   cancelOrder,
@@ -47,6 +49,7 @@ import { cashPanel } from './cash-panel'
 import { openCheckout } from './checkout-sheet'
 import { copyText, selectContents } from './clipboard'
 import { h } from './dom'
+import { openHandoverDialog } from './handover-dialog'
 import { holdButton } from './hold-button'
 import { noticeBar } from './notice-bar'
 import { describeChanges, openOrderEditor } from './order-editor'
@@ -85,6 +88,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   // ---- 見出し・報告時刻・保存の状態 ----
   const timeInput = h('input', { type: 'time', id: 'report-time' })
   const nowButton = h('button', { type: 'button', class: 'ghost', text: '今' })
+  const handoverButton = h('button', { type: 'button', class: 'ghost handover-open', text: '引き継ぎ' })
   const status = pageStatus({
     dayStartHour: config.dayStartHour,
     idleText: '数えた数はこの端末に自動で保存されます',
@@ -326,7 +330,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
 
   root.replaceChildren(
     pageHeader(config.title, [
-      h('div', { class: 'timebar' }, [h('label', { for: timeInput.id, text: '報告時刻' }), timeInput, nowButton]),
+      h('div', { class: 'timebar' }, [h('label', { for: timeInput.id, text: '報告時刻' }), timeInput, nowButton, handoverButton]),
       status.saveStatus,
     ]),
     status.storageWarning,
@@ -338,6 +342,25 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     itemsPanel,
     dock,
   )
+
+  // ---- 引き継ぎ（交代・休憩） ----
+  const receiveHandover = (input: HandoverInput, mode: HandoverMode) => {
+    const plan = planHandover(config, withNewItems(store.current, input.newItems), input.counts, mode)
+    const text =
+      mode === 'zero'
+        ? `前の人の数を引き継ぎました（${plan.prevPieces}点 ${formatPrice(plan.prevTotal)}）`
+        : `休憩のあいだに増えた分を足しました（＋${plan.addPieces}点 ${formatPrice(plan.addTotal)}）`
+    change(applyHandover(config, store.current, input, mode, now()), text)
+    tabs.select('count')
+  }
+  const handoverOptions = () => ({
+    config,
+    state: () => store.current,
+    now,
+    pageUrl: location.href.split('#')[0]!,
+    receive: receiveHandover,
+  })
+  handoverButton.addEventListener('click', () => openHandoverDialog(handoverOptions()))
 
   // ---- 状態の変更と描画 ----
   /**
@@ -432,10 +455,27 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
 
   refresh()
 
+  // 引き継ぎのリンク（#hikitsugi=…）で開いたら、読み込んだ状態で受け取りの画面を出す。データは URL からすぐ消す。
+  // 開いているページで同じページのリンクを開いたとき（# だけ変わり、読み込み直さない）も拾う
+  const openFromLink = () => {
+    if (!location.hash.includes(`${HANDOVER_PARAM}=`)) return
+    const code = decodeHandoverCode(location.hash)
+    history.replaceState(null, '', location.pathname + location.search)
+    // 開いていた引き継ぎの画面は閉じる（閉じるとカメラも止まる）
+    const opened = document.querySelector<HTMLDialogElement>('dialog.handover')
+    opened?.close()
+    opened?.remove()
+    if (code) openHandoverDialog(handoverOptions(), { input: inputFromCode(config, store.current, code), via: 'code' })
+    else notice.show('引き継ぎのリンクを読めませんでした。前の人に QR を出し直してもらってください。')
+  }
+  window.addEventListener('hashchange', openFromLink)
+  openFromLink()
+
   return {
     store,
     unmount: () => {
       stopFresh()
+      window.removeEventListener('hashchange', openFromLink)
       dockObserver?.disconnect()
       notice.hide()
       clearTimeout(idleTimer)
