@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { sampleConfig as config } from '../core/fixtures'
+import { makeHandoverCode } from '../core/handover'
+import { encodeHandoverCode } from '../core/handover-code'
+import { addItem } from '../core/orders'
+import { initialState } from '../core/tally'
 import { memoryStorage, type KeyValueStorage } from '../core/storage'
 import { mountTallyApp, type TallyApp } from './tally-app'
 
@@ -629,5 +633,112 @@ describe('mountTallyApp', () => {
       expect(names('soft')).toEqual(['バニラ', '抹茶', 'チョコトッピング'])
       expect(text('#total')).toBe('￥150-')
     })
+  })
+})
+
+describe('引き継ぎ', () => {
+  const fill = (selector: string, value: string) => {
+    const input = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)!
+    input.value = value
+    input.dispatchEvent(new Event('input'))
+  }
+  /** 渡すか受け取るかのボタン（見出しと説明の2行） */
+  const choice = (label: string) =>
+    [...document.querySelectorAll<HTMLButtonElement>('.handover-choice')].find((b) => b.querySelector('b')?.textContent === label)!
+  const prev = (itemId: string) => document.querySelector<HTMLInputElement>(`#handover-n-${itemId}`)!
+  const messages = () => [...document.querySelectorAll('.handover-msg')].map((el) => el.textContent)
+  const goButton = () => document.querySelector<HTMLButtonElement>('dialog.handover .editor-foot button.solid')!
+  /** 前の人の端末: 1,000円×3・ホタテ×1（20:30） */
+  const senderCode = () => {
+    let s = initialState()
+    for (const id of ['a', 'a', 'a', 'hotate']) s = addItem(s, id, new Date('2026-10-15T20:30:00+09:00'))
+    return makeHandoverCode(config, s, new Date('2026-10-15T20:35:00+09:00'))
+  }
+
+  afterEach(() => {
+    history.replaceState(null, '', location.pathname)
+  })
+
+  it('［次の人に渡す］で、その時点の数の QR を出す', async () => {
+    mount()
+    button('1,000円を1つ増やす').click()
+    button('ホタテを1つ増やす').click()
+    button('引き継ぎ').click()
+    choice('次の人に渡す').click()
+    expect(text('.send-info b')).toBe('20:40時点・2点・￥2,000')
+    await vi.waitFor(() => expect(document.querySelector('dialog.handover .qr-box svg')).not.toBeNull())
+    expect(document.querySelector('dialog.handover .qr-box svg')!.getAttribute('aria-label')).toBe('引き継ぎの QR コード')
+  })
+
+  it('引き継ぎのリンクで開くと、読み込んだ状態で受け取りの画面が出る。種類を選ぶまで引き継げない。リンクのデータは URL から消す', () => {
+    location.hash = `hikitsugi=${encodeHandoverCode(senderCode())}`
+    mount()
+    expect(location.hash).toBe('')
+    expect(text('#handover-title')).toBe('前の人から受け取る')
+    expect(messages()[0]).toBe('前の人の 20:35時点（5分前）の数を読み取りました（2品目）。')
+    expect(prev('a').value).toBe('3')
+    expect(prev('hotate').value).toBe('1')
+    expect(goButton().disabled).toBe(true)
+
+    button('ゼロから引き継ぐ').click()
+    expect(messages()).toContain('前の人の数の合計は、前の人の合計 ￥4,000 と合っています。')
+    expect(goButton().textContent).toBe('引き継ぐ（4点 ￥4,000）')
+    goButton().click()
+    expect(document.querySelector('dialog.handover')).toBeNull()
+    expect(text('[data-item="a"] .n')).toBe('3')
+    expect(text('#total')).toBe('￥4,000-')
+    expect(text('.notice-bar-text')).toBe('前の人の数を引き継ぎました（4点 ￥4,000）')
+    // 今のオーダーには入らない
+    expect(document.querySelector('.order-panel .order-line')).toBeNull()
+  })
+
+  it('壊れたリンクで開くと知らせる', () => {
+    location.hash = 'hikitsugi=abc'
+    mount()
+    expect(document.querySelector('dialog.handover')).toBeNull()
+    expect(text('.notice-bar-text')).toBe('引き継ぎのリンクを読めませんでした。前の人に QR を出し直してもらってください。')
+  })
+
+  it('休憩から戻ったら、報告文を貼ると足りない分だけ足す。もう一度貼っても足す分はない', () => {
+    mount()
+    button('1,000円を1つ増やす').click()
+    const report = '売上報告\n21:00時点\n\n◾️肉\n1,000×3\nホタテ×1\n小計￥4,000-\n\n◾️ソフト\n小計￥0-\n\n合計￥4,000-'
+    const receive = () => {
+      button('引き継ぎ').click()
+      choice('前の人から受け取る').click()
+      button('休憩から戻った').click()
+      button('報告文を貼る').click()
+      fill('.handover-paste', report)
+    }
+    receive()
+    expect(messages()[0]).toBe('21:00時点の報告文を読み取りました（2品目）。')
+    expect(text('[data-item="a"] .handover-change')).toBe('この端末 1個 ＋2 → 3個')
+    expect(goButton().textContent).toBe('引き継ぐ（＋3点 ￥3,000）')
+    goButton().click()
+    expect(text('#total')).toBe('￥4,000-')
+    expect(text('.notice-bar-text')).toBe('休憩のあいだに増えた分を足しました（＋3点 ￥3,000）')
+
+    receive()
+    expect(goButton().disabled).toBe(true)
+    expect(goButton().textContent).toBe('足す分はありません')
+  })
+
+  it('ゼロから引き継ぐとき、この端末に記録があれば長押しで置き換える（取り消した記録は元に戻せる）', () => {
+    mount()
+    button('抹茶を1つ増やす').click()
+    button('引き継ぎ').click()
+    choice('前の人から受け取る').click()
+    button('ゼロから引き継ぐ').click()
+    button('打ち込む').click()
+    fill('#handover-n-b', '2')
+    expect(messages()).toContain('この端末に残っている記録（1点 ￥800）は取り消して、前の人の数に置き換えます。取り消した記録は［記録］の画面から元に戻せます。')
+    expect(messages()).toContain('前の人の画面の合計が ￥4,000 か確かめてください。')
+
+    holdPress('置き換えて引き継ぐ（2点 ￥4,000）')
+    expect(text('[data-item="matcha"] .n')).toBe('0')
+    expect(text('[data-item="b"] .n')).toBe('2')
+    button('記録').click()
+    expect(document.querySelector('.log-handover')?.textContent).toContain('前の人の数（打ち込み）')
+    button('20:40 のオーダーを元に戻す')
   })
 })

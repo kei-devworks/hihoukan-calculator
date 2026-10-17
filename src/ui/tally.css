@@ -307,8 +307,9 @@
   justify-content: flex-end;
 }
 
-/* オーダーを直す画面（ui/order-editor.ts）。下から出す */
-dialog.order-editor {
+/* オーダーを直す画面（ui/order-editor.ts）と引き継ぎの画面（ui/handover-dialog.ts）。下から出す */
+dialog.order-editor,
+dialog.handover {
   width: 100%;
   max-width: 560px;
   max-height: 92vh;
@@ -323,11 +324,13 @@ dialog.order-editor {
   overflow-y: auto;
 }
 
-dialog.order-editor::backdrop {
+dialog.order-editor::backdrop,
+dialog.handover::backdrop {
   background: rgba(10, 14, 20, 0.45);
 }
 
-dialog.order-editor[open] {
+dialog.order-editor[open],
+dialog.handover[open] {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -452,6 +455,276 @@ dialog.order-editor[open] {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* 引き継ぎの画面（ui/handover-dialog.ts） */
+.timebar .handover-open {
+  margin-left: auto;
+}
+
+.handover-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.handover-title h2 {
+  font-size: 16px;
+}
+
+button.ghost.handover-back {
+  min-height: 34px;
+  padding: 4px 10px;
+}
+
+.handover-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.handover-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.handover-choice b {
+  font-size: 16px;
+}
+
+.handover-choice span,
+.handover-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+/* 引き継ぎの QR は、ポータルの QR より点が細かいので大きく出す */
+.handover .qr-box {
+  width: min(300px, 100%);
+}
+
+.send-info {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.send-info b {
+  font-size: 17px;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.send-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9em, 1fr));
+  gap: 8px;
+}
+
+/* ゼロから引き継ぐ・休憩から戻った（どちらかを選ぶ） */
+.handover-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.handover-modes button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 8px 4px;
+  border: 0;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.handover-modes button + button {
+  border-left: 1px solid var(--line);
+}
+
+.handover-modes button[aria-checked='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* 入れ方の切り替えは、種類のボタンと見分けられるよう下線にする（上に残さない） */
+.view-tabs.method-tabs {
+  position: static;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.view-tabs.method-tabs button {
+  font-size: 13px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+}
+
+.view-tabs.method-tabs button[aria-selected='true'] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.handover-method {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 貼り付けた報告文の全体（20行ほど）が見える高さ。貼った分だけ伸びる */
+.handover-paste {
+  width: 100%;
+  min-height: 31em;
+  /* 16px 未満だと iPhone で入力時に画面が拡大される */
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+  overflow: hidden;
+}
+
+.handover-list-label {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.handover-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.handover-sec {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.handover-sec.alt {
+  color: var(--accent2);
+}
+
+.handover-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5em;
+  align-items: center;
+  gap: 2px 10px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.handover-sec + .handover-row {
+  border-top: 0;
+}
+
+.handover-row input {
+  width: 100%;
+  text-align: right;
+}
+
+.handover-new {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--notice-bg);
+  color: var(--notice-fg);
+  font-size: 11px;
+}
+
+.handover-change {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.handover-change b {
+  color: var(--accent);
+}
+
+.handover-change .to {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.handover-msgs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.handover-msg {
+  margin: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.handover-msg.ok {
+  background: color-mix(in srgb, #2e7d32 16%, var(--surface));
+}
+
+.handover-msg.warn {
+  background: var(--notice-bg);
+  color: var(--notice-fg);
+}
+
+.handover-msg.none {
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.handover-after {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.handover-after b {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.handover .editor-foot {
+  flex-wrap: wrap;
 }
 
 /* 記録の画面（ui/tally-log.ts） */

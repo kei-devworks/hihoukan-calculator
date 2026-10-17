@@ -361,3 +361,78 @@ test('スマホの幅で横にはみ出さない', async ({ page }) => {
     expect(overflow, tab).toBeLessThanOrEqual(0)
   }
 })
+
+/** コピーした文字列を受け取れるようにする（どのブラウザでも、クリップボードの権限なしで中身を確かめる） */
+async function catchCopies(page: Page) {
+  await page.addInitScript(() => {
+    const copied: string[] = []
+    ;(window as unknown as { copied: string[] }).copied = copied
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (text: string) => void copied.push(text) },
+    })
+  })
+}
+
+test('2台で引き継ぐ: 前の人のリンクを次の人の端末で開き、ゼロから引き継ぐと報告文が同じになる', async ({ page, browser }) => {
+  // 前の人の端末
+  await catchCopies(page)
+  await open(page)
+  await countSample(page)
+  await page.getByRole('button', { name: '引き継ぎ', exact: true }).click()
+  await page.getByRole('button', { name: /^次の人に渡す/ }).click()
+  await expect(page.locator('.send-info b')).toHaveText('20:50時点・10点・￥12,900')
+  await expect(page.getByRole('img', { name: '引き継ぎの QR コード' })).toBeVisible()
+  await page.getByRole('button', { name: 'リンクをコピー' }).click()
+  await expect(page.getByRole('button', { name: 'コピーしました' })).toBeVisible()
+  const link = await page.evaluate(() => (window as unknown as { copied: string[] }).copied.at(-1)!)
+  expect(link).toMatch(/\/hihoukan-calculator\/takumi\/#hikitsugi=[A-Za-z0-9_-]+$/)
+
+  // 次の人の端末（保存場所は別）
+  const next = await (await browser.newContext()).newPage()
+  await next.clock.setFixedTime(new Date('2026-10-15T20:55:00+09:00'))
+  await next.goto(link)
+  const dialog = next.getByRole('dialog', { name: '前の人から受け取る' })
+  await expect(dialog).toBeVisible()
+  await expect(next).toHaveURL(/\/takumi\/$/)
+  await expect(dialog.getByText('前の人の 20:50時点（5分前）の数を読み取りました（6品目）。')).toBeVisible()
+  await expect(dialog.getByLabel('ホタテ 前の人の数')).toHaveValue('2')
+  await dialog.getByRole('radio', { name: 'ゼロから引き継ぐ' }).click()
+  await expect(dialog.getByText('前の人の数の合計は、前の人の合計 ￥12,900 と合っています。')).toBeVisible()
+  await dialog.getByRole('button', { name: '引き継ぐ（10点 ￥12,900）' }).click()
+  await expect(dialog).toBeHidden()
+
+  await expect(report(next)).toHaveText(expectedReport)
+  await expect(next.locator('.notice-bar-text')).toHaveText('前の人の数を引き継ぎました（10点 ￥12,900）')
+  await next.reload()
+  await expect(report(next)).toHaveText(expectedReport)
+  await next.getByRole('tab', { name: '記録' }).click()
+  await expect(next.locator('.log-handover')).toContainText('前の人の 20:50時点の数')
+  await next.context().close()
+})
+
+test('休憩から戻ったら、報告文を貼って足りない分だけ足す。はみ出さない', async ({ page }) => {
+  await open(page)
+  await tap(page, '1,000円を1つ増やす')
+  await tap(page, 'ホタテを1つ増やす', 3)
+  await page.getByRole('button', { name: '引き継ぎ', exact: true }).click()
+  await page.getByRole('button', { name: /^前の人から受け取る/ }).click()
+  const dialog = page.getByRole('dialog', { name: '前の人から受け取る' })
+  await dialog.getByRole('radio', { name: '休憩から戻った' }).click()
+  await dialog.getByRole('tab', { name: '報告文を貼る' }).click()
+  await dialog.getByLabel('前の人の報告文').fill(expectedReport)
+
+  await expect(dialog.getByText('21:00時点の報告文を読み取りました（6品目）。')).toBeVisible()
+  await expect(dialog.locator('[data-item="skewer1"] .handover-change')).toHaveText('この端末 1個 ＋2 → 3個')
+  await expect(dialog.locator('[data-item="hotate"] .handover-change')).toHaveText('この端末 3個（前の人より多いので減らしません）')
+  // スマホの幅で横にはみ出さない
+  const overflow = await page.evaluate(() => {
+    const d = document.querySelector('dialog.handover')!
+    return Math.max(d.scrollWidth - d.clientWidth, document.documentElement.scrollWidth - window.innerWidth)
+  })
+  expect(overflow).toBeLessThanOrEqual(0)
+
+  await dialog.getByRole('button', { name: '引き継ぐ（＋7点 ￥9,900）' }).click()
+  await expect(total(page)).toHaveText('￥13,900-')
+  await expect(count(page, 'hotate')).toHaveText('3')
+})
