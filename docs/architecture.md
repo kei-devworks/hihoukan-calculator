@@ -122,6 +122,7 @@ const config: TallyConfig = {
 ```ts
 type TallyState = {
   orders: Order[]                         // オーダーの記録（古い順）
+  customItems: { id: string; sectionId: string; name: string | null; price: number }[]  // 画面から足した品目（id は x- で始める）
   priceOverrides: Record<string, number>  // 既定から変えた単価だけ
   cash: {                                 // レジ精算で数えた枚数（額面 → 枚数。設定に cash があるページだけ）
     pocket: Record<string, number>        // 売上のポケット
@@ -149,6 +150,7 @@ type Order = {
 - −（`removeItem`）は、今のオーダーにその品目があればそこから減らす。なければ、その品目がある
   いちばん新しいオーダーから減らし、直した記録（`edits`）を残す。今のオーダーが空になったら消し、
   前のオーダーが空になったら中身を残したまま取り消し済みにする
+- 画面から足した品目（`customItems`）は、その見出しの最後に加えて扱う（`sectionsOf` / `itemsOf`）。合計・報告文・オーダーの金額はすべてここを通す。足した品目は自分の id を単価の id にし、`priceOf` が足した品目の単価を返す。消すと（`removeCustomItem`）今日の記録からも除く。足しただけの項目なので保存の版は上げず、なければ空にする。設定の品目・単価の id は `x-` で始めない（`validateCatalog`）
 - 数え始めた時刻（`startedAtOf`）は、取り消していないいちばん古いオーダーの始めた時刻
 - 直す（`editOrder`）と、直す前の中身を `edits` に残す。中身を空にして保存すると取り消しになる。
   `revertEdit` で直す前に戻せ、戻したことも `edits` に残る
