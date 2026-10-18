@@ -119,7 +119,7 @@ test('リセットは、タップしただけでは消えず、長押しで全�
   await expect(page.locator('.stock-grand')).toHaveText('合計（弓道＋手裏剣）￥0-')
 })
 
-test('弓道と手裏剣をタブで切り替え、それぞれレジ精算をして精算を終えられる', async ({ page }) => {
+test('弓道と手裏剣をタブで切り替え、それぞれレジ精算をして精算を完了でき、記録が残る', async ({ page }) => {
   await open(page)
   await fillDay(page) // 弓道 ￥21,000、手裏剣 ￥1,500
   await expect(page.getByRole('tab', { name: '弓道 ￥21,000' })).toBeVisible()
@@ -134,8 +134,10 @@ test('弓道と手裏剣をタブで切り替え、それぞれレジ精算を�
   expect(await background(/^手裏剣/)).not.toBe(selectedLook)
   await fill(page, '弓道 売上のポケット 千円札の枚数', '1')
   await expect(page.locator('#panel-kyudo .cash-verdict[aria-live]')).toHaveText('ぴったり合っています。')
-  await page.getByRole('button', { name: '弓道の精算を終える' }).click()
+  await page.locator('#panel-kyudo').getByRole('button', { name: '精算を完了する（差 ￥0）' }).click()
   await expect(page.getByRole('tab', { name: '弓道 ￥21,000 ✓' })).toBeVisible()
+  await expect(page.locator('#panel-kyudo .settle-row')).toHaveText(['1回目10:00差 ￥0在庫から ￥21,000・お金から ￥21,000'])
+  await expect(page.locator('#panel-kyudo').getByRole('button', { name: '精算は完了しています' })).toBeDisabled()
 
   // 手裏剣は別に数える（弓道の枚数は入らない）
   await fill(page, '手裏剣 売上のポケット 千円札の枚数', '1')
@@ -146,6 +148,7 @@ test('弓道と手裏剣をタブで切り替え、それぞれレジ精算を�
   await page.reload()
   await expect(page.getByRole('tab', { name: '弓道 ￥21,000 ✓' })).toBeVisible()
   await expect(field(page, '弓道 売上のポケット 1万円札の枚数')).toHaveValue('2')
+  await expect(page.locator('#panel-kyudo .settle-row')).toHaveCount(1)
 })
 
 test('ポータルから開けて、一覧に戻れる', async ({ page }) => {

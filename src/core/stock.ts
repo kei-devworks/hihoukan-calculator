@@ -93,7 +93,7 @@ export function setField(
   }
 }
 
-/** レジ精算の枚数を消す（ポケットといまの準備金）。開店時の準備金の枚数は残す。精算の印も消す */
+/** レジ精算の枚数を消す（ポケットといまの準備金）。開店時の準備金の枚数は残す。精算の記録も消す */
 function clearAllCash(state: StockState): Pick<StockState, 'cash' | 'settled'> {
   return { cash: Object.fromEntries(Object.entries(state.cash).map(([id, c]) => [id, clearCashCount(c)])), settled: {} }
 }
@@ -236,7 +236,7 @@ export function parseStockState(config: StockConfig, raw: unknown): StockState {
   const state = initialStockState()
   if (!isRecord(raw) || !isRecord(raw.entries)) return state
 
-  // レジ精算の枚数と精算の印は、版 1 のあとから足した項目。なければ空にする
+  // レジ精算の枚数と精算の記録は、版 1 のあとから足した項目。なければ空にする
   for (const section of config.sections) {
     if (config.cash && isRecord(raw.cash) && raw.cash[section.id] !== undefined) {
       state.cash[section.id] = parseCashCount(raw.cash[section.id], config.cash)

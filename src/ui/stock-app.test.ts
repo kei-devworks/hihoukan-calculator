@@ -33,11 +33,6 @@ const result = (itemId: string) => text(`.stock-result[data-item="${itemId}"]`)
 const summary = (sectionId: string) => text(`#results [data-section="${sectionId}"] .stock-summary-line b`)
 const visibleAlerts = () =>
   [...document.querySelectorAll<HTMLElement>('[role="alert"]')].filter((el) => !el.hidden).map((el) => el.textContent)
-const button = (name: string) => {
-  const found = [...document.querySelectorAll('button')].find((b) => b.textContent === name)
-  if (!found) throw new Error(`ボタン「${name}」がありません`)
-  return found
-}
 
 /** 長押しのボタン（ui/hold-button.ts）を、タップで構えてから1秒押し続ける */
 const holdPress = (label: string) => {
@@ -214,24 +209,48 @@ describe('mountStockApp', () => {
     expect(document.querySelector<HTMLElement>('#panel-b')!.hidden).toBe(false)
   })
 
-  it('見出しごとにレジ精算をし、精算を終えると印が付く。そのあと数が変わったら知らせる', () => {
+  it('見出しごとにレジ精算をし、［精算を完了する］で記録が残る。数が変わるまでは押せず、変わったらもう一度完了でき、前の記録も残る', () => {
     mount()
     type('A ステッカー 開店時の在庫', '5')
     type('A ステッカー 残数', '3') // A の売上 2,000
+    const settleButton = () => document.querySelector<HTMLButtonElement>('#panel-a .settle-button')!
+    const records = () => [...document.querySelectorAll('#panel-a .settle-row')].map((el) => el.textContent)
+    // ボタンはレジ精算の中（計算の下）。ポケットを数えるまでは押せない
+    expect(document.querySelector('#panel-a .cash .settle-button')).not.toBeNull()
+    expect(settleButton().disabled).toBe(true)
+    expect(settleButton().textContent).toBe('売上のポケットを数えると、精算を完了できます')
+    expect(records()).toEqual([])
+
     type('A 売上のポケット 千円札の枚数', '2')
     expect(text('#panel-a .cash-verdict')).toBe('ぴったり合っています。')
     expect(text('#panel-b .cash-verdict')).toBe('売上のポケットの枚数を入れると、在庫から出した売上と比べます。')
     expect(text('#panel-a .cash-diff')).toBe('￥0')
+    expect(settleButton().textContent).toBe('精算を完了する（差 ￥0）')
 
-    clock = new Date('2026-10-15T21:30:00+09:00')
-    button('Aの精算を終える').click()
+    clock = new Date('2026-10-15T14:00:00+09:00')
+    settleButton().click()
     expect(text('#tab-a')).toBe('A ￥2,000 ✓')
-    expect(text('#panel-a .settle-status')).toBe('✓ 21:30 に精算を終えました。')
+    expect(text('#panel-a .settle-status')).toBe('✓ 14:00 に精算を完了しました（1回目）。')
+    expect(records()).toEqual(['1回目14:00差 ￥0在庫から ￥2,000・お金から ￥2,000'])
+    // 数が変わるまでは押せない（押し放題にしない）
+    expect(settleButton().disabled).toBe(true)
+    expect(settleButton().textContent).toBe('精算は完了しています')
 
-    type('A ステッカー 残数', '2')
+    // 数が変わったら知らせ、もう一度完了できる。前の記録は残る
+    type('A ステッカー 残数', '2') // 3,000
     expect(text('#tab-a')).toBe('A ￥3,000 ！')
-    expect(text('#panel-a .settle-status')).toBe('21:30 に精算したあとで数が変わりました。数え直したら、もう一度押してください。')
+    expect(text('#panel-a .settle-status')).toBe(
+      '14:00 の精算（1回目）のあとで数が変わりました。数え終えたら、もう一度完了してください（前の記録は残ります）。',
+    )
     expect(text('#panel-a .cash-verdict')).toBe('お金のほうが ￥1,000 少ない。残数の数えまちがいや、お釣りのまちがいがないか確かめてください（ステッカー 1つ分と同じ額）。')
+    expect(settleButton().textContent).toBe('もう一度完了する（2回目・差 −￥1,000）')
+    clock = new Date('2026-10-15T21:30:00+09:00')
+    settleButton().click()
+    expect(records()).toEqual([
+      '1回目14:00差 ￥0在庫から ￥2,000・お金から ￥2,000',
+      '2回目21:30差 −￥1,000在庫から ￥3,000・お金から ￥2,000',
+    ])
+    expect(text('#tab-a')).toBe('A ￥3,000 ✓')
   })
 
   it('保存できない端末では、消えることを知らせる', () => {
