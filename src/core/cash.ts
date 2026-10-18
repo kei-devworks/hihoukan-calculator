@@ -62,7 +62,7 @@ export function floatUnused(count: CashCount): CashCount {
   return { ...count, floatNow: { ...count.floatStart } }
 }
 
-/** ［数え直す］・リセット: ポケットといまの準備金の枚数を消す。開店時の準備金の枚数は残す（毎日同じことが多いため） */
+/** リセット: ポケットといまの準備金の枚数を消す。開店時の準備金の枚数は残す（毎日同じことが多いため） */
 export function clearCashCount(count: CashCount): CashCount {
   return { pocket: {}, floatStart: count.floatStart, floatNow: {} }
 }

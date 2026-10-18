@@ -125,7 +125,77 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 精算を終える（見出しごと） */
+/* 精算の記録と［精算を完了する］（見出しごと。レジ精算の計算のすぐ下） */
+.settle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 2px solid var(--line);
+}
+
+.settle .cash-h {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settle-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.settle-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.settle-row:first-child {
+  border-top: 0;
+}
+
+.settle-n {
+  font-weight: 700;
+}
+
+.settle-at {
+  color: var(--muted);
+}
+
+.settle-diff {
+  text-align: right;
+}
+
+.settle-diff[data-tone='ok'] {
+  color: var(--ok-text);
+}
+
+.settle-diff[data-tone='warn'] {
+  color: var(--accent2);
+}
+
+.settle-amounts {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+button.solid.settle-button {
+  width: 100%;
+  min-height: 52px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .settle-status {
   margin: 0;
   font-size: 14px;

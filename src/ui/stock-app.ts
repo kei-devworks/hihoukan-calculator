@@ -1,5 +1,5 @@
 import './stock.css'
-import { clearCashCount, floatUnused } from '../core/cash'
+import { compareCash, floatUnused, settle } from '../core/cash'
 import { defaultPrice } from '../core/catalog'
 import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
@@ -15,6 +15,7 @@ import {
   setSectionCash,
   settleSection,
   settlementOf,
+  settlementsOf,
   stockCarriedOverSince,
   STOCK_FIELDS,
   type ItemResult,
@@ -233,9 +234,20 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
     onConfirm: () => change(resetStock(store.current)),
   })
 
-  // ---- 見出しごとのレジ精算と、精算を終える ----
+  // ---- 見出しごとのレジ精算と、精算の記録・［精算を完了する］（レジ精算の計算のすぐ下に置く） ----
   const cashConfig = config.cash
   const sectionTools = config.sections.map((section) => {
+    const settleLogTitle = h('h3', { class: 'cash-h', text: '精算の記録' })
+    const settleLog = h('ol', { class: 'settle-log' })
+    const settleStatus = h('p', { class: 'settle-status' })
+    const settleButton = h('button', { type: 'button', class: 'solid settle-button' })
+    settleButton.addEventListener('click', () => change(settleSection(config, store.current, section, now())))
+    const settleBox = h('div', { class: 'settle', role: 'group', 'aria-label': `${section.title}の精算` }, [
+      settleLogTitle,
+      settleLog,
+      settleStatus,
+      settleButton,
+    ])
     const cash: CashPanel | null = cashConfig
       ? cashPanel({
           cash: cashConfig,
@@ -249,22 +261,20 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
           },
           onChange: (next) => change(setSectionCash(store.current, section.id, next, now())),
           onFloatUnused: () => change(setSectionCash(store.current, section.id, floatUnused(sectionCashOf(store.current, section.id)), now())),
-          onClear: () => change(setSectionCash(store.current, section.id, clearCashCount(sectionCashOf(store.current, section.id)), now())),
+          footer: settleBox,
         })
       : null
-    const settleStatus = h('p', { class: 'settle-status' })
-    const settleButton = h('button', { type: 'button', class: 'solid' })
-    settleButton.addEventListener('click', () => change(settleSection(store.current, section, now())))
-    const settleCard = h('section', { class: 'card settle', 'aria-label': `${section.title}の精算` }, [settleStatus, h('div', { class: 'foot' }, [settleButton])])
-    return { section, cash, settleStatus, settleButton, settleCard }
+    // レジ精算がないページ（cash の設定なし）では、精算の記録だけのカードにする
+    const settleCard = cash ? null : h('section', { class: 'card' }, [settleBox])
+    return { section, cash, settleLogTitle, settleLog, settleStatus, settleButton, settleCard }
   })
 
-  // ---- 見出し（弓道・手裏剣）を切り替える。1つの見出しの中で、在庫 → 売上 → レジ精算 → 精算を終える、が終わる ----
+  // ---- 見出し（弓道・手裏剣）を切り替える。1つの見出しの中で、在庫 → 売上 → レジ精算 → 精算を完了する、が終わる ----
   const panels = config.sections.map((section, i) =>
     h('div', { class: 'view-panel' }, [
       sectionCards[i]!,
       ...(sectionTools[i]!.cash ? [sectionTools[i]!.cash!.element] : []),
-      sectionTools[i]!.settleCard,
+      ...(sectionTools[i]!.settleCard ? [sectionTools[i]!.settleCard!] : []),
     ]),
   )
   const tabs = viewTabs(
@@ -338,21 +348,14 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
     for (const tool of sectionTools) {
       const r = sectionResult(config, state, tool.section)
       const settled = settlementOf(state, tool.section)
-      // タブに売上と精算の印を出す（✓ 精算済み、！ 精算のあとに数が変わった）
+      // タブに売上と精算の印を出す（✓ 最後の精算のまま、！ 最後の精算のあとに数が変わった）
       tabs.setLabel(tool.section.id, `${tool.section.title} ${formatPrice(r.amount)}${settled ? (settled.changed ? ' ！' : ' ✓') : ''}`)
       tool.cash?.render(
         sectionCashOf(state, tool.section.id),
         r.amount,
         tool.section.items.map((item) => ({ name: item.name ?? '', price: defaultPrice(config, item.priceId) })),
       )
-      const name = tool.section.title
-      tool.settleButton.textContent = settled ? `${name}の精算をやり直す` : `${name}の精算を終える`
-      tool.settleStatus.dataset.tone = settled?.changed ? 'warn' : settled ? 'ok' : 'muted'
-      tool.settleStatus.textContent = !settled
-        ? `在庫とお金を数え終えたら押してください。タブに ✓ が付きます。`
-        : settled.changed
-          ? `${formatTime(new Date(settled.at))} に精算したあとで数が変わりました。数え直したら、もう一度押してください。`
-          : `✓ ${formatTime(new Date(settled.at))} に精算を終えました。`
+      renderSettlement(tool, state, r.amount)
     }
 
     status.update({
@@ -364,10 +367,71 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
     })
   }
 
+  /**
+   * 精算の記録（1回目・2回目…と、それぞれの差）と［精算を完了する］。
+   * 押せるのは、ポケットを数えていて、まだ記録していないか、最後の記録から数が変わったときだけ
+   */
+  function renderSettlement(tool: (typeof sectionTools)[number], state: StockState, expected: number) {
+    // ボタンは「弓道のレジ精算」の中にあるので、見出しの名前は付けない（1行に収める）
+    const list = settlementsOf(state, tool.section)
+    const latest = settlementOf(state, tool.section)
+    const time = (iso: string) => formatTime(new Date(iso))
+
+    tool.settleLogTitle.hidden = list.length === 0
+    tool.settleLog.hidden = list.length === 0
+    tool.settleLog.replaceChildren(
+      ...list.map((record, i) => {
+        const known = record.expected !== null && record.counted !== null
+        const diff = known ? record.counted! - record.expected! : null
+        return h('li', { class: 'settle-row' }, [
+          h('span', { class: 'settle-n', text: `${i + 1}回目` }),
+          h('span', { class: 'settle-at', text: time(record.at) }),
+          h('b', { class: 'settle-diff', 'data-tone': diff === null ? 'none' : diff === 0 ? 'ok' : 'warn', text: diff === null ? '—' : `差 ${signedPrice(diff)}` }),
+          h('small', {
+            class: 'settle-amounts',
+            text: known ? `在庫から ${formatPrice(record.expected!)}・お金から ${formatPrice(record.counted!)}` : '金額の記録なし',
+          }),
+        ])
+      }),
+    )
+
+    const result = compareCash(settle(sectionCashOf(state, tool.section.id)), expected)
+    const diff = result.kind === 'match' ? 0 : result.kind === 'over' ? result.amount : result.kind === 'under' ? -result.amount : null
+    if (!latest) {
+      tool.settleStatus.dataset.tone = 'muted'
+      tool.settleStatus.textContent =
+        '在庫とお金を数え終えたら押してください。そのときの売上と差を記録し、タブに ✓ が付きます。1日に何回でも記録でき、前の記録も残ります。'
+    } else if (latest.changed) {
+      tool.settleStatus.dataset.tone = 'warn'
+      tool.settleStatus.textContent = `${time(latest.at)} の精算（${latest.count}回目）のあとで数が変わりました。数え終えたら、もう一度完了してください（前の記録は残ります）。`
+    } else {
+      tool.settleStatus.dataset.tone = 'ok'
+      tool.settleStatus.textContent = `✓ ${time(latest.at)} に精算を完了しました（${latest.count}回目）。`
+    }
+
+    if (diff === null) {
+      tool.settleButton.disabled = true
+      tool.settleButton.textContent = '売上のポケットを数えると、精算を完了できます'
+    } else if (latest && !latest.changed) {
+      tool.settleButton.disabled = true
+      tool.settleButton.textContent = '精算は完了しています'
+    } else {
+      tool.settleButton.disabled = false
+      tool.settleButton.textContent = latest
+        ? `もう一度完了する（${latest.count + 1}回目・差 ${signedPrice(diff)}）`
+        : `精算を完了する（差 ${signedPrice(diff)}）`
+    }
+  }
+
   const stopFresh = keepFresh(store, { onTick: render, onReload: render })
   render()
 
   return { store, unmount: stopFresh }
+}
+
+/** 「￥0」「＋￥500」「−￥500」 */
+function signedPrice(n: number): string {
+  return n === 0 ? formatPrice(0) : `${n > 0 ? '＋' : '−'}${formatPrice(Math.abs(n))}`
 }
 
 function valueText(v: number | null): string {

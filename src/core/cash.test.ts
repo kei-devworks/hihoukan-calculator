@@ -52,7 +52,7 @@ describe('枚数と金額', () => {
     expect(() => setCashCount(c, 'pocket', 500, 1.5)).toThrow()
   })
 
-  it('［使っていない］はいまの準備金を開店時と同じにし、数え直すと開店時の枚数だけ残す', () => {
+  it('［使っていない］はいまの準備金を開店時と同じにし、リセットすると開店時の枚数だけ残す', () => {
     const c = counted(['pocket', 1000, 3], ['floatStart', 100, 30], ['floatNow', 100, 20])
     expect(floatUnused(c).floatNow).toEqual({ '100': 30 })
     expect(clearCashCount(c)).toEqual({ pocket: {}, floatStart: { '100': 30 }, floatNow: {} })

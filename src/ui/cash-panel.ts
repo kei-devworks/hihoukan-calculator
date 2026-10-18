@@ -10,7 +10,6 @@ import {
 } from '../core/cash'
 import { formatNumber, formatPrice } from '../core/format'
 import { h } from './dom'
-import { holdButton } from './hold-button'
 import { numberInput } from './number-input'
 
 export type CashPanelOptions = {
@@ -28,8 +27,8 @@ export type CashPanelOptions = {
   onChange: (next: CashCount) => void
   /** ［使っていない］ */
   onFloatUnused: () => void
-  /** ［数え直す］（長押し）: ポケットといまの準備金の枚数を消す */
-  onClear: () => void
+  /** 計算の下に置くもの（ネコ・グリコの［精算を完了する］など）。枚数を消すのはページのリセットだけにする */
+  footer?: HTMLElement
 }
 
 export type CashPanel = {
@@ -122,7 +121,6 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
   const calcRule = () => h('span', { class: 'cash-calc-rule', 'aria-hidden': 'true' })
   const verdict = h('p', { class: 'cash-verdict', 'aria-live': 'polite' })
   const floatNote = h('p', { class: 'cash-verdict warn' })
-  const clearButton = holdButton({ label: '数え直す', armedLabel: '長押しで枚数を消す', onConfirm: options.onClear })
 
   const element = h('section', { class: 'card cash', 'aria-labelledby': `${idPrefix}-title` }, [
     h('h2', { id: `${idPrefix}-title`, text: options.title ?? 'レジ精算' }),
@@ -148,7 +146,7 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
     ]),
     verdict,
     floatNote,
-    h('div', { class: 'foot' }, [clearButton]),
+    ...(options.footer ? [options.footer] : []),
   ])
 
   let current: CashCount | null = null
