@@ -28,6 +28,7 @@ import { formatMonthDayTime, formatTime } from '../core/time'
 import { cashPanel, type CashPanel } from './cash-panel'
 import { h } from './dom'
 import { holdButton } from './hold-button'
+import { numberInput } from './number-input'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 import { viewTabs } from './view-tabs'
 
@@ -76,7 +77,8 @@ function describe(result: ItemResult): { text: string; tone: 'muted' | 'ok' | 'w
     case 'tooMany':
       return { text: `残数が在庫（${formatNumber(result.stock)}個）より多くなっています`, tone: 'warn' }
     case 'ok':
-      return { text: `売れた ${formatNumber(result.sold)}個 → ${formatYen(result.amount)}`, tone: 'ok' }
+      // 欄の「開店時 ＋ 追加 − 残数」の続き
+      return { text: `＝ 売れた ${formatNumber(result.sold)}個 → ${formatYen(result.amount)}`, tone: 'ok' }
   }
 }
 
@@ -117,19 +119,14 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
       const inputs = Object.fromEntries(
         STOCK_FIELDS.map((field) => [
           field,
-          h('input', {
-            type: 'number',
+          numberInput({
             id: `${item.id}-${field}`,
-            inputmode: 'numeric',
-            pattern: '[0-9]*',
-            min: 0,
-            step: 1,
-            enterkeyhint: 'done',
+            enterkeyhint: 'next',
             'aria-label': `${section.title} ${name} ${FIELD_DESCRIPTIONS[field]}`,
           }),
         ]),
       ) as Record<StockField, HTMLInputElement>
-      return { section, item, name, inputs, result: h('p', { class: 'stock-result' }) }
+      return { section, item, name, inputs, result: h('p', { class: 'stock-result', 'data-item': item.id }) }
     }),
   )
 
@@ -147,7 +144,57 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
         input.classList.remove('invalid')
         input.value = valueText(entryOf(store.current, row.item.id)[field])
       })
+      // キーボードの「次へ」（Enter）は、下の品目の同じ欄へ。いちばん下ならキーボードを閉じる
+      input.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return
+        e.preventDefault()
+        const same = rows.filter((r) => r.section === row.section)
+        const next = same[same.indexOf(row) + 1]
+        if (next) next.inputs[field].focus()
+        else input.blur()
+      })
     }
+  }
+  for (const section of config.sections) {
+    const same = rows.filter((r) => r.section === section)
+    for (const field of STOCK_FIELDS) same.at(-1)?.inputs[field].setAttribute('enterkeyhint', 'done')
+  }
+
+  /**
+   * 見出しの品目の欄。見た目は品目ごとに「開店時 ＋ 追加 − 残数」を横に並べるが、欄の HTML の順は列ごとにする。
+   * キーボードの「↓」や Tab は HTML の順に進むので、残数の次は下の品目の残数になる（閉店時に残数だけ続けて入れられる）。
+   * 置き場所は grid の行・列で決める（品目ごとに3行: 名前・欄・売れた数）
+   */
+  function stockGrid(sectionRows: typeof rows): HTMLElement {
+    const place = <T extends HTMLElement>(el: T, row: number, column: string): T => {
+      el.style.gridRow = String(row)
+      el.style.gridColumn = column
+      return el
+    }
+    const top = (k: number) => k * 3 + 1
+    const fixed = sectionRows.flatMap((row, k) => [
+      place(
+        h('div', { class: k === 0 ? 'stock-head' : 'stock-head sep', 'data-item': row.item.id }, [
+          h('span', { class: 'nm', text: row.name }),
+          h('span', { class: 'pr', text: `¥${formatNumber(defaultPrice(config, row.item.priceId))}` }),
+        ]),
+        top(k),
+        '1 / -1',
+      ),
+      place(h('span', { class: 'stock-op', 'aria-hidden': 'true', text: '＋' }), top(k) + 1, '2'),
+      place(h('span', { class: 'stock-op', 'aria-hidden': 'true', text: '−' }), top(k) + 1, '4'),
+      place(row.result, top(k) + 2, '1 / -1'),
+    ])
+    const fields = STOCK_FIELDS.flatMap((field, f) =>
+      sectionRows.map((row, k) =>
+        place(
+          h('label', { class: 'stock-field', for: row.inputs[field].id }, [h('span', { text: FIELD_LABELS[field] }), row.inputs[field]]),
+          top(k) + 1,
+          String(1 + f * 2),
+        ),
+      ),
+    )
+    return h('div', { class: 'stock-grid' }, [...fixed, ...fields])
   }
 
   const sectionViews = config.sections.map((section) => ({
@@ -161,27 +208,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
   const sectionCards = sectionViews.map((view, i) =>
     h('section', { class: i % 2 === 0 ? 'card' : 'card alt', 'data-section': view.section.id }, [
       h('h2', { text: view.section.title }),
-      ...rows
-        .filter((row) => row.section === view.section)
-        .map((row) =>
-          h('div', { class: 'stock-item', 'data-item': row.item.id }, [
-            h('div', { class: 'stock-head' }, [
-              h('span', { class: 'nm', text: row.name }),
-              h('span', { class: 'pr', text: `¥${formatNumber(defaultPrice(config, row.item.priceId))}` }),
-            ]),
-            h(
-              'div',
-              { class: 'stock-fields' },
-              STOCK_FIELDS.map((field) =>
-                h('label', { class: 'stock-field', for: row.inputs[field].id }, [
-                  h('span', { text: FIELD_LABELS[field] }),
-                  row.inputs[field],
-                ]),
-              ),
-            ),
-            row.result,
-          ]),
-        ),
+      stockGrid(rows.filter((row) => row.section === view.section)),
       h('div', { class: 'sub' }, [h('span', { text: `${view.section.title}の売上` }), view.subtotal]),
       view.note,
     ]),
@@ -215,7 +242,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
           idPrefix: `cash-${section.id}`,
           title: `${section.title}のレジ精算`,
           labelPrefix: `${section.title} `,
-          expectedLabel: `${section.title}の売上`,
+          expectedLabel: '在庫から出した売上',
           hints: {
             over: '残数や追加の入れまちがいがないか確かめてください',
             under: '残数の数えまちがいや、お釣りのまちがいがないか確かめてください',

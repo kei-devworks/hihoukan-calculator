@@ -29,7 +29,7 @@ function type(label: string, value: string) {
 }
 
 const text = (selector: string) => document.querySelector(selector)?.textContent ?? ''
-const result = (itemId: string) => text(`[data-item="${itemId}"] .stock-result`)
+const result = (itemId: string) => text(`.stock-result[data-item="${itemId}"]`)
 const summary = (sectionId: string) => text(`#results [data-section="${sectionId}"] .stock-summary-line b`)
 const visibleAlerts = () =>
   [...document.querySelectorAll<HTMLElement>('[role="alert"]')].filter((el) => !el.hidden).map((el) => el.textContent)
@@ -68,8 +68,40 @@ describe('mountStockApp', () => {
   it('見出しごとに、品目と 開店時・追加・残数 の欄を並べる', () => {
     mount()
     expect([...document.querySelectorAll('[data-section] h2')].map((el) => el.textContent)).toEqual(['A', 'B'])
-    expect(document.querySelectorAll('.stock-item input')).toHaveLength(4 * 3)
+    expect(document.querySelectorAll('.stock-grid input')).toHaveLength(4 * 3)
     expect(document.querySelector('input[aria-label="B 絵馬 途中で追加した数"]')).not.toBeNull()
+    // 欄のあいだに ＋ と −（開店時 ＋ 追加 − 残数）
+    expect([...document.querySelectorAll('[data-section="a"] .stock-op')].map((el) => el.textContent)).toEqual(['＋', '−', '＋', '−'])
+  })
+
+  it('欄の順は列ごと（キーボードの「↓」・Tab で、残数の次は下の品目の残数）。「次へ」（Enter）も下の品目の同じ欄へ', () => {
+    mount()
+    expect([...document.querySelectorAll<HTMLInputElement>('[data-section="a"] .stock-grid input')].map((el) => el.id)).toEqual([
+      'a-sticker-start',
+      'a-ema-start',
+      'a-sticker-added',
+      'a-ema-added',
+      'a-sticker-remaining',
+      'a-ema-remaining',
+    ])
+    const sticker = document.querySelector<HTMLInputElement>('#a-sticker-remaining')!
+    const ema = document.querySelector<HTMLInputElement>('#a-ema-remaining')!
+    expect([sticker.getAttribute('enterkeyhint'), ema.getAttribute('enterkeyhint')]).toEqual(['next', 'done'])
+    sticker.focus()
+    sticker.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    expect(document.activeElement).toBe(ema)
+    ema.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    expect(document.activeElement).not.toBe(ema)
+  })
+
+  it('レジ精算の釣り銭準備金も、開店時の列 → いまの列の順', () => {
+    mount()
+    expect([...document.querySelectorAll<HTMLInputElement>('#panel-a .float-grid input')].map((el) => el.id)).toEqual([
+      'cash-a-floatStart-500',
+      'cash-a-floatStart-100',
+      'cash-a-floatNow-500',
+      'cash-a-floatNow-100',
+    ])
   })
 
   it('開店時・追加・残数から、売れた数と売上を出す', () => {
@@ -78,7 +110,7 @@ describe('mountStockApp', () => {
     expect(result('a-sticker')).toBe('在庫 20個（残数を入れると計算します）')
     type('A ステッカー 途中で追加した数', '10')
     type('A ステッカー 残数', '12')
-    expect(result('a-sticker')).toBe('売れた 18個 → ￥18,000-')
+    expect(result('a-sticker')).toBe('＝ 売れた 18個 → ￥18,000-')
   })
 
   it('見出しごとに売上を分けて出し、合計も添える', () => {
@@ -101,7 +133,7 @@ describe('mountStockApp', () => {
 
     mount(storage)
     expect(document.querySelector<HTMLInputElement>('#a-ema-start')!.value).toBe('8')
-    expect(result('a-ema')).toBe('売れた 6個 → ￥3,000-')
+    expect(result('a-ema')).toBe('＝ 売れた 6個 → ￥3,000-')
     expect(text('.save-status')).toBe('この端末に保存済み（最終更新 10:00）')
   })
 
@@ -109,7 +141,7 @@ describe('mountStockApp', () => {
     mount()
     type('A 絵馬 開店時の在庫', '8')
     type('A 絵馬 残数', '0')
-    expect(result('a-ema')).toBe('売れた 8個 → ￥4,000-')
+    expect(result('a-ema')).toBe('＝ 売れた 8個 → ￥4,000-')
     type('A 絵馬 残数', '')
     expect(result('a-ema')).toBe('在庫 8個（残数を入れると計算します）')
   })
@@ -188,7 +220,8 @@ describe('mountStockApp', () => {
     type('A ステッカー 残数', '3') // A の売上 2,000
     type('A 売上のポケット 千円札の枚数', '2')
     expect(text('#panel-a .cash-verdict')).toBe('ぴったり合っています。')
-    expect(text('#panel-b .cash-verdict')).toBe('売上のポケットの枚数を入れると、Bの売上と比べます。')
+    expect(text('#panel-b .cash-verdict')).toBe('売上のポケットの枚数を入れると、在庫から出した売上と比べます。')
+    expect(text('#panel-a .cash-diff')).toBe('￥0')
 
     clock = new Date('2026-10-15T21:30:00+09:00')
     button('Aの精算を終える').click()

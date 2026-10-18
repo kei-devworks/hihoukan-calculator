@@ -513,23 +513,38 @@ describe('mountTallyApp', () => {
       input.dispatchEvent(new Event('input'))
     }
 
-    it('ポケットの枚数と、釣り銭準備金の開店時・いまから売上のお金を出し、カウンターの合計と比べる', () => {
+    it('ポケットの枚数と、釣り銭準備金の開店時・いまから「お金から出した売上」を出し、注文から出した売上を引いて差を出す', () => {
       mount()
       button('2,000円を1つ増やす').click()
       button('ホタテを1つ増やす').click() // 3,000
       button('レジ精算').click()
-      expect(text('.cash-verdict')).toBe('売上のポケットの枚数を入れると、カウンターの合計と比べます。')
+      expect(text('.cash-verdict')).toBe('売上のポケットの枚数を入れると、注文から出した売上と比べます。')
+      // 筆算: 名前の列は「−」を含まない。ポケットを数えるまで差は出さない
+      expect([...document.querySelectorAll('.cash-calc-op + *')].map((el) => el.textContent)).toEqual([
+        'ポケットの合計',
+        '使った釣り銭',
+        'お金から出した売上',
+        '注文から出した売上',
+        '差',
+      ])
+      expect([...document.querySelectorAll('.cash-calc-op')].map((el) => el.textContent)).toEqual(['', '−', '', '−', ''])
+      expect(text('.cash-diff')).toBe('—')
       fill('cash-pocket-1000', '4')
       fill('cash-floatStart-100', '30')
       fill('cash-floatNow-100', '20') // 1,000 使った
-      expect(text('.cash-calc .eq b')).toBe('￥3,000')
+      expect(text('.cash-sales')).toBe('￥3,000')
+      expect(text('.cash-diff')).toBe('￥0')
+      expect(document.querySelector<HTMLElement>('.cash-diff')!.dataset.tone).toBe('ok')
       expect(text('.cash-verdict')).toBe('ぴったり合っています。')
-      fill('cash-floatNow-100', '22') // 使ったのは 800 → 売上のお金 3,200
+      fill('cash-floatNow-100', '22') // 使ったのは 800 → お金から出した売上 3,200
+      expect(text('.cash-diff')).toBe('＋￥200')
       expect(text('.cash-verdict')).toBe('お金のほうが ￥200 多い。押し忘れがないか記録を見てください。')
       // ポケット 3,600 − 使った 800 ＝ 2,800 で、3,000 より 200 少ない
       fill('cash-pocket-1000', '3')
       fill('cash-pocket-500', '1')
       fill('cash-pocket-100', '1')
+      expect(text('.cash-diff')).toBe('−￥200')
+      expect(document.querySelector<HTMLElement>('.cash-diff')!.dataset.tone).toBe('warn')
       expect(text('.cash-verdict')).toBe('お金のほうが ￥200 少ない。押しまちがいやお釣りのまちがいがないか確かめてください。')
     })
 

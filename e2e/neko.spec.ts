@@ -25,7 +25,7 @@ async function holdPress(page: Page, label: string, armedLabel: string) {
   await page.waitForTimeout(1300)
   await page.mouse.up()
 }
-const result = (page: Page, itemId: string) => page.locator(`[data-item="${itemId}"] .stock-result`)
+const result = (page: Page, itemId: string) => page.locator(`.stock-result[data-item="${itemId}"]`)
 const summary = (page: Page, sectionId: string) => page.locator(`#results [data-section="${sectionId}"] .stock-summary-line b`)
 
 async function fillDay(page: Page) {
@@ -45,9 +45,9 @@ test('在庫と残数から、弓道と手裏剣の売上を分けて出す', as
   await open(page)
   await fillDay(page)
 
-  await expect(result(page, 'kyudo-sticker')).toHaveText('売れた 18個 → ￥18,000-')
-  await expect(result(page, 'kyudo-ema')).toHaveText('売れた 6個 → ￥3,000-')
-  await expect(result(page, 'shuriken-tegata')).toHaveText('売れた 3個 → ￥1,500-')
+  await expect(result(page, 'kyudo-sticker')).toHaveText('＝ 売れた 18個 → ￥18,000-')
+  await expect(result(page, 'kyudo-ema')).toHaveText('＝ 売れた 6個 → ￥3,000-')
+  await expect(result(page, 'shuriken-tegata')).toHaveText('＝ 売れた 3個 → ￥1,500-')
 
   await expect(summary(page, 'kyudo')).toHaveText('￥21,000-')
   await expect(summary(page, 'shuriken')).toHaveText('￥1,500-')
@@ -161,4 +161,34 @@ test('スマホの幅で横にはみ出さない', async ({ page }) => {
   await fillDay(page)
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(0)
+})
+
+test('入れた数を直すとき、欄の左のほうを押しても、カーソルは数字のいちばん右に来る', async ({ page }) => {
+  await open(page)
+  const sticker = field(page, '弓道 ステッカー 開店時の在庫')
+  await sticker.fill('120')
+  await page.locator('body').click({ position: { x: 5, y: 5 } })
+  // 右寄せの数字の左の、空いたところを押す
+  await sticker.click({ position: { x: 8, y: 10 } })
+  await expect.poll(() => sticker.evaluate((el: HTMLInputElement) => [el.selectionStart, el.selectionEnd])).toEqual([3, 3])
+  await page.keyboard.press('Backspace')
+  await expect(sticker).toHaveValue('12')
+})
+
+test('残数の欄から「次へ」（Tab）で、下の品目の残数へ進む。欄は品目ごとに横に並んだまま', async ({ page }) => {
+  await open(page)
+  const sticker = field(page, '弓道 ステッカー 残数')
+  await sticker.fill('12')
+  await page.keyboard.press('Tab')
+  await expect(field(page, '弓道 絵馬 残数')).toBeFocused()
+  await page.keyboard.type('9')
+  await page.keyboard.press('Tab')
+  await expect(field(page, '弓道 手形 残数')).toBeFocused()
+  await expect(field(page, '弓道 絵馬 残数')).toHaveValue('9')
+
+  // 見た目は品目ごとに「開店時 ＋ 追加 − 残数」が横に並び、下の品目はその下
+  const top = async (name: string) => (await field(page, name).boundingBox())!.y
+  expect(await top('弓道 ステッカー 開店時の在庫')).toBe(await top('弓道 ステッカー 残数'))
+  expect(await top('弓道 絵馬 残数')).toBeGreaterThan(await top('弓道 ステッカー 残数'))
+  await expect(page.locator('#panel-kyudo .stock-op').first()).toHaveText('＋')
 })

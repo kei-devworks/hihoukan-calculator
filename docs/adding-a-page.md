@@ -123,6 +123,7 @@ mountStockApp(byId('app'), kiosk)
     （前日の知らせが要らないページは、`pageStatus` の `carriedText` / `carriedActions` を省く）
   - 報告文の全角スペースは `　` で書く（ソースに直接書くと ESLint に止められる。コメントの中は書いてよい）
   - 金額は `src/core/format.ts`、コピーは `src/ui/clipboard.ts`、2回押しのボタンは `src/ui/confirm-button.ts`
+  - 数字の欄は `numberInput`（`src/ui/number-input.ts`）で作る。`type="number"` は使わない（カーソルを右に置けず、直しにくいため）
 - 計算は `src/core/` に DOM を使わない関数として書き、単体テストを付ける
 - **端末をまたいだ共有やログインが要るなら、作る前に相談する**（GitHub Pages ではできない。[deployment.md](deployment.md)）
 

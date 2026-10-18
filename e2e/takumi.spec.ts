@@ -272,7 +272,7 @@ test('会計で、受け取ったお札・硬貨を押すとお釣りが出て�
   await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜1点￥1,000')
 })
 
-test('レジ精算で、ポケットと釣り銭準備金の枚数から売上のお金を出し、カウンターの合計と比べる', async ({ page }) => {
+test('レジ精算で、ポケットと釣り銭準備金の枚数からお金から出した売上を出し、注文から出した売上との差を出す', async ({ page }) => {
   await open(page)
   await countSample(page) // ￥12,900
   await page.getByRole('tab', { name: 'レジ精算' }).click()
@@ -280,7 +280,8 @@ test('レジ精算で、ポケットと釣り銭準備金の枚数から売上�
   await page.getByLabel('売上のポケット 千円札の枚数').fill('3')
   await page.getByLabel('釣り銭準備金 100円玉 開店時の枚数').fill('30')
   await page.getByLabel('釣り銭準備金 100円玉 いまの枚数').fill('29')
-  await expect(page.locator('.cash-calc .eq b')).toHaveText('￥12,900')
+  await expect(page.locator('.cash-sales')).toHaveText('￥12,900')
+  await expect(page.locator('.cash-diff')).toHaveText('￥0')
   await expect(page.locator('.cash-verdict[aria-live]')).toHaveText('ぴったり合っています。')
 
   await page.reload()
@@ -290,6 +291,7 @@ test('レジ精算で、ポケットと釣り銭準備金の枚数から売上�
   await expect(page.locator('.cash-verdict[aria-live]')).toHaveText(
     'お金のほうが ￥1,000 多い。押し忘れがないか記録を見てください（1,000円・ホタテ 1つ分と同じ額）。',
   )
+  await expect(page.locator('.cash-diff')).toHaveText('＋￥1,000')
 })
 
 test('最後に押してから3分たつと、今のオーダーは自動で閉じる', async ({ page }) => {

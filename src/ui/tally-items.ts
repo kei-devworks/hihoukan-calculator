@@ -2,6 +2,7 @@ import { formatNumber } from '../core/format'
 import { priceOf, type CustomItem, type TallyConfig, type TallyState } from '../core/tally'
 import { h } from './dom'
 import { holdButton } from './hold-button'
+import { numberInput } from './number-input'
 
 export type TallyItemsActions = {
   setPrice: (priceId: string, value: number) => void
@@ -33,11 +34,12 @@ export function tallyItems(config: TallyConfig, actions: TallyItemsActions): Tal
 
   // ---- 設定の品目の単価（見出しごとに、その見出しの品目が使う単価を並べる） ----
   const priceFields = config.prices.map((def) => {
-    const input = h('input', { type: 'number', id: `price-${def.id}`, inputmode: 'numeric', min: 0, step: 10, enterkeyhint: 'done' })
+    const input = numberInput({ id: `price-${def.id}`, enterkeyhint: 'done' })
     input.addEventListener('input', () => {
-      // 打ち直しの途中で空になっても 0 円にはしない
-      if (input.value.trim() === '' || !Number.isFinite(input.valueAsNumber)) return
-      actions.setPrice(def.id, input.valueAsNumber)
+      // 打ち直しの途中で空になっても 0 円にはしない。数でない文字も受け付けない（欄から離れると今の単価に戻る）
+      const value = Number(input.value.trim())
+      if (input.value.trim() === '' || !Number.isFinite(value)) return
+      actions.setPrice(def.id, value)
     })
     const sectionId = config.sections.find((s) => s.items.some((i) => i.priceId === def.id))?.id
     return { def, input, hint: h('span', { class: 'default-hint' }), sectionId }
@@ -59,12 +61,8 @@ export function tallyItems(config: TallyConfig, actions: TallyItemsActions): Tal
       'aria-label': `${section.title}に足す品目の名前`,
       enterkeyhint: 'next',
     })
-    const priceInput = h('input', {
-      type: 'number',
+    const priceInput = numberInput({
       id: `new-price-${section.id}`,
-      inputmode: 'numeric',
-      min: 1,
-      step: 10,
       placeholder: '円',
       'aria-label': `${section.title}に足す品目の単価`,
       enterkeyhint: 'done',
@@ -127,7 +125,7 @@ export function tallyItems(config: TallyConfig, actions: TallyItemsActions): Tal
       placeholder: '名前（空なら値段で呼ぶ）',
       'aria-label': '足した品目の名前',
     })
-    const priceInput = h('input', { type: 'number', id: `custom-price-${item.id}`, inputmode: 'numeric', min: 1, step: 10, 'aria-label': '足した品目の単価' })
+    const priceInput = numberInput({ id: `custom-price-${item.id}`, 'aria-label': '足した品目の単価' })
     nameInput.addEventListener('input', () => actions.updateItem(item.id, { name: nameInput.value }))
     priceInput.addEventListener('input', () => {
       const price = readPrice(priceInput.value)
@@ -175,8 +173,8 @@ export function tallyItems(config: TallyConfig, actions: TallyItemsActions): Tal
       }
       for (const c of mine) {
         const row = s.customList.querySelector<HTMLElement>(`[data-item="${c.id}"]`)
-        const name = row?.querySelector<HTMLInputElement>('input[type="text"]')
-        const price = row?.querySelector<HTMLInputElement>('input[type="number"]')
+        const name = row?.querySelector<HTMLInputElement>(`#custom-name-${c.id}`)
+        const price = row?.querySelector<HTMLInputElement>(`#custom-price-${c.id}`)
         if (name && document.activeElement !== name) name.value = c.name ?? ''
         if (price && document.activeElement !== price) price.value = String(c.price)
         price?.setAttribute('aria-label', `${c.name ?? '足した品目'}の単価`)
