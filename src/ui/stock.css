@@ -1,22 +1,33 @@
-/* 「在庫の差」のページ。品目ごとに 開店時・追加・残数 の欄を横に並べる（共通部分は base.css） */
+/* 「在庫の差」のページ。品目ごとに「開店時 ＋ 追加 − 残数」の欄を横に並べる（共通部分は base.css） */
 
-.stock-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line);
-}
-
-.card h2 + .stock-item {
-  border-top: 0;
-  margin-top: 2px;
+/* 欄の HTML の順は列ごと（stock-app.ts の stockGrid）。置き場所は行・列で決める */
+.stock-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 4px;
+  row-gap: 6px;
+  margin-top: 6px;
 }
 
 .stock-head {
   display: flex;
   align-items: baseline;
   gap: 6px;
+}
+
+.stock-head.sep {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* 欄のあいだの ＋ と −（欄の高さのまん中に） */
+.stock-op {
+  align-self: end;
+  padding-bottom: 11px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--muted);
 }
 
 .stock-head .nm {
@@ -27,12 +38,6 @@
   font-size: 12px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-}
-
-.stock-fields {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
 }
 
 .stock-field {

@@ -89,14 +89,21 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
   const pocketTotal = h('b')
 
   // ---- 硬貨の釣り銭準備金 ----
-  const floatRows = cash.coins.flatMap((d) => {
-    const name = denominationName(d, true)
-    return [
-      h('span', { text: name }),
-      makeInput('floatStart', d, `${prefix}釣り銭準備金 ${name} 開店時の枚数`),
-      makeInput('floatNow', d, `${prefix}釣り銭準備金 ${name} いまの枚数`),
-    ]
-  })
+  // 見た目は硬貨ごとに「開店時」「いま」を横に並べるが、欄の HTML の順は列ごとにする
+  // （キーボードの「↓」で、開店時の 500円玉 → 100円玉、いまの 500円玉 → 100円玉 と進む）
+  const place = <T extends HTMLElement>(el: T, row: number, column: number): T => {
+    el.style.gridRow = String(row)
+    el.style.gridColumn = String(column)
+    return el
+  }
+  const floatNames = cash.coins.map((d, i) => place(h('span', { text: denominationName(d, true) }), i + 2, 1))
+  const floatInputs = (['floatStart', 'floatNow'] as const).flatMap((field, c) =>
+    cash.coins.map((d, i) => {
+      const name = denominationName(d, true)
+      const label = `${prefix}釣り銭準備金 ${name} ${field === 'floatStart' ? '開店時' : 'いま'}の枚数`
+      return place(makeInput(field, d, label), i + 2, c + 2)
+    }),
+  )
   const unusedButton = h('button', { type: 'button', class: 'ghost', text: '使っていない' })
   unusedButton.addEventListener('click', options.onFloatUnused)
   const floatUsed = h('b')
@@ -123,7 +130,12 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
     h('div', { class: 'cash-grid' }, pocketRows),
     h('p', { class: 'cash-sum' }, [h('span', { text: 'ポケットの合計' }), pocketTotal]),
     h('h3', { class: 'cash-h', text: '硬貨の釣り銭準備金' }),
-    h('div', { class: 'float-grid' }, [h('span'), h('span', { class: 'cash-th', text: '開店時' }), h('span', { class: 'cash-th', text: 'いま' }), ...floatRows]),
+    h('div', { class: 'float-grid' }, [
+      place(h('span', { class: 'cash-th', text: '開店時' }), 1, 2),
+      place(h('span', { class: 'cash-th', text: 'いま' }), 1, 3),
+      ...floatNames,
+      ...floatInputs,
+    ]),
     h('div', { class: 'float-foot' }, [unusedButton, h('span', {}, ['使った釣り銭 ', floatUsed])]),
     h('div', { class: 'cash-calc' }, [
       ...calcLine('', 'ポケットの合計', calcPocket),
