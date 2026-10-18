@@ -1,5 +1,5 @@
 import './stock.css'
-import { clearCashCount, floatUnused } from '../core/cash'
+import { floatUnused } from '../core/cash'
 import { defaultPrice } from '../core/catalog'
 import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
@@ -249,7 +249,6 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
           },
           onChange: (next) => change(setSectionCash(store.current, section.id, next, now())),
           onFloatUnused: () => change(setSectionCash(store.current, section.id, floatUnused(sectionCashOf(store.current, section.id)), now())),
-          onClear: () => change(setSectionCash(store.current, section.id, clearCashCount(sectionCashOf(store.current, section.id)), now())),
         })
       : null
     const settleStatus = h('p', { class: 'settle-status' })

@@ -3,7 +3,7 @@ import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
-import { clearCashCount, floatUnused } from '../core/cash'
+import { floatUnused } from '../core/cash'
 import { addItemForCustomer } from '../core/checkout'
 import { applyHandover, inputFromCode, planHandover, withNewItems, type HandoverInput, type HandoverMode } from '../core/handover'
 import { decodeHandoverCode, HANDOVER_PARAM } from '../core/handover-code'
@@ -296,7 +296,6 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
         hints: { over: '押し忘れがないか記録を見てください', under: '押しまちがいやお釣りのまちがいがないか確かめてください' },
         onChange: (next) => change({ ...store.current, cash: next, updatedAt: now().toISOString() }),
         onFloatUnused: () => change({ ...store.current, cash: floatUnused(store.current.cash), updatedAt: now().toISOString() }),
-        onClear: () => change({ ...store.current, cash: clearCashCount(store.current.cash) }, 'レジ精算の枚数を消しました'),
       })
     : null
   const cashPanelView = h('div', { class: 'view-panel' }, cash ? [cash.element] : [])

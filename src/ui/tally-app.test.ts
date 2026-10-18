@@ -569,9 +569,10 @@ describe('mountTallyApp', () => {
       expect(document.querySelectorAll('.cash-verdict.warn:not([hidden])')).toHaveLength(1)
     })
 
-    it('枚数は保存し、リセットではポケットといまの枚数を消して開店時の枚数を残す', () => {
+    it('枚数は保存し、リセットではポケットといまの枚数を消して開店時の枚数を残す（レジ精算に枚数だけを消すボタンは置かない）', () => {
       const { storage } = mount()
       button('レジ精算').click()
+      expect(document.querySelectorAll('.cash button.hold-button')).toHaveLength(0)
       fill('cash-pocket-1000', '3')
       fill('cash-floatStart-100', '30')
       fill('cash-floatNow-100', '25')
