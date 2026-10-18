@@ -12,6 +12,7 @@
   --danger-text: #b3261e;
   --notice-bg: #fff4dc;
   --notice-fg: #6b4200;
+  --ok-text: #2e7d32;
   --font: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
 }
 
@@ -29,6 +30,7 @@
     --danger-text: #f2b8b5;
     --notice-bg: #3a2c12;
     --notice-fg: #f3d29b;
+    --ok-text: #86c98b;
     color-scheme: dark;
   }
 }
@@ -46,6 +48,7 @@
   --danger-text: #f2b8b5;
   --notice-bg: #3a2c12;
   --notice-fg: #f3d29b;
+  --ok-text: #86c98b;
   color-scheme: dark;
 }
 
@@ -660,31 +663,51 @@ button.hold-button.holding::after {
   padding: 6px 12px;
 }
 
-/* 計算はレシートのように並べる */
+/* 計算は紙の筆算のように並べる。「−」の列・名前の列・金額の列（右そろえ・桁そろえ）。引き算の下に線を引いて答え */
 .cash-calc {
   margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1.3em minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 6px;
+  row-gap: 3px;
   background: var(--bg);
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 10px 14px 10px 8px;
   font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
 
-.cash-calc p {
-  margin: 2px 0;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.cash-calc .eq {
-  border-top: 1px solid var(--line);
-  padding-top: 4px;
+.cash-calc-op {
+  text-align: center;
   font-weight: 700;
 }
 
-.cash-calc .eq b {
+.cash-calc-yen {
+  text-align: right;
+  white-space: nowrap;
+}
+
+b.cash-calc-yen {
   font-size: 19px;
+}
+
+.cash-calc-rule {
+  grid-column: 1 / -1;
+  margin: 3px 0 2px;
+  border-top: 2px solid var(--fg);
+}
+
+.cash-diff[data-tone='ok'] {
+  color: var(--ok-text);
+}
+
+.cash-diff[data-tone='warn'] {
+  color: var(--accent2);
+}
+
+.cash-diff[data-tone='none'] {
+  color: var(--muted);
 }
 
 .cash-verdict {

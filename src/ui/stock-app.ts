@@ -215,7 +215,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
           idPrefix: `cash-${section.id}`,
           title: `${section.title}のレジ精算`,
           labelPrefix: `${section.title} `,
-          expectedLabel: `${section.title}の売上`,
+          expectedLabel: '在庫から出した売上',
           hints: {
             over: '残数や追加の入れまちがいがないか確かめてください',
             under: '残数の数えまちがいや、お釣りのまちがいがないか確かめてください',

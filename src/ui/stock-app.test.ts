@@ -188,7 +188,8 @@ describe('mountStockApp', () => {
     type('A ステッカー 残数', '3') // A の売上 2,000
     type('A 売上のポケット 千円札の枚数', '2')
     expect(text('#panel-a .cash-verdict')).toBe('ぴったり合っています。')
-    expect(text('#panel-b .cash-verdict')).toBe('売上のポケットの枚数を入れると、Bの売上と比べます。')
+    expect(text('#panel-b .cash-verdict')).toBe('売上のポケットの枚数を入れると、在庫から出した売上と比べます。')
+    expect(text('#panel-a .cash-diff')).toBe('￥0')
 
     clock = new Date('2026-10-15T21:30:00+09:00')
     button('Aの精算を終える').click()

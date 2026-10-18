@@ -73,7 +73,7 @@ export type Settlement = {
   floatNow: number
   /** 使った釣り銭（開店時 − いま）。わからないときは 0 */
   floatUsed: number
-  /** 売上のお金（ポケット − 使った釣り銭） */
+  /** お金から出した売上（ポケット − 使った釣り銭） */
   sales: number
   /** ポケットの枚数をどれか入れたか */
   counted: boolean
@@ -106,7 +106,7 @@ export type CashComparison =
   /** お金のほうが少ない（押しまちがい・お釣りのまちがい？） */
   | { kind: 'under'; amount: number }
 
-/** 売上のお金を、数え上げた売上（カウンターの合計など）と比べる */
+/** お金から出した売上を、数えた売上（注文・在庫から出した売上）と比べる */
 export function compareCash(settlement: Settlement, expected: number): CashComparison {
   if (!settlement.counted) return { kind: 'none' }
   const diff = settlement.sales - expected

@@ -20,7 +20,7 @@ export type CashPanelOptions = {
   title?: string
   /** 欄の読み上げ名の頭（1つのページに複数置くときに分ける。例: '弓道 '） */
   labelPrefix?: string
-  /** 比べる相手の名前（「カウンターの合計」「弓道の売上」） */
+  /** 比べる相手の名前（「注文から出した売上」「在庫から出した売上」） */
   expectedLabel: string
   /** 差が出たときに添える言葉 */
   hints: { over: string; under: string }
@@ -55,8 +55,9 @@ function readCount(text: string): number | null | undefined {
 }
 
 /**
- * レジ精算の画面: 売上のポケットの枚数、硬貨の釣り銭準備金（開店時・いま）、
- * 「ポケットの合計 − 使った釣り銭 ＝ 売上のお金」と、数えた売上との比べ。囲みの枠は使わず見出しで区切る
+ * レジ精算の画面: 売上のポケットの枚数、硬貨の釣り銭準備金（開店時・いま）と、計算の筆算。
+ * 筆算は「ポケットの合計 − 使った釣り銭 → お金から出した売上 − 数えた売上（expectedLabel）→ 差」と、差まで1本で出す。
+ * 囲みの枠は使わず見出しで区切る
  */
 export function cashPanel(options: CashPanelOptions): CashPanel {
   const { cash, idPrefix } = options
@@ -103,11 +104,18 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
   unusedButton.addEventListener('click', options.onFloatUnused)
   const floatUsed = h('b')
 
-  // ---- 計算と結果 ----
-  const calcPocket = h('b')
-  const calcUsed = h('b')
-  const calcSales = h('b')
-  const calcExpected = h('b')
+  // ---- 計算と結果（筆算: 「−」は左の列に置き、名前の書き出しと金額の右端をそろえる。答えの行だけ太く） ----
+  const calcPocket = h('span', { class: 'cash-calc-yen' })
+  const calcUsed = h('span', { class: 'cash-calc-yen' })
+  const calcSales = h('b', { class: 'cash-calc-yen cash-sales' })
+  const calcExpected = h('span', { class: 'cash-calc-yen' })
+  const calcDiff = h('b', { class: 'cash-calc-yen cash-diff' })
+  const calcLine = (op: string, label: string, amount: HTMLElement) => [
+    h('span', { class: 'cash-calc-op', text: op }),
+    h(amount.tagName === 'B' ? 'b' : 'span', { text: label }),
+    amount,
+  ]
+  const calcRule = () => h('span', { class: 'cash-calc-rule', 'aria-hidden': 'true' })
   const verdict = h('p', { class: 'cash-verdict', 'aria-live': 'polite' })
   const floatNote = h('p', { class: 'cash-verdict warn' })
   const clearButton = holdButton({ label: '数え直す', armedLabel: '長押しで枚数を消す', onConfirm: options.onClear })
@@ -121,10 +129,13 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
     h('div', { class: 'float-grid' }, [h('span'), h('span', { class: 'cash-th', text: '開店時' }), h('span', { class: 'cash-th', text: 'いま' }), ...floatRows]),
     h('div', { class: 'float-foot' }, [unusedButton, h('span', {}, ['使った釣り銭 ', floatUsed])]),
     h('div', { class: 'cash-calc' }, [
-      h('p', {}, [h('span', { text: 'ポケットの合計' }), calcPocket]),
-      h('p', {}, [h('span', { text: '− 使った釣り銭' }), calcUsed]),
-      h('p', { class: 'eq' }, [h('span', { text: '＝ 売上のお金' }), calcSales]),
-      h('p', {}, [h('span', { text: options.expectedLabel }), calcExpected]),
+      ...calcLine('', 'ポケットの合計', calcPocket),
+      ...calcLine('−', '使った釣り銭', calcUsed),
+      calcRule(),
+      ...calcLine('', 'お金から出した売上', calcSales),
+      ...calcLine('−', options.expectedLabel, calcExpected),
+      calcRule(),
+      ...calcLine('', '差', calcDiff),
     ]),
     verdict,
     floatNote,
@@ -163,6 +174,14 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
     calcExpected.textContent = formatPrice(expected)
 
     const result = compareCash(s, expected)
+    // 差 = お金から出した売上 − 数えた売上。ポケットを数えるまでは出さない
+    calcDiff.textContent =
+      result.kind === 'none'
+        ? '—'
+        : result.kind === 'match'
+          ? formatPrice(0)
+          : `${result.kind === 'over' ? '＋' : '−'}${formatPrice(result.amount)}`
+    calcDiff.dataset.tone = result.kind === 'match' ? 'ok' : result.kind === 'none' ? 'none' : 'warn'
     const same = (amount: number) => {
       const names = sameAmountNames(amount, candidates)
       return names.length > 0 ? `（${names.join('・')} 1つ分と同じ額）` : ''

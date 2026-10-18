@@ -292,7 +292,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
     ? cashPanel({
         cash: config.cash,
         idPrefix: 'cash',
-        expectedLabel: 'カウンターの合計',
+        expectedLabel: '注文から出した売上',
         hints: { over: '押し忘れがないか記録を見てください', under: '押しまちがいやお釣りのまちがいがないか確かめてください' },
         onChange: (next) => change({ ...store.current, cash: next, updatedAt: now().toISOString() }),
         onFloatUnused: () => change({ ...store.current, cash: floatUnused(store.current.cash), updatedAt: now().toISOString() }),
