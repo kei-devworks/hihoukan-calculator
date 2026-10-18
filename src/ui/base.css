@@ -151,7 +151,7 @@ button {
 }
 
 input[type='time'],
-input[type='number'] {
+input.num {
   font: inherit;
   /* 16px 未満だと iPhone で入力時に画面が拡大される */
   font-size: 16px;

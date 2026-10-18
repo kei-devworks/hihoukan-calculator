@@ -162,3 +162,15 @@ test('スマホの幅で横にはみ出さない', async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(0)
 })
+
+test('入れた数を直すとき、欄の左のほうを押しても、カーソルは数字のいちばん右に来る', async ({ page }) => {
+  await open(page)
+  const sticker = field(page, '弓道 ステッカー 開店時の在庫')
+  await sticker.fill('120')
+  await page.locator('body').click({ position: { x: 5, y: 5 } })
+  // 右寄せの数字の左の、空いたところを押す
+  await sticker.click({ position: { x: 8, y: 10 } })
+  await expect.poll(() => sticker.evaluate((el: HTMLInputElement) => [el.selectionStart, el.selectionEnd])).toEqual([3, 3])
+  await page.keyboard.press('Backspace')
+  await expect(sticker).toHaveValue('12')
+})

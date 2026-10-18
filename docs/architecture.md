@@ -63,6 +63,7 @@ src/
     notice-bar.ts  画面の下の知らせ（［元に戻す］［×］）
     view-tabs.ts   画面を切り替えるボタン（タクミの4画面、ネコ・グリコの見出し）
     dom.ts         要素を作る小さなヘルパー
+    number-input.ts  数字の欄（数字のキーボード。欄に入るとカーソルを数字のいちばん右に置く）
     qr.ts          QR コードを SVG で描く（いつも白地に黒）
     share-dialog.ts  リンクを QR・共有シート（AirDrop・LINE など）・コピーで渡すダイアログ
     qr-scanner.ts  ページの中のカメラで QR コードを読む

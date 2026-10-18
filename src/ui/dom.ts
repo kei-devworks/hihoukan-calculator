@@ -5,7 +5,7 @@ export function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   return el as T
 }
 
-type Attrs = Record<string, string | number | boolean | undefined>
+export type Attrs = Record<string, string | number | boolean | undefined>
 
 /**
  * 要素を作る小さなヘルパー。`class` と `text` は特別扱いし、ほかは属性として設定する。

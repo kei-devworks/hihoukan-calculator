@@ -52,12 +52,6 @@
   padding: 8px 10px;
 }
 
-.stock-field input::-webkit-inner-spin-button,
-.stock-field input::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
 .stock-field input.invalid,
 .stock-field input.mismatch {
   border-color: var(--danger);

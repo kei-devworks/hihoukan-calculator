@@ -11,6 +11,7 @@ import {
 import { formatNumber, formatPrice } from '../core/format'
 import { h } from './dom'
 import { holdButton } from './hold-button'
+import { numberInput } from './number-input'
 
 export type CashPanelOptions = {
   cash: CashConfig
@@ -67,11 +68,7 @@ export function cashPanel(options: CashPanelOptions): CashPanel {
   const fields: Field[] = []
 
   const makeInput = (field: CashField, denomination: number, label: string) => {
-    const input = h('input', {
-      type: 'number',
-      inputmode: 'numeric',
-      min: 0,
-      step: 1,
+    const input = numberInput({
       id: `${idPrefix}-${field}-${denomination}`,
       'aria-label': label,
       enterkeyhint: 'next',

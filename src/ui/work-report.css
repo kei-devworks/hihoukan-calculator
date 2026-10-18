@@ -21,7 +21,7 @@
 }
 
 input[type='date'],
-input[type='text'],
+input[type='text']:not(.num),
 select {
   font: inherit;
   /* 16px 未満だと iPhone で入力時に画面が拡大される */

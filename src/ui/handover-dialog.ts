@@ -15,6 +15,7 @@ import { formatMonthDayTime, formatTime } from '../core/time'
 import { copyText } from './clipboard'
 import { h } from './dom'
 import { holdButton } from './hold-button'
+import { numberInput } from './number-input'
 import { qrSvg } from './qr'
 import { qrScanner } from './qr-scanner'
 import { viewTabs } from './view-tabs'
@@ -278,11 +279,7 @@ export function openHandoverDialog(options: HandoverDialogOptions, start?: Loade
           h('p', { class: si % 2 === 0 ? 'handover-sec' : 'handover-sec alt', text: section.title }),
           ...section.items.map((item) => {
             const name = displayName(config, state, item)
-            const input = h('input', {
-              type: 'number',
-              inputmode: 'numeric',
-              min: 0,
-              step: 1,
+            const input = numberInput({
               placeholder: '0',
               id: `handover-n-${item.id}`,
               'aria-label': `${name} 前の人の数`,

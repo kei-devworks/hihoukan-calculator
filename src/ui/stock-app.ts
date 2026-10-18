@@ -28,6 +28,7 @@ import { formatMonthDayTime, formatTime } from '../core/time'
 import { cashPanel, type CashPanel } from './cash-panel'
 import { h } from './dom'
 import { holdButton } from './hold-button'
+import { numberInput } from './number-input'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 import { viewTabs } from './view-tabs'
 
@@ -117,13 +118,8 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
       const inputs = Object.fromEntries(
         STOCK_FIELDS.map((field) => [
           field,
-          h('input', {
-            type: 'number',
+          numberInput({
             id: `${item.id}-${field}`,
-            inputmode: 'numeric',
-            pattern: '[0-9]*',
-            min: 0,
-            step: 1,
             enterkeyhint: 'done',
             'aria-label': `${section.title} ${name} ${FIELD_DESCRIPTIONS[field]}`,
           }),

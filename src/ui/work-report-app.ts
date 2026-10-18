@@ -31,6 +31,7 @@ import { WorkReportStore } from '../core/work-report-store'
 import { copyText, selectContents } from './clipboard'
 import { confirmButton } from './confirm-button'
 import { h } from './dom'
+import { numberInput } from './number-input'
 import { keepFresh, pageHeader, pageStatus } from './page-parts'
 
 export type MountOptions = {
@@ -143,15 +144,7 @@ export function mountWorkReportApp(
     chip.addEventListener('click', () => editDraft({ ...draft, breakMinutes: minutes }))
     return { minutes, chip }
   })
-  const breakInput = h('input', {
-    type: 'number',
-    id: 'break-minutes',
-    inputmode: 'numeric',
-    pattern: '[0-9]*',
-    min: 0,
-    step: 5,
-    'aria-label': '休憩（分）',
-  })
+  const breakInput = numberInput({ id: 'break-minutes', 'aria-label': '休憩（分）' })
   breakInput.addEventListener('input', () => {
     const n = Number(breakInput.value)
     if (breakInput.value.trim() === '' || !Number.isInteger(n) || n < 0) return
@@ -166,15 +159,7 @@ export function mountWorkReportApp(
   const patternList = h('div', { class: 'patterns', role: 'radiogroup', 'aria-label': '交通費' })
   const addButton = h('button', { type: 'button', class: 'ghost', text: '＋ パターンを追加' })
 
-  const amountInput = h('input', {
-    type: 'number',
-    id: 'pattern-amount',
-    inputmode: 'numeric',
-    pattern: '[0-9]*',
-    min: 0,
-    step: 10,
-    'aria-label': '交通費（往復）の金額',
-  })
+  const amountInput = numberInput({ id: 'pattern-amount', 'aria-label': '交通費（往復）の金額' })
   const fromInput = h('input', { type: 'text', id: 'pattern-from', 'aria-label': '駅（行き）', placeholder: '園田' })
   const toInput = h('input', { type: 'text', id: 'pattern-to', 'aria-label': '駅（帰り）', placeholder: 'なんば' })
   const editorError = h('p', { class: 'form-error', role: 'alert', hidden: true })
