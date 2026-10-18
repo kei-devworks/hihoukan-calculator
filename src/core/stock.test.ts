@@ -16,6 +16,7 @@ import {
   setSectionCash,
   settleSection,
   settlementOf,
+  settlementsOf,
   stockCarriedOverSince,
   type StockEntry,
   type StockState,
@@ -182,10 +183,13 @@ describe('見出しごとのレジ精算と、精算の印', () => {
     expect(state.updatedAt).toBe(later.toISOString())
   })
 
-  it('精算を終えると印が付き、そのあとで在庫の欄か枚数が変わったらわかる', () => {
+  it('精算を完了すると、そのときの在庫から出した売上とお金から出した売上を記録し、そのあとで在庫の欄か枚数が変わったらわかる', () => {
     let state = setSectionCash(withEntries({ 'a-sticker': [20, null, 12] }), 'a', pocket(8), now)
-    state = settleSection(state, section('a'), later)
-    expect(settlementOf(state, section('a'))).toEqual({ at: later.toISOString(), changed: false })
+    state = settleSection(config, state, section('a'), later)
+    expect(settlementOf(state, section('a'))).toEqual({ at: later.toISOString(), count: 1, changed: false })
+    expect(settlementsOf(state, section('a'))).toEqual([
+      { at: later.toISOString(), signature: expect.any(String), expected: 8000, counted: 8000 },
+    ])
     expect(settlementOf(state, section('b'))).toBeNull()
     // ほかの見出しの欄を変えても、変わったことにはしない
     expect(settlementOf(setField(state, 'b-ema', 'start', 3, later), section('a'))?.changed).toBe(false)
@@ -193,23 +197,41 @@ describe('見出しごとのレジ精算と、精算の印', () => {
     expect(settlementOf(setSectionCash(state, 'a', pocket(9), later), section('a'))?.changed).toBe(true)
   })
 
+  it('1日に何回でも精算でき、前の記録も残る。数が変わっていなければ記録しない', () => {
+    let state = setSectionCash(withEntries({ 'a-sticker': [20, null, 12] }), 'a', pocket(8), now)
+    state = settleSection(config, state, section('a'), now)
+    // 数が変わっていなければ、何回押しても1件のまま
+    expect(settleSection(config, state, section('a'), later)).toBe(state)
+
+    state = setField(state, 'a-sticker', 'remaining', 5, later) // 15個 → 15,000
+    state = setSectionCash(state, 'a', pocket(14), later)
+    state = settleSection(config, state, section('a'), later)
+    expect(settlementsOf(state, section('a')).map((s) => [s.at, s.expected, s.counted])).toEqual([
+      [now.toISOString(), 8000, 8000],
+      [later.toISOString(), 15000, 14000],
+    ])
+    expect(settlementOf(state, section('a'))).toMatchObject({ count: 2, changed: false })
+  })
+
   it('全部消す・残数を開店時に移すと、ポケットといまの枚数と精算の印は消え、準備金の開店時の枚数は残る', () => {
     let count = setCashCount(pocket(8), 'floatStart', 100, 30)
     count = setCashCount(count, 'floatNow', 100, 25)
     let state = setSectionCash(withEntries({ 'a-sticker': [20, null, 12] }), 'a', count, now)
-    state = settleSection(state, section('a'), later)
+    state = settleSection(config, state, section('a'), later)
     const kept = { pocket: {}, floatStart: { '100': 30 }, floatNow: {} }
     expect(resetStock(state)).toMatchObject({ entries: {}, cash: { a: kept }, settled: {} })
     expect(carryRemainingToStart(state, later)).toMatchObject({ cash: { a: kept }, settled: {} })
   })
 
-  it('保存した枚数と精算の印を読み戻す。設定にない見出し・壊れた印は捨てる', () => {
+  it('保存した枚数と精算の記録を読み戻す。設定にない見出し・壊れた記録は捨てる。前の形（印1つ）は金額のない1件として読む', () => {
     let state = setSectionCash(withEntries({ 'a-sticker': [20, null, 12] }), 'a', pocket(8), now)
-    state = settleSection(state, section('a'), later)
+    state = settleSection(config, state, section('a'), later)
     expect(parseStockState(config, JSON.parse(JSON.stringify(state)))).toEqual(state)
-    const raw = { ...JSON.parse(JSON.stringify(state)), cash: { gone: { pocket: { '1000': 1 } } }, settled: { a: { at: 'x' } } }
+    const raw = { ...JSON.parse(JSON.stringify(state)), cash: { gone: { pocket: { '1000': 1 } } }, settled: { a: [{ at: 'x' }] } }
     const parsed = parseStockState(config, raw)
     expect(parsed.cash).toEqual({})
     expect(parsed.settled).toEqual({})
+    const old = { ...JSON.parse(JSON.stringify(state)), settled: { a: { at: later.toISOString(), signature: 'sig' } } }
+    expect(parseStockState(config, old).settled).toEqual({ a: [{ at: later.toISOString(), signature: 'sig', expected: null, counted: null }] })
   })
 })

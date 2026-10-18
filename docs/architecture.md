@@ -263,14 +263,18 @@ const config: StockConfig = {
 type StockState = {
   entries: Record<string, { start: number | null; added: number | null; remaining: number | null }>
   cash: Record<string, CashCount>                          // 見出し id → レジ精算の枚数（見出しごとに別々）
-  settled: Record<string, { at: string; signature: string }>  // 見出し id → 精算を終えた時刻と、そのときの数
+  settled: Record<string, {                                // 見出し id → 精算を完了した記録（古い順。1日に何回でも）
+    at: string; signature: string                           //   時刻と、そのときの数（在庫の欄と枚数）
+    expected: number | null; counted: number | null          //   在庫から出した売上・お金から出した売上（前の形の記録は null）
+  }[]>
   updatedAt: string | null
   startedAt: string | null   // いまの記録を入れ始めた時刻（前の営業日の判定）
 }
 ```
 
-- `cash` と `settled` は版 1 のあとから足した項目なので、保存の版は上げず、なければ空にする
-- 精算を終える（`settleSection`）と、そのときの見出しの数（在庫の欄と枚数）を `signature` に残す。`settlementOf` は、そのあとで数が変わったかも返す
+- `cash` と `settled` は版 1 のあとから足した項目なので、保存の版は上げず、なければ空にする。`settled` が前の形（見出しごとに印1つ）なら、金額のない1件の記録として読む
+- 精算を完了する（`settleSection`）と、そのときの見出しの数（在庫の欄と枚数）を `signature` に、在庫から出した売上とお金から出した売上と一緒に記録の最後へ足す。
+  前の記録は消さない。最後の記録から数が変わっていなければ何もしない（押し放題にしない）。`settlementOf` は最後の記録の時刻・何回目か・そのあとで数が変わったかを返す
 - 全部消す（`resetStock`）・残数を開店時に移す（`carryRemainingToStart`）は、ポケットといまの枚数と精算の印を消し、釣り銭準備金の開店時の枚数は残す
 
 - **空欄（null）と 0 を区別する。** 残数が空なら「まだ数えていない」、0 なら「売り切れ」

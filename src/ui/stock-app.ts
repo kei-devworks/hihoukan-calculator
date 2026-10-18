@@ -253,7 +253,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
       : null
     const settleStatus = h('p', { class: 'settle-status' })
     const settleButton = h('button', { type: 'button', class: 'solid' })
-    settleButton.addEventListener('click', () => change(settleSection(store.current, section, now())))
+    settleButton.addEventListener('click', () => change(settleSection(config, store.current, section, now())))
     const settleCard = h('section', { class: 'card settle', 'aria-label': `${section.title}の精算` }, [settleStatus, h('div', { class: 'foot' }, [settleButton])])
     return { section, cash, settleStatus, settleButton, settleCard }
   })

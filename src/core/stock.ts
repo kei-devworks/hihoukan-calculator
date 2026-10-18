@@ -4,10 +4,13 @@
  * 「売れた数 = 開店時 + 追加 − 残数」と、その売上（売れた数 × 単価）が出る（docs/architecture.md）
  */
 
-import { clearCashCount, emptyCashCount, parseCashCount, type CashCount } from './cash'
+import { clearCashCount, emptyCashCount, parseCashCount, settle, type CashCount } from './cash'
 import { allItems, defaultPrice, type Catalog, type CatalogItem, type CatalogSection } from './catalog'
 import { isCount, isDateString, isRecord } from './guards'
 import { earlierBusinessDay } from './time'
+
+/** 整数（お金から出した売上は、使った釣り銭がポケットより多いと負になる） */
+const isInteger = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
 
 /** 品目・単価・見出しの設定。見出し（弓道・手裏剣など）ごとに売上を分けて出す */
 export type StockConfig = Catalog
@@ -26,16 +29,24 @@ export type StockField = keyof StockEntry
 
 export const STOCK_FIELDS: StockField[] = ['start', 'added', 'remaining']
 
-/** 見出しのレジ精算を終えたときの印。signature はそのときの数（在庫の欄と枚数）。あとで数が変わったか見るのに使う */
-export type SectionSettlement = { at: string; signature: string }
+/** 見出しのレジ精算を完了したときの記録 */
+export type SectionSettlement = {
+  at: string
+  /** そのときの数（在庫の欄と枚数）。あとで数が変わったか見るのに使う */
+  signature: string
+  /** 在庫から出した売上（そのときの見出しの売上）。金額を残す前の記録は null */
+  expected: number | null
+  /** お金から出した売上（ポケット − 使った釣り銭）。金額を残す前の記録は null */
+  counted: number | null
+}
 
 export type StockState = {
   /** 品目 id → 記録（どれか1つでも入っている品目だけ持つ） */
   entries: Record<string, StockEntry>
   /** 見出し id → レジ精算で数えた枚数（見出しごとに別々に数える。設定に cash があるページだけ使う） */
   cash: Record<string, CashCount>
-  /** 見出し id → レジ精算を終えた印 */
-  settled: Record<string, SectionSettlement>
+  /** 見出し id → レジ精算を完了した記録（古い順。1日に何回でも残す） */
+  settled: Record<string, SectionSettlement[]>
   /** 最後に記録を変えた時刻（ISO 8601）。記録がなければ null */
   updatedAt: string | null
   /** いまの記録を入れ始めた時刻（ISO 8601）。前の営業日の記録が残っているかの判定に使う */
@@ -126,16 +137,36 @@ function sectionSignature(state: StockState, section: CatalogSection): string {
   return JSON.stringify({ entries, pocket, floatStart, floatNow })
 }
 
-/** ［精算を終える］: 見出しに精算の印を付ける */
-export function settleSection(state: StockState, section: CatalogSection, now: Date): StockState {
-  const settlement = { at: now.toISOString(), signature: sectionSignature(state, section) }
-  return { ...state, settled: { ...state.settled, [section.id]: settlement }, updatedAt: now.toISOString() }
+/**
+ * ［精算を完了する］: そのときの数・在庫から出した売上・お金から出した売上を、見出しの精算の記録に足す。
+ * 前の記録は消さない（1日に2回精算しても、両方残る）。最後の記録から数が変わっていなければ何もしない
+ */
+export function settleSection(config: StockConfig, state: StockState, section: CatalogSection, now: Date): StockState {
+  const latest = settlementOf(state, section)
+  if (latest && !latest.changed) return state
+  const record: SectionSettlement = {
+    at: now.toISOString(),
+    signature: sectionSignature(state, section),
+    expected: sectionResult(config, state, section).amount,
+    counted: settle(sectionCashOf(state, section.id)).sales,
+  }
+  const list = state.settled[section.id] ?? []
+  return { ...state, settled: { ...state.settled, [section.id]: [...list, record] }, updatedAt: now.toISOString() }
 }
 
-/** 精算を終えていれば、その時刻と、そのあとで数が変わったか。終えていなければ null */
-export function settlementOf(state: StockState, section: CatalogSection): { at: string; changed: boolean } | null {
-  const s = state.settled[section.id]
-  return s ? { at: s.at, changed: s.signature !== sectionSignature(state, section) } : null
+/** 見出しの精算の記録（古い順） */
+export function settlementsOf(state: StockState, section: CatalogSection): SectionSettlement[] {
+  return state.settled[section.id] ?? []
+}
+
+/** 最後の精算の時刻と、何回目か、そのあとで数が変わったか。精算していなければ null */
+export function settlementOf(
+  state: StockState,
+  section: CatalogSection,
+): { at: string; count: number; changed: boolean } | null {
+  const list = settlementsOf(state, section)
+  const last = list.at(-1)
+  return last ? { at: last.at, count: list.length, changed: last.signature !== sectionSignature(state, section) } : null
 }
 
 /** 品目ごとの計算結果 */
@@ -210,10 +241,14 @@ export function parseStockState(config: StockConfig, raw: unknown): StockState {
     if (config.cash && isRecord(raw.cash) && raw.cash[section.id] !== undefined) {
       state.cash[section.id] = parseCashCount(raw.cash[section.id], config.cash)
     }
-    const settled = isRecord(raw.settled) ? raw.settled[section.id] : undefined
-    if (isRecord(settled) && isDateString(settled.at) && typeof settled.signature === 'string') {
-      state.settled[section.id] = { at: settled.at, signature: settled.signature }
-    }
+    // 精算の記録は並び。前の形（印1つだけ）は、金額のない1件の記録として読む
+    const saved = isRecord(raw.settled) ? raw.settled[section.id] : undefined
+    const list = (Array.isArray(saved) ? saved : saved === undefined ? [] : [saved]).flatMap((s): SectionSettlement[] =>
+      isRecord(s) && isDateString(s.at) && typeof s.signature === 'string'
+        ? [{ at: s.at, signature: s.signature, expected: isCount(s.expected) ? s.expected : null, counted: isInteger(s.counted) ? s.counted : null }]
+        : [],
+    )
+    if (list.length > 0) state.settled[section.id] = list
   }
 
   for (const item of allItems(config)) {
