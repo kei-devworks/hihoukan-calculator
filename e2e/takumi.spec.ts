@@ -185,6 +185,10 @@ test('押すと画面の下に今のオーダーが出て、［完了］で閉�
   await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜3点￥2,500')
   await expect(panel.locator('[data-item="skewer1"] .order-change')).toHaveText('0個 ＋2 → 2個')
   await expect(panel.locator('[data-item="beer"] .order-change')).toHaveText('0個 ＋1 → 1個')
+  // ［会計］［完了］はいちばん下に大きく（作業中でもさっと押せるように）
+  const big = panel.locator('.order-big button')
+  await expect(big).toHaveText(['会計￥2,500', '完了'])
+  for (const button of await big.all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(52)
 
   await panel.getByRole('button', { name: '完了' }).click()
   await expect(panel).toBeHidden()
@@ -257,19 +261,54 @@ test('会計で、受け取ったお札・硬貨を押すとお釣りが出て�
   await tap(page, 'ビールを1つ増やす')
   await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: '会計' }).click()
   const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
-  await expect(sheet.locator('.checkout-total')).toHaveText('￥2,500')
+  // お客様に見せるレシート: ジャンルにまとめ、英語を先に出す
+  await expect(sheet.locator('.receipt-items > *')).toHaveText(['Wagyu A5 A5和牛', '¥1,000', '×2', '¥2,000', 'Beer ビール', '×1', '¥500'])
+  await expect(sheet.locator('.checkout-total')).toHaveText('¥2,500')
   await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
   await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
-  await expect(sheet.locator('.checkout-change')).toHaveText('あと￥500')
+  await expect(sheet.locator('.checkout-change')).toHaveText('Amount due あと¥500')
   await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
-  await expect(sheet.locator('.checkout-breakdown')).toHaveText('1,000×3')
-  await expect(sheet.locator('.checkout-change')).toHaveText('お釣り￥500')
+  await expect(sheet.locator('.checkout-breakdown')).toHaveText('¥1,000×3')
+  await expect(sheet.locator('.checkout-change')).toHaveText('Change お釣り¥500')
+  await expect(sheet.getByText('Thank you!')).toBeVisible()
 
   await page.reload() // 預かりは保存される
   const panel = page.getByRole('region', { name: '今のオーダー' })
   await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000 → お釣り ￥500。次の ＋ で次のお客さんになります')
   await tap(page, 'ホタテを1つ増やす')
   await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜1点￥1,000')
+})
+
+test('会計の画面は、7品・5ジャンルの注文でもスクロールなしで1画面に収まる', async ({ page }) => {
+  await open(page)
+  await tap(page, '1,000円を1つ増やす', 3)
+  await tap(page, '2,000円を1つ増やす')
+  await tap(page, '5,000円を1つ増やす')
+  await tap(page, 'ホタテを1つ増やす', 2)
+  await tap(page, 'ビールを1つ増やす')
+  await tap(page, 'バニラを1つ増やす', 2)
+  await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: /^会計/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
+  await expect(sheet.locator('.checkout-total')).toHaveText('¥14,100')
+  await sheet.getByRole('button', { name: '10,000円を預かりに足す' }).click()
+  await sheet.getByRole('button', { name: '5,000円を預かりに足す' }).click()
+  await expect(sheet.locator('.checkout-change')).toHaveText('Change お釣り¥900')
+  const overflow = (selector: string) => page.locator(selector).evaluate((el) => el.scrollHeight - el.clientHeight)
+  expect(await overflow('dialog.checkout .receipt-items')).toBeLessThanOrEqual(1)
+  expect(await overflow('dialog.checkout')).toBeLessThanOrEqual(1)
+  await expect(sheet.getByRole('button', { name: '完了' })).toBeInViewport({ ratio: 1 })
+})
+
+test('会計の画面は、品目が多いと品目の欄だけスクロールし、合計とボタンは見えたまま', async ({ page }) => {
+  await open(page)
+  for (const [name, times] of [['1,000円', 3], ['2,000円', 2], ['3,000円', 1], ['5,000円', 1], ['ホタテ', 2], ['ビール', 3], ['バニラ', 2], ['ミックス', 1], ['抹茶', 1]] as const) {
+    await tap(page, `${name}を1つ増やす`, times)
+  }
+  await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: /^会計/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
+  await expect(sheet.locator('.receipt-genre')).toHaveText(['Wagyu A5 A5和牛', 'Kobe Beef 神戸牛', 'Scallop ホタテ', 'Beer ビール', 'Cremia Soft Serve クレミア ソフトクリーム'])
+  await expect(sheet.locator('.checkout-total')).toBeInViewport({ ratio: 1 })
+  await expect(sheet.getByRole('button', { name: '完了' })).toBeInViewport({ ratio: 1 })
 })
 
 test('レジ精算で、ポケットと釣り銭準備金の枚数からお金から出した売上を出し、注文から出した売上との差を出す', async ({ page }) => {

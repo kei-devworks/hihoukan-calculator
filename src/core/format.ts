@@ -14,3 +14,8 @@ export function formatYen(n: number): string {
 export function formatPrice(n: number): string {
   return `￥${formatNumber(n)}`
 }
+
+/** お客様に見せる金額「¥1,234」（会計の画面のレシート）。海外でふつうの半角の円記号を使う */
+export function formatPriceEn(n: number): string {
+  return `¥${formatNumber(n)}`
+}

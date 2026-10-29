@@ -1,8 +1,8 @@
 import { denominations } from '../core/cash'
-import { changeDue, tenderBreakdown, tenderTotal } from '../core/checkout'
-import { formatNumber, formatPrice } from '../core/format'
-import { findOrder, pieces, type Order } from '../core/orders'
-import { displayName, itemsOf, linesTotal, type TallyConfig, type TallyState } from '../core/tally'
+import { changeDue, receiptGroups, tenderBreakdown, tenderTotal, type ReceiptGroup, type ReceiptLine } from '../core/checkout'
+import { formatNumber, formatPrice, formatPriceEn } from '../core/format'
+import { findOrder, type Order } from '../core/orders'
+import { linesTotal, type TallyConfig, type TallyState } from '../core/tally'
 import { formatTime } from '../core/time'
 import { h } from './dom'
 
@@ -12,13 +12,6 @@ export type CheckoutActions = {
   removeTender: (orderId: number, all: boolean) => void
   /** ［完了］: オーダーを閉じる */
   complete: (orderId: number) => void
-}
-
-/** 「1,000×2・500×1」 */
-export function describeTenders(tenders: readonly number[]): string {
-  return tenderBreakdown(tenders)
-    .map(({ denomination, count }) => `${formatNumber(denomination)}×${count}`)
-    .join('・')
 }
 
 /** 「預かり ￥5,000 → お釣り ￥2,000」「預かり ￥1,000（あと ￥1,500）」。預かっていなければ null */
@@ -31,8 +24,10 @@ export function describePayment(config: TallyConfig, state: TallyState, order: O
 }
 
 /**
- * 会計の画面（下から開くダイアログ）。合計を大きく出し、受け取ったお札・硬貨のボタンを押すたびに預かりに足す。
- * お釣りを大きく出す。押した額面はすぐオーダーに保存する（getState で描き直すたびに読み直す）
+ * 会計の画面（下から開くダイアログ）。上の囲みはお客様に見せるレシートで、英語を先に大きく、日本語は小さく添える
+ * （お客様の多くが海外の方なので）。品目は設定のジャンルにまとめる（receiptGroups）。
+ * 受け取ったお札・硬貨のボタンを押すたびに預かりに足し、お釣りを大きく出す。押した額面はすぐオーダーに保存する
+ * （getState で描き直すたびに読み直す）。iPhone の Safari でも1画面に収まるよう、品目が多いときは品目の欄だけスクロールする
  */
 export function openCheckout(
   config: TallyConfig,
@@ -44,13 +39,16 @@ export function openCheckout(
   const first = findOrder(getState(), orderId)
   if (!cash || !first) return null
 
+  // 「Total お会計」のように、英語のあとに日本語を小さく添える
+  const label = (en: string, ja: string) => h('span', { class: 'receipt-label' }, [`${en} `, h('small', { text: ja })])
+  const items = h('div', { class: 'receipt-items' })
   const total = h('b', { class: 'checkout-total' })
-  const lines = h('p', { class: 'checkout-lines' })
   const tendered = h('b', { class: 'checkout-tendered' })
   const breakdown = h('small', { class: 'checkout-breakdown' })
-  const change = h('p', { class: 'checkout-line checkout-change', 'aria-live': 'polite' })
-  const undoOne = h('button', { type: 'button', class: 'ghost', text: '1つ戻す' })
-  const undoAll = h('button', { type: 'button', class: 'ghost', text: '0に戻す' })
+  const change = h('p', { class: 'receipt-line checkout-change', 'aria-live': 'polite' })
+  const thanks = h('p', { class: 'receipt-thanks' }, ['Thank you! ', h('small', { text: 'ありがとうございました' })])
+  const undoOne = h('button', { type: 'button', class: 'ghost tender-fix', text: '1つ戻す' })
+  const undoAll = h('button', { type: 'button', class: 'ghost tender-fix', text: '0に戻す' })
   const coins = new Set(cash.coins)
   const tenderButtons = denominations(cash).map((d) => {
     const button = h('button', {
@@ -77,19 +75,24 @@ export function openCheckout(
   const backButton = h('button', { type: 'button', class: 'ghost', text: '戻る' })
   const completeButton = h('button', { type: 'button', class: 'solid', text: '完了' })
 
-  // お会計・お預かり・お釣りを、レシートのように同じ大きさで並べる（預かった合計も見やすく）
-  const dialog = h('dialog', { class: 'checkout', 'aria-labelledby': 'checkout-title' }, [
-    h('h2', { id: 'checkout-title', text: `お会計（${formatTime(new Date(first.openedAt))} のオーダー）` }),
-    lines,
+  // 品目が多くて入りきらないときだけ、品目の欄がスクロールする。下に続きがあるうちは、下の端をぼかして知らせる
+  const markMore = () => items.classList.toggle('more', items.scrollTop + items.clientHeight < items.scrollHeight - 2)
+  items.addEventListener('scroll', markMore)
+
+  const dialog = h('dialog', { class: 'checkout', 'aria-label': `お会計（${formatTime(new Date(first.openedAt))} のオーダー）` }, [
     h('div', { class: 'checkout-receipt' }, [
-      h('p', { class: 'checkout-line' }, [h('span', { text: 'お会計' }), total]),
-      h('p', { class: 'checkout-line tendered-line' }, [h('span', {}, ['お預かり', breakdown]), tendered]),
-      change,
+      h('p', { class: 'receipt-head' }, [label('Checkout', 'お会計'), h('span', { text: formatTime(new Date(first.openedAt)) })]),
+      items,
+      h('div', { class: 'receipt-sums' }, [
+        h('p', { class: 'receipt-line receipt-total' }, [label('Total', 'お会計'), total]),
+        h('p', { class: 'receipt-line' }, [h('span', {}, [label('Cash', 'お預かり'), breakdown]), tendered]),
+        change,
+        thanks,
+      ]),
     ]),
-    h('p', { class: 'checkout-label', text: '受け取ったお札・硬貨を、受け取った枚数だけ押す' }),
-    h('div', { class: 'tenders' }, tenderButtons),
-    h('div', { class: 'checkout-fix' }, [undoOne, undoAll]),
-    h('div', { class: 'editor-foot' }, [backButton, completeButton]),
+    // お札・硬貨と直すボタンを4列2段に（係の人の操作なので日本語のまま）
+    h('div', { class: 'tenders' }, [...tenderButtons, undoOne, undoAll]),
+    h('div', { class: 'checkout-foot' }, [backButton, completeButton]),
   ])
 
   const close = () => {
@@ -109,25 +112,52 @@ export function openCheckout(
     if (!order) return close()
     const sum = linesTotal(config, state, order.lines)
     const paid = tenderTotal(order.tenders)
-    total.textContent = formatPrice(sum)
-    lines.textContent = `${itemsOf(config, state)
-      .flatMap((item) => (order.lines[item.id] ? [`${displayName(config, state, item)}×${order.lines[item.id]}`] : []))
-      .join('・')}（${pieces(order.lines)}点）`
-    tendered.textContent = formatPrice(paid)
-    breakdown.textContent = paid > 0 ? describeTenders(order.tenders) : ''
+    items.replaceChildren(...receiptGroups(config, state, order.lines).flatMap(receiptRows))
+    total.textContent = formatPriceEn(sum)
+    tendered.textContent = paid > 0 ? formatPriceEn(paid) : '—'
+    breakdown.textContent = paid > 0 ? describeTendersEn(order.tenders) : '受け取ったお札・硬貨を押す'
     undoOne.disabled = paid === 0
     undoAll.disabled = paid === 0
 
     const due = changeDue(sum, paid)
-    change.className = `checkout-line checkout-change ${due.kind}`
-    if (due.kind === 'none') change.replaceChildren(h('span', { text: '受け取ったお札・硬貨のボタンを押してください' }))
-    else if (due.kind === 'short') change.replaceChildren(h('span', { text: 'あと' }), h('b', { text: formatPrice(due.amount) }))
-    else change.replaceChildren(h('span', { text: 'お釣り' }), h('b', { text: due.amount === 0 ? 'なし（ちょうど）' : formatPrice(due.amount) }))
+    change.hidden = due.kind === 'none'
+    change.className = `receipt-line checkout-change ${due.kind}`
+    if (due.kind === 'short') change.replaceChildren(label('Amount due', 'あと'), h('b', { text: formatPriceEn(due.amount) }))
+    else if (due.kind === 'change') {
+      change.replaceChildren(label('Change', 'お釣り'), h('b', { text: due.amount === 0 ? 'No change' : formatPriceEn(due.amount) }))
+    }
+    thanks.hidden = due.kind !== 'change'
+    markMore()
   }
 
   render()
   document.body.append(dialog)
   if (typeof dialog.showModal === 'function') dialog.showModal()
   else dialog.setAttribute('open', '')
+  markMore()
   return dialog
+}
+
+/** 「¥1,000×3, ¥500×1」（お客様に見せる預かりの内訳） */
+function describeTendersEn(tenders: readonly number[]): string {
+  return tenderBreakdown(tenders)
+    .map(({ denomination, count }) => `${formatPriceEn(denomination)}×${count}`)
+    .join(', ')
+}
+
+/**
+ * レシートのジャンル1つ分の行（「名前 ×数 金額」の3列）。1品だけのジャンルはジャンル名の行に数と金額、
+ * そうでなければジャンル名の下に品目を字下げして並べる
+ */
+function receiptRows(group: ReceiptGroup): HTMLElement[] {
+  const name = (cls: string, en: string, ja: string | null) => h('span', { class: cls }, ja ? [`${en} `, h('small', { text: ja })] : [en])
+  const amounts = (line: ReceiptLine) => [
+    h('span', { class: 'receipt-count', text: `×${line.count}` }),
+    h('span', { class: 'receipt-amount', text: formatPriceEn(line.amount) }),
+  ]
+  if (group.single) return [name('receipt-genre', group.en, group.ja), ...amounts(group.lines[0]!)]
+  return [
+    name('receipt-genre full', group.en, group.ja),
+    ...group.lines.flatMap((line) => [name('receipt-item', line.en, line.ja), ...amounts(line)]),
+  ]
 }

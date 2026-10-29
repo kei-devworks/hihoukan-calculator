@@ -45,6 +45,12 @@ export const sampleConfig: TallyConfig = {
     { id: 'hotate', label: 'ホタテ', default: 1000 },
     { id: 'soft', label: 'ソフト（共通）', default: 800 },
   ],
+  // 会計のレシート。値段の範囲・1品だけ・名前のある品目のジャンルをひととおり。抹茶はどのジャンルにも入れない
+  receipt: [
+    { en: 'Wagyu A5', ja: 'A5和牛', section: 'meat', minPrice: 1000, maxPrice: 3000 },
+    { en: 'Scallop', ja: 'ホタテ', item: 'hotate' },
+    { en: 'Cremia Soft Serve', ja: 'クレミア ソフトクリーム', items: { vanilla: 'Vanilla' } },
+  ],
   sections: [
     {
       id: 'meat',
