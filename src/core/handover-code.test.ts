@@ -12,7 +12,7 @@ const code: HandoverCode = {
     { i: 'x-mgx8k2', s: 'soft', n: 'チョコトッピング', p: 100 },
     { i: 'x-mgx9a1', s: 'meat', n: null, p: 7000 },
   ],
-  floatStart: { '500': 10, '100': 30 },
+  floatStart: { bundle: 2, '500': 10, '100': 30 },
   total: 41500,
 }
 
