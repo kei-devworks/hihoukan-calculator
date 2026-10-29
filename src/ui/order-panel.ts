@@ -30,7 +30,8 @@ export type OrderPanel = {
 
 /**
  * 画面の下に出す「今のオーダー」と「前のオーダー」。
- * - 今のオーダー: 品目ごとに「1,000円 3個 ＋2 → 5個 ［−］［＋］」、［完了］、［このオーダーを取り消す］（長押し）
+ * - 今のオーダー: 品目ごとに「1,000円 3個 ＋2 → 5個 ［−］［＋］」。いちばん下（親指の届く段）に大きな［会計 ￥2,500］［完了］。
+ *   ［このオーダーを取り消す］（長押し）は、押しまちがえないよう上の段の左（［−］［＋］から離す）
  * - 閉じたあと: 「前のオーダー 21:05・3点 ￥2,500 ›」。押すと中身を出し直す
  * - ほかの画面にいるあいだにオーダーが開いていれば「今のオーダー … ›」とだけ出し、押すと「注文」に戻る
  */
@@ -47,6 +48,7 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
   const openPieces = h('b', { class: 'order-pieces' })
   const openTotal = h('b', { class: 'order-total' })
   const completeButton = h('button', { type: 'button', class: 'ghost', text: '完了' })
+  const openAmount = h('span', { class: 'order-big-amount' })
   const openLines = h('div', { class: 'order-lines' })
   const cancelButton = holdButton({
     label: 'このオーダーを取り消す',
@@ -55,17 +57,15 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
   })
   completeButton.addEventListener('click', () => openId !== null && actions.complete(openId))
   // 会計は、受け取るお金の額面（cash）を設定に書いたページだけ
-  const checkoutButton = h('button', { type: 'button', class: 'solid', text: '会計', hidden: !config.cash })
+  const checkoutButton = h('button', { type: 'button', class: 'solid' }, ['会計', openAmount])
   checkoutButton.addEventListener('click', () => openId !== null && actions.checkout(openId))
   const openPaid = h('p', { class: 'order-paid' })
   const openPanel = h('section', { class: 'order-panel', 'aria-label': '今のオーダー' }, [
-    h('div', { class: 'order-head' }, [
-      h('div', { class: 'order-sum' }, [openTitle, openPieces, openTotal]),
-      h('div', { class: 'order-actions' }, [checkoutButton, completeButton]),
-    ]),
+    h('div', { class: 'order-head' }, [h('div', { class: 'order-sum' }, [openTitle, openPieces, openTotal])]),
+    h('div', { class: 'order-cancel' }, [cancelButton, h('p', { class: 'order-note', text: '3分で自動で閉じます' })]),
     openLines,
     openPaid,
-    h('div', { class: 'order-foot' }, [cancelButton, h('p', { class: 'order-note', text: '3分で自動で閉じます' })]),
+    h('div', { class: 'order-big' }, config.cash ? [checkoutButton, completeButton] : [completeButton]),
   ])
 
   // ---- 前のオーダー（中身） ----
@@ -80,14 +80,15 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
   })
   const editButton = h('button', { type: 'button', class: 'ghost', text: '編集' })
   editButton.addEventListener('click', () => viewingId !== null && actions.edit(viewingId))
-  const prevCheckout = h('button', { type: 'button', class: 'solid', text: '会計', hidden: !config.cash })
+  const prevAmount = h('span', { class: 'order-big-amount' })
+  const prevCheckout = h('button', { type: 'button', class: 'solid' }, ['会計', prevAmount])
   prevCheckout.addEventListener('click', () => viewingId !== null && actions.checkout(viewingId))
   const prevPaid = h('p', { class: 'order-paid' })
   const prevPanel = h('section', { class: 'order-panel view', 'aria-label': '前のオーダー' }, [
     h('div', { class: 'order-head' }, [h('div', { class: 'order-sum' }, [prevTitle, prevPieces, prevTotal]), prevClose]),
     prevLines,
     prevPaid,
-    h('div', { class: 'order-foot end' }, [editButton, prevCheckout]),
+    h('div', { class: 'order-big view' }, config.cash ? [editButton, prevCheckout] : [editButton]),
   ])
 
   // ---- 小さく出すとき ----
@@ -134,6 +135,7 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
       openTitle.textContent = `今のオーダー ${formatTime(new Date(open.openedAt))}〜`
       openPieces.textContent = `${pieces(open.lines)}点`
       openTotal.textContent = formatPrice(linesTotal(config, state, open.lines))
+      openAmount.textContent = openTotal.textContent
       openLines.replaceChildren(
         ...linesOf(state, open).map(([item, n]) => {
           const name = displayName(config, state, item)
@@ -179,6 +181,7 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
       prevTitle.textContent = `前のオーダー ${formatTime(new Date(previous.openedAt))}`
       prevPieces.textContent = `${pieces(previous.lines)}点`
       prevTotal.textContent = formatPrice(linesTotal(config, state, previous.lines))
+      prevAmount.textContent = prevTotal.textContent
       prevLines.replaceChildren(
         ...linesOf(state, previous).map(([item, n]) =>
           h('div', { class: 'order-line', 'data-item': item.id }, [

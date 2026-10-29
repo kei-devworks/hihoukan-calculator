@@ -231,6 +231,19 @@ describe('mountTallyApp', () => {
       expect(lines()).toEqual(['1,000円0個 ＋2 → 2個−＋', 'ホタテ0個 ＋1 → 1個−＋'])
     })
 
+    it('［会計 ￥3,000］［完了］はいちばん下に大きく、［このオーダーを取り消す］は上の段の左に置く', () => {
+      mount()
+      button('1,000円を1つ増やす').click()
+      button('1,000円を1つ増やす').click()
+      button('ホタテを1つ増やす').click()
+      const big = panel().querySelector('.order-big')!
+      expect([...big.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['会計￥3,000', '完了'])
+      expect(panel().lastElementChild).toBe(big)
+      const cancel = panel().querySelector('.order-cancel')!
+      expect(cancel.firstElementChild!.querySelector('.hold-idle')?.textContent).toBe('このオーダーを取り消す')
+      expect(cancel.compareDocumentPosition(panel().querySelector('.order-lines')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
     it('前のオーダーの数は「元の数」に入る。パネルの −/＋ でも直せる', () => {
       mount()
       button('ホタテを1つ増やす').click()
@@ -447,7 +460,7 @@ describe('mountTallyApp', () => {
       mount()
       button('2,000円を1つ増やす').click()
       button('バニラを1つ増やす').click() // 2,000 + 800 = 2,800
-      button('会計').click()
+      button('会計￥2,800').click()
     }
 
     it('合計を出し、押した額面を預かりに足してお釣りを出す', () => {

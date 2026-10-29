@@ -267,17 +267,48 @@
   cursor: pointer;
 }
 
-.order-foot {
+/* ［このオーダーを取り消す］は上の段の左。右の［−］［＋］や下の［会計］［完了］と押しまちがえないように離す */
+.order-cancel {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  margin-top: -2px;
 }
 
-.order-foot button.hold-button {
-  min-height: 36px;
-  padding: 4px 12px;
-  font-size: 13px;
+.order-cancel button.hold-button {
+  min-height: 32px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+/* ［会計 ￥2,500］［完了］（前のオーダーは［編集］［会計 ￥2,500］）。親指の届くいちばん下に、作業中でもさっと押せる大きさで */
+.order-big {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 8px;
+}
+
+.order-big.view {
+  grid-template-columns: 2fr 3fr;
+}
+
+/* 会計のないページは［完了］（［編集］）だけを横幅いっぱいに */
+.order-big > button:only-child {
+  grid-column: 1 / -1;
+}
+
+.order-big button {
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+.order-big-amount {
+  font-weight: 500;
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 .order-note {
@@ -301,10 +332,6 @@
   cursor: pointer;
   box-shadow: 0 8px 20px -14px rgba(0, 0, 0, 0.5);
   font-variant-numeric: tabular-nums;
-}
-
-.order-foot.end {
-  justify-content: flex-end;
 }
 
 /* オーダーを直す画面（ui/order-editor.ts）と引き継ぎの画面（ui/handover-dialog.ts）。下から出す */
@@ -920,17 +947,6 @@ button.ghost.handover-back {
   border-radius: 999px;
   padding: 0 7px;
   align-self: flex-start;
-}
-
-.order-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.order-head button.solid {
-  min-height: 36px;
-  padding: 4px 16px;
 }
 
 .order-paid {

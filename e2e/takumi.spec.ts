@@ -185,6 +185,10 @@ test('押すと画面の下に今のオーダーが出て、［完了］で閉�
   await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜3点￥2,500')
   await expect(panel.locator('[data-item="skewer1"] .order-change')).toHaveText('0個 ＋2 → 2個')
   await expect(panel.locator('[data-item="beer"] .order-change')).toHaveText('0個 ＋1 → 1個')
+  // ［会計］［完了］はいちばん下に大きく（作業中でもさっと押せるように）
+  const big = panel.locator('.order-big button')
+  await expect(big).toHaveText(['会計￥2,500', '完了'])
+  for (const button of await big.all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(52)
 
   await panel.getByRole('button', { name: '完了' }).click()
   await expect(panel).toBeHidden()
