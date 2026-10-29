@@ -11,8 +11,9 @@ export const takumi: TallyConfig = {
   // 報告文の見出しだけに付ける（「◾️肉」）。画面の見出しは「肉」
   reportSectionMark: '◾️',
   dayStartHour: 4,
-  // お札と 500円玉・100円玉だけを受け取る。会計の預かりのボタンになる
-  cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
+  // お札と 500円玉・100円玉だけを受け取る。会計の預かりのボタンになる。
+  // 釣り銭準備金は 1万円の束（釣り銭準備金の袋）と硬貨（コインケース）
+  cash: { bills: [10000, 5000, 1000], coins: [500, 100], bundle: 10000 },
   prices: [
     { id: 'skewer1', label: '串①', default: 1000 },
     { id: 'skewer2', label: '串②', default: 2000 },

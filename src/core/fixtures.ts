@@ -38,7 +38,8 @@ export const sampleConfig: TallyConfig = {
   reportTitle: '売上報告',
   reportSectionMark: '◾️',
   dayStartHour: 4,
-  cash: { bills: [10000, 5000, 1000], coins: [500, 100] },
+  // 釣り銭準備金に 1万円の束を使う（在庫の差のテスト用の設定は束なし）
+  cash: { bills: [10000, 5000, 1000], coins: [500, 100], bundle: 10000 },
   prices: [
     { id: 'a', label: '串A', default: 1000 },
     { id: 'b', label: '串B', default: 2000 },

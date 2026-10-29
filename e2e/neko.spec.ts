@@ -129,10 +129,12 @@ test('弓道と手裏剣をタブで切り替え、それぞれレジ精算を�
   const selectedLook = await background(/^手裏剣/)
   expect(await background(/^弓道/)).not.toBe(selectedLook)
 
-  await fill(page, '弓道 売上のポケット 1万円札の枚数', '2')
+  await page.getByRole('tab', { name: /^弓道/ }).click()
   expect(await background(/^弓道/)).toBe(selectedLook)
   expect(await background(/^手裏剣/)).not.toBe(selectedLook)
-  await fill(page, '弓道 売上のポケット 千円札の枚数', '1')
+  await page.locator('#panel-kyudo').getByRole('radio', { name: '使っていない' }).click()
+  await fill(page, '弓道 売上バッグ 10,000円札の枚数', '2')
+  await fill(page, '弓道 売上バッグ 1,000円札の枚数', '1')
   await expect(page.locator('#panel-kyudo .cash-verdict[aria-live]')).toHaveText('ぴったり合っています。')
   await page.locator('#panel-kyudo').getByRole('button', { name: '精算を完了する（差 ￥0）' }).click()
   await expect(page.getByRole('tab', { name: '弓道 ￥21,000 ✓' })).toBeVisible()
@@ -140,14 +142,16 @@ test('弓道と手裏剣をタブで切り替え、それぞれレジ精算を�
   await expect(page.locator('#panel-kyudo').getByRole('button', { name: '精算は完了しています' })).toBeDisabled()
 
   // 手裏剣は別に数える（弓道の枚数は入らない）
-  await fill(page, '手裏剣 売上のポケット 千円札の枚数', '1')
+  await page.getByRole('tab', { name: /^手裏剣/ }).click()
+  await page.locator('#panel-shuriken').getByRole('radio', { name: '使っていない' }).click()
+  await fill(page, '手裏剣 売上バッグ 1,000円札の枚数', '1')
   await expect(page.locator('#panel-shuriken .cash-verdict[aria-live]')).toHaveText(
     'お金のほうが ￥500 少ない。残数の数えまちがいや、お釣りのまちがいがないか確かめてください（絵馬・手形 1つ分と同じ額）。',
   )
 
   await page.reload()
   await expect(page.getByRole('tab', { name: '弓道 ￥21,000 ✓' })).toBeVisible()
-  await expect(field(page, '弓道 売上のポケット 1万円札の枚数')).toHaveValue('2')
+  await expect(field(page, '弓道 売上バッグ 10,000円札の枚数')).toHaveValue('2')
   await expect(page.locator('#panel-kyudo .settle-row')).toHaveCount(1)
 })
 

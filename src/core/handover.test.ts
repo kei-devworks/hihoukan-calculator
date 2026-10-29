@@ -109,7 +109,7 @@ describe('QR・リンクで引き継ぐ', () => {
 describe('ゼロから引き継ぐ', () => {
   it('この端末の今日の記録は取り消し済みにして残し（元に戻せる）、前の人の数に置き換える', () => {
     let local = sold(initialState(), { a: 1, matcha: 2 }, at('16:30'))
-    local = { ...local, cash: setCashCount(setCashCount(local.cash, 'pocket', 1000, 3), 'floatStart', 100, 5) }
+    local = { ...local, cash: setCashCount(setCashCount(local.cash, 'bag', 1000, 3), 'floatStart', 100, 5) }
     const input = { at: at('16:42').toISOString(), counts: { a: 5, hotate: 2 }, newItems: [], floatStart: { '500': 10 } }
 
     const plan = planHandover(config, local, input.counts, 'zero')
@@ -119,7 +119,7 @@ describe('ゼロから引き継ぐ', () => {
     expect(countsOf(next)).toEqual({ a: 5, hotate: 2 })
     expect(next.orders.filter((o) => o.kind === 'order').every((o) => o.cancelledAt !== null)).toBe(true)
     expect(next.orders).toHaveLength(3)
-    expect(next.cash.pocket).toEqual({})
+    expect(next.cash.bag).toEqual({})
     expect(next.cash.floatStart).toEqual({ '500': 10 })
   })
 

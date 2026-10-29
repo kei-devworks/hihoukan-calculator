@@ -173,12 +173,12 @@ describe('parseStockState（保存されていた値を戻す）', () => {
 
 describe('見出しごとのレジ精算と、精算の印', () => {
   const later = new Date('2026-10-15T21:30:00+09:00')
-  const pocket = (n: number) => setCashCount(emptyCashCount(), 'pocket', 1000, n)
+  const pocket = (n: number) => setCashCount(emptyCashCount(), 'bag', 1000, n)
 
   it('枚数は見出しごとに別々に持ち、欄を書き換えても残る', () => {
     let state = setSectionCash(withEntries({ 'a-sticker': [20, null, 12] }), 'a', pocket(8), later)
     state = setField(state, 'b-ema', 'start', 5, later)
-    expect(sectionCashOf(state, 'a').pocket).toEqual({ '1000': 8 })
+    expect(sectionCashOf(state, 'a').bag).toEqual({ '1000': 8 })
     expect(sectionCashOf(state, 'b')).toEqual(emptyCashCount())
     expect(state.updatedAt).toBe(later.toISOString())
   })
@@ -213,12 +213,12 @@ describe('見出しごとのレジ精算と、精算の印', () => {
     expect(settlementOf(state, section('a'))).toMatchObject({ count: 2, changed: false })
   })
 
-  it('全部消す・残数を開店時に移すと、ポケットといまの枚数と精算の印は消え、準備金の開店時の枚数は残る', () => {
+  it('全部消す・残数を開店時に移すと、売上バッグ・使ったか・いまの数と精算の印は消え、開店時の釣り銭準備金は残る', () => {
     let count = setCashCount(pocket(8), 'floatStart', 100, 30)
     count = setCashCount(count, 'floatNow', 100, 25)
     let state = setSectionCash(withEntries({ 'a-sticker': [20, null, 12] }), 'a', count, now)
     state = settleSection(config, state, section('a'), later)
-    const kept = { pocket: {}, floatStart: { '100': 30 }, floatNow: {} }
+    const kept = { floatStart: { '100': 30 }, floatUsed: null, bag: {}, floatNow: {} }
     expect(resetStock(state)).toMatchObject({ entries: {}, cash: { a: kept }, settled: {} })
     expect(carryRemainingToStart(state, later)).toMatchObject({ cash: { a: kept }, settled: {} })
   })

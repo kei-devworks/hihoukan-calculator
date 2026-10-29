@@ -1,5 +1,5 @@
 import './stock.css'
-import { compareCash, floatUnused, settle } from '../core/cash'
+import { compareCash, settle } from '../core/cash'
 import { defaultPrice } from '../core/catalog'
 import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
@@ -237,7 +237,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
   // ---- 見出しごとのレジ精算と、精算の記録・［精算を完了する］（レジ精算の計算のすぐ下に置く） ----
   const cashConfig = config.cash
   const sectionTools = config.sections.map((section) => {
-    const settleLogTitle = h('h3', { class: 'cash-h', text: '精算の記録' })
+    const settleLogTitle = h('h3', { class: 'settle-h', text: '精算の記録' })
     const settleLog = h('ol', { class: 'settle-log' })
     const settleStatus = h('p', { class: 'settle-status' })
     const settleButton = h('button', { type: 'button', class: 'solid settle-button' })
@@ -260,7 +260,6 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
             under: '残数の数えまちがいや、お釣りのまちがいがないか確かめてください',
           },
           onChange: (next) => change(setSectionCash(store.current, section.id, next, now())),
-          onFloatUnused: () => change(setSectionCash(store.current, section.id, floatUnused(sectionCashOf(store.current, section.id)), now())),
           footer: settleBox,
         })
       : null
@@ -369,7 +368,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
 
   /**
    * 精算の記録（1回目・2回目…と、それぞれの差）と［精算を完了する］。
-   * 押せるのは、ポケットを数えていて、まだ記録していないか、最後の記録から数が変わったときだけ
+   * 押せるのは、売上バッグを数えていて、まだ記録していないか、最後の記録から数が変わったときだけ
    */
   function renderSettlement(tool: (typeof sectionTools)[number], state: StockState, expected: number) {
     // ボタンは「弓道のレジ精算」の中にあるので、見出しの名前は付けない（1行に収める）
@@ -395,7 +394,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
       }),
     )
 
-    const result = compareCash(settle(sectionCashOf(state, tool.section.id)), expected)
+    const result = cashConfig ? compareCash(settle(sectionCashOf(state, tool.section.id), cashConfig), expected) : ({ kind: 'none' } as const)
     const diff = result.kind === 'match' ? 0 : result.kind === 'over' ? result.amount : result.kind === 'under' ? -result.amount : null
     if (!latest) {
       tool.settleStatus.dataset.tone = 'muted'
@@ -411,7 +410,7 @@ export function mountStockApp(root: HTMLElement, config: StockConfig, options: M
 
     if (diff === null) {
       tool.settleButton.disabled = true
-      tool.settleButton.textContent = '売上のポケットを数えると、精算を完了できます'
+      tool.settleButton.textContent = '売上バッグを数えると、精算を完了できます'
     } else if (latest && !latest.changed) {
       tool.settleButton.disabled = true
       tool.settleButton.textContent = '精算は完了しています'

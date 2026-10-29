@@ -5,8 +5,13 @@
 export type CashConfig = {
   /** 受け取るお札の額面（例: [10000, 5000, 1000]） */
   bills: number[]
-  /** 受け取る硬貨の額面（例: [500, 100]）。硬貨の釣り銭準備金もこの額面で数える */
+  /** 受け取る硬貨の額面（例: [500, 100]）。釣り銭準備金の硬貨（コインケース）もこの額面で数える */
   coins: number[]
+  /**
+   * 釣り銭準備金の束1つの金額（1万円の束なら 10000。1,000円札10枚、または 5,000円札1枚と 1,000円札5枚）。
+   * 書くと、釣り銭準備金に束の数の欄を出す（釣り銭準備金の袋）
+   */
+  bundle?: number
 }
 
 /** お札と硬貨の額面を、大きい順に */
@@ -21,80 +26,119 @@ export function validateCash(cash: CashConfig): string[] {
   if (cash.bills.length === 0 && cash.coins.length === 0) errors.push('cash に額面がありません')
   for (const d of all) if (!Number.isInteger(d) || d <= 0) errors.push(`額面「${d}」は 1 以上の整数にしてください`)
   for (const d of all.filter((d, i) => all.indexOf(d) !== i)) errors.push(`額面「${d}」が重複しています`)
+  if (cash.bundle !== undefined && (!Number.isInteger(cash.bundle) || cash.bundle <= 0)) {
+    errors.push(`束の金額「${cash.bundle}」は 1 以上の整数にしてください`)
+  }
   return errors
 }
 
 /** 額面 → 枚数。額面は文字列のキーにする（JSON にそのまま保存できるように）。入れていない額面は持たない */
 export type CoinCounts = Record<string, number>
 
-/** レジ精算で数えた枚数 */
+/** 釣り銭準備金の数のキーのうち、1万円の束（cash.bundle）の数 */
+export const BUNDLE = 'bundle'
+
+/**
+ * レジ精算で数えた数。
+ * 釣り銭準備金は「釣り銭準備金の袋」（1万円の束）と「コインケース」（硬貨）に入っていて、どちらも売上バッグの中にある。
+ * 釣り銭準備金の数は、キーを BUNDLE（束の数）と硬貨の額面にした CoinCounts で持つ
+ */
 export type CashCount = {
-  /** 売上のポケットの枚数（お札と硬貨） */
-  pocket: CoinCounts
-  /** 硬貨の釣り銭準備金の、開店時の枚数（端末が覚える。リセットしても残す） */
+  /** 開店時の釣り銭準備金（端末が覚える。リセットしても残す。毎日同じことが多いため） */
   floatStart: CoinCounts
-  /** 硬貨の釣り銭準備金の、いまの枚数 */
+  /** 釣り銭準備金をお釣りに使ったか。null はまだ選んでいない */
+  floatUsed: boolean | null
+  /** 売上バッグの枚数（お札と硬貨）。釣り銭準備金の袋・コインケースに入っていないお金 */
+  bag: CoinCounts
+  /**
+   * 使ったときの、釣り銭準備金のいまの数。入れていない欄は開店時のまま
+   * （画面は開店時の数から始め、変わったところだけ直してもらう。入れ忘れた硬貨が 0 枚あつかいにならないように）
+   */
   floatNow: CoinCounts
 }
 
-export type CashField = keyof CashCount
+export type CashField = 'floatStart' | 'bag' | 'floatNow'
 
 export function emptyCashCount(): CashCount {
-  return { pocket: {}, floatStart: {}, floatNow: {} }
+  return { floatStart: {}, floatUsed: null, bag: {}, floatNow: {} }
 }
 
-/** 枚数から金額を出す */
-export function countsAmount(counts: CoinCounts): number {
-  return Object.entries(counts).reduce((sum, [d, n]) => sum + Number(d) * n, 0)
+/** 釣り銭準備金の数のキー（束があれば束、硬貨は大きい順）。画面の並び */
+export function floatKeys(cash: CashConfig): string[] {
+  return [...(cash.bundle ? [BUNDLE] : []), ...[...cash.coins].sort((a, b) => b - a).map(String)]
 }
 
-/** 1つの欄を書き換える。null で空欄に戻す。0 以上の整数でない値は受け付けない（例外） */
-export function setCashCount(count: CashCount, field: CashField, denomination: number, value: number | null): CashCount {
+/** 枚数から金額を出す。BUNDLE は束1つの金額（cash.bundle）で数える */
+export function countsAmount(counts: CoinCounts, cash?: CashConfig): number {
+  return Object.entries(counts).reduce((sum, [key, n]) => sum + (key === BUNDLE ? (cash?.bundle ?? 0) : Number(key)) * n, 0)
+}
+
+/** 使ったときの、釣り銭準備金のいまの数（入れていない欄は開店時の数） */
+export function floatNowOf(count: CashCount, key: string): number {
+  return count.floatNow[key] ?? count.floatStart[key] ?? 0
+}
+
+/**
+ * 1つの欄を書き換える。key は額面か BUNDLE。null で空欄に戻す（いまの釣り銭準備金は開店時のままに戻る）。
+ * 0 以上の整数でない値は受け付けない（例外）
+ */
+export function setCashCount(count: CashCount, field: CashField, key: number | string, value: number | null): CashCount {
   if (value !== null && (!Number.isInteger(value) || value < 0)) throw new Error(`0 以上の整数ではありません: ${value}`)
   const counts = { ...count[field] }
-  if (value === null) delete counts[String(denomination)]
-  else counts[String(denomination)] = value
+  if (value === null) delete counts[String(key)]
+  else counts[String(key)] = value
   return { ...count, [field]: counts }
 }
 
-/** ［使っていない］: いまの準備金の枚数を、開店時と同じにする */
-export function floatUnused(count: CashCount): CashCount {
-  return { ...count, floatNow: { ...count.floatStart } }
+/** ① 釣り銭準備金をお釣りに使ったか */
+export function setFloatUsed(count: CashCount, used: boolean): CashCount {
+  return { ...count, floatUsed: used }
 }
 
-/** リセット: ポケットといまの準備金の枚数を消す。開店時の準備金の枚数は残す（毎日同じことが多いため） */
+/** リセット: 開店時の釣り銭準備金だけ残し、ほかは消す */
 export function clearCashCount(count: CashCount): CashCount {
-  return { pocket: {}, floatStart: count.floatStart, floatNow: {} }
+  return { ...emptyCashCount(), floatStart: count.floatStart }
 }
 
 export type Settlement = {
-  pocket: number
+  floatUsed: boolean | null
+  /** 開店時の釣り銭準備金の合計 */
   floatStart: number
+  /** 釣り銭準備金のいまの合計（使ったとき。入れていない欄は開店時のまま）。使っていないときは開店時と同じ */
   floatNow: number
-  /** 使った釣り銭（開店時 − いま）。わからないときは 0 */
-  floatUsed: number
-  /** お金から出した売上（ポケット − 使った釣り銭） */
+  /** 売上バッグの合計 */
+  bag: number
+  /** 数えたお金の合計。使ったとき: 釣り銭準備金のいま ＋ 売上バッグ、使っていないとき: 売上バッグ */
+  total: number
+  /** お金から出した売上。使ったとき: 数えたお金の合計 − 開店時の釣り銭準備金、使っていないとき: 売上バッグ */
   sales: number
-  /** ポケットの枚数をどれか入れたか */
+  /** 使ったかを選び、売上バッグの枚数をどれか入れたか */
   counted: boolean
-  /**
-   * 準備金の知らせ。noNow: いまの枚数を数えていない（使った分を 0 として計算）、
-   * noStart: 開店時の枚数がない、grew: いまのほうが多い（売上の硬貨が混ざっていないか）
-   */
-  floatProblem: 'noNow' | 'noStart' | 'grew' | null
+  /** 使ったとき、釣り銭準備金で開店時から変わったところ（画面の並び） */
+  changed: { key: string; from: number; to: number }[]
 }
 
-export function settle(count: CashCount): Settlement {
-  const pocket = countsAmount(count.pocket)
-  const floatStart = countsAmount(count.floatStart)
-  const floatNow = countsAmount(count.floatNow)
-  let floatUsed = 0
-  let floatProblem: Settlement['floatProblem'] = null
-  if (Object.keys(count.floatNow).length === 0) floatProblem = floatStart > 0 ? 'noNow' : null
-  else if (floatStart === 0 && floatNow > 0) floatProblem = 'noStart'
-  else if (floatNow > floatStart) floatProblem = 'grew'
-  else floatUsed = floatStart - floatNow
-  return { pocket, floatStart, floatNow, floatUsed, sales: pocket - floatUsed, counted: Object.keys(count.pocket).length > 0, floatProblem }
+export function settle(count: CashCount, cash: CashConfig): Settlement {
+  const floatStart = countsAmount(count.floatStart, cash)
+  const bag = countsAmount(count.bag, cash)
+  const used = count.floatUsed === true
+  const changed = used
+    ? floatKeys(cash)
+        .map((key) => ({ key, from: count.floatStart[key] ?? 0, to: floatNowOf(count, key) }))
+        .filter((c) => c.from !== c.to)
+    : []
+  const floatNow = used ? floatKeys(cash).reduce((sum, key) => sum + countsAmount({ [key]: floatNowOf(count, key) }, cash), 0) : floatStart
+  const total = used ? floatNow + bag : bag
+  return {
+    floatUsed: count.floatUsed,
+    floatStart,
+    floatNow,
+    bag,
+    total,
+    sales: used ? total - floatStart : bag,
+    counted: count.floatUsed !== null && Object.keys(count.bag).length > 0,
+    changed,
+  }
 }
 
 export type CashComparison =
@@ -119,22 +163,33 @@ export function sameAmountNames(amount: number, items: readonly { name: string; 
   return [...new Set(items.filter((i) => i.price === amount).map((i) => i.name))]
 }
 
-/** 保存されていた枚数を戻す。設定にない額面・0 以上の整数でない枚数は捨てる */
+/**
+ * 保存されていた数を戻す。設定にない額面・0 以上の整数でない枚数は捨てる。
+ * 前の形（売上のポケット pocket と、硬貨の釣り銭準備金の開店時 floatStart・いま floatNow）は、
+ * ポケットを売上バッグとして読み、いまを数えていたら「使った」にする
+ */
 export function parseCashCount(raw: unknown, cash: CashConfig): CashCount {
   const count = emptyCashCount()
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return count
   const record = raw as Record<string, unknown>
-  const pick = (value: unknown, allowed: number[]): CoinCounts => {
+  const pick = (value: unknown, allowed: string[]): CoinCounts => {
     const counts: CoinCounts = {}
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return counts
-    for (const d of allowed) {
-      const n = (value as Record<string, unknown>)[String(d)]
-      if (typeof n === 'number' && Number.isInteger(n) && n >= 0) counts[String(d)] = n
+    for (const key of allowed) {
+      const n = (value as Record<string, unknown>)[key]
+      if (typeof n === 'number' && Number.isInteger(n) && n >= 0) counts[key] = n
     }
     return counts
   }
-  count.pocket = pick(record.pocket, denominations(cash))
-  count.floatStart = pick(record.floatStart, cash.coins)
-  count.floatNow = pick(record.floatNow, cash.coins)
+  const money = denominations(cash).map(String)
+  count.floatStart = pick(record.floatStart, floatKeys(cash))
+  count.floatNow = pick(record.floatNow, floatKeys(cash))
+  if ('bag' in record || !('pocket' in record)) {
+    count.bag = pick(record.bag, money)
+    count.floatUsed = typeof record.floatUsed === 'boolean' ? record.floatUsed : null
+  } else {
+    count.bag = pick(record.pocket, money)
+    count.floatUsed = Object.keys(count.floatNow).length > 0 ? true : null
+  }
   return count
 }
