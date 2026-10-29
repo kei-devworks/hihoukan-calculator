@@ -25,7 +25,8 @@ src/
     tally-store.ts TallyState を端末に保存・復元する
     orders.ts      オーダーの記録と増減（＋/−・閉じる・直す・取り消す・元に戻す）
     hourly.ts      オーダーを1時間ごとにまとめる（記録と推移）
-    checkout.ts    会計の預かりとお釣り
+    checkout.ts    会計の預かりとお釣り、レシートの品目をジャンルにまとめる（receiptGroups）
+    receipt.ts     会計のレシートのジャンルと英語名の設定（ReceiptGenre）の型と検証
     handover.ts    引き継ぎ（前の人の数を QR・報告文から読み、置き換える・足りない分だけ足す）
     handover-code.ts  引き継ぎのデータ（QR・リンクの #hikitsugi=）の作成と読み取り
     cash.ts        お金の額面の設定（会計のボタン・レジ精算の欄）
@@ -90,7 +91,7 @@ scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg か�
 
 | 土台 | 中身 |
 | --- | --- |
-| `Catalog`（`core/catalog.ts`） | ページの id・題名・営業日の切り替わり・単価（`prices`）・見出しごとの品目（`sections`）・受け取るお金の額面（`cash`。書いたときだけ会計とレジ精算を出す）。`validateCatalog` で書き間違いを見つける |
+| `Catalog`（`core/catalog.ts`） | ページの id・題名・営業日の切り替わり・単価（`prices`）・見出しごとの品目（`sections`）・受け取るお金の額面（`cash`。書いたときだけ会計とレジ精算を出す）・会計のレシートのジャンル（`receipt`。英語名でまとめる。`core/receipt.ts`）。`validateCatalog` で書き間違いを見つける |
 | `JsonStore`（`core/json-store.ts`） | 状態を `hihoukan-calc:<ページの id>:v<版>` に保存・復元する。読み戻しはページごとの `parse` 関数に任せ、壊れた値でも例外にしない |
 | `earlierBusinessDay`（`core/time.ts`） | 「数え始めた時刻」が前の営業日かを判定する（前日の数字が残っている知らせに使う） |
 | `pageHeader` / `pageStatus` / `keepFresh`（`ui/page-parts.ts`） | 「‹ 一覧」と題名、保存の状態と赤い警告、前の営業日の黄色い知らせ、30秒ごと・画面復帰・別タブ・戻るボタンでの再描画 |
@@ -129,6 +130,21 @@ const config: TallyConfig = {
 
 設定の書き間違い（id の重複、存在しない単価など）は `validateCatalog` が見つける。
 登録されている全ページの設定をテストで検証するので、書き間違えると CI が落ちる。
+
+会計の画面のレシート（お客様に見せる）は、品目をジャンルにまとめて英語を先に出す。ジャンルは `receipt` に書く（`core/receipt.ts`）。
+
+```ts
+receipt: [
+  // 値段で呼ぶ品目（name なし）を、見出しと値段の範囲で（画面から足した値段だけの品目にも効く）。品目は「¥1,000」と値段で並ぶ
+  { en: 'Wagyu A5', ja: 'A5和牛', section: 'meat', minPrice: 1000, maxPrice: 3000 },
+  { en: 'Scallop', ja: 'ホタテ', item: 'hotate' },                       // 1品だけ。ジャンル名の行に数と金額
+  { en: 'Cremia Soft Serve', ja: 'クレミア ソフトクリーム', items: { vanilla: 'Vanilla' } }, // 品目 id → 英語名
+]
+```
+
+- `receiptGroups`（`core/checkout.ts`）が、オーダーの品目をジャンルにまとめる。ジャンルの並びは、その品目が品目の画面で最初に出てくる順
+- どのジャンルにも入らない品目（画面から足した名前のある品目、範囲の外の値段など）は、日本語名（名前がなければ値段）だけの1行にする
+- 書き間違い（ない品目・見出し、空の名前、値段の範囲の誤りと重なり、2つのジャンルに入った品目）は `validateReceipt` が見つける
 
 ### 状態と更新
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatNumber, formatPrice, formatYen } from './format'
+import { formatNumber, formatPrice, formatPriceEn, formatYen } from './format'
 
 describe('formatNumber', () => {
   it('3桁ごとにカンマで区切る', () => {
@@ -21,5 +21,11 @@ describe('formatPrice', () => {
   it('画面の中の「￥1,234」の形にする（最後の「-」はつけない）', () => {
     expect(formatPrice(0)).toBe('￥0')
     expect(formatPrice(2500)).toBe('￥2,500')
+  })
+})
+
+describe('formatPriceEn', () => {
+  it('お客様に見せる「¥1,234」の形にする（半角の円記号）', () => {
+    expect(formatPriceEn(14100)).toBe('¥14,100')
   })
 })

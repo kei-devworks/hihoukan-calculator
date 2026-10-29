@@ -22,6 +22,15 @@ export const takumi: TallyConfig = {
     { id: 'beer', label: 'ビール', default: 500 },
     { id: 'soft', label: 'ソフト（共通）', default: 800 },
   ],
+  // 会計の画面（お客様に見せるレシート）。お客様の多くが海外の方なので、品目をジャンルにまとめて英語を先に出す。
+  // 串は値段でジャンルが決まる（画面から足した値段だけの串にも効く）。日本語名は小さく添える
+  receipt: [
+    { en: 'Wagyu A5', ja: 'A5和牛', section: 'meat', minPrice: 1000, maxPrice: 3000 },
+    { en: 'Kobe Beef', ja: '神戸牛', section: 'meat', minPrice: 5000, maxPrice: 8000 },
+    { en: 'Scallop', ja: 'ホタテ', item: 'hotate' },
+    { en: 'Beer', ja: 'ビール', item: 'beer' },
+    { en: 'Cremia Soft Serve', ja: 'クレミア ソフトクリーム', items: { vanilla: 'Vanilla', mix: 'Mix', matcha: 'Matcha' } },
+  ],
   sections: [
     {
       id: 'meat',

@@ -5,6 +5,7 @@
 
 import { validateCash, type CashConfig } from './cash'
 import { isCount } from './guards'
+import { validateReceipt, type ReceiptGenre } from './receipt'
 
 /** 品目。画面の1行 */
 export type CatalogItem = {
@@ -47,6 +48,11 @@ export type Catalog = {
   sections: CatalogSection[]
   /** 受け取るお金の額面。書くと、会計（タクミ）とレジ精算の画面を出す */
   cash?: CashConfig
+  /**
+   * 会計の画面のレシート（お客様に見せる）で、品目をまとめるジャンルと英語名（core/receipt.ts）。
+   * 書かない品目は日本語名のまま1行で出す
+   */
+  receipt?: ReceiptGenre[]
 }
 
 export function allItems(catalog: Catalog): CatalogItem[] {
@@ -103,6 +109,7 @@ export function validateCatalog(catalog: Catalog): string[] {
   for (const id of priceIds) if (!used.has(id)) errors.push(`単価「${id}」はどの品目にも使われていません`)
 
   if (catalog.cash) errors.push(...validateCash(catalog.cash))
+  if (catalog.receipt) errors.push(...validateReceipt(catalog, catalog.receipt))
 
   return errors
 }

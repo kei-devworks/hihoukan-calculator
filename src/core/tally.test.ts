@@ -308,6 +308,28 @@ describe('validateConfig', () => {
       expect.arrayContaining([expect.stringContaining('品目の id「x-b」は x- で始めない'), expect.stringContaining('単価の id「x-a」は x- で始めない')]),
     )
   })
+
+  it('会計のレシートのジャンル: ない品目・見出し、空の名前、値段の範囲の誤りと重なり、2つのジャンルに入った品目を見つける', () => {
+    const errors = validateConfig({
+      ...config,
+      receipt: [
+        { en: 'Wagyu', ja: '和牛', section: 'meat', minPrice: 1000, maxPrice: 3000 },
+        { en: 'Kobe', ja: '神戸牛', section: 'meat', minPrice: 2000, maxPrice: 5000 },
+        { en: 'Bad', ja: '', section: 'nothing', minPrice: 500, maxPrice: 100 },
+        { en: 'Scallop', ja: 'ホタテ', item: 'hotate' },
+        { en: 'Again', ja: 'もう一度', items: { hotate: 'Scallop', missing: '' } },
+      ],
+    })
+    expect(errors).toEqual([
+      'ジャンル「Kobe」と「Wagyu」の値段の範囲が重なっています',
+      'ジャンル「Bad」の日本語名（ja）が空です',
+      'ジャンル「Bad」の見出し「nothing」がありません',
+      'ジャンル「Bad」の値段の範囲は、1 以上の整数で minPrice ≤ maxPrice にしてください',
+      'ジャンル「Again」の品目「missing」がありません',
+      'ジャンル「Again」の品目「missing」の英語名が空です',
+      '品目「hotate」が2つのジャンルに入っています',
+    ])
+  })
 })
 
 describe('画面から足した品目', () => {
