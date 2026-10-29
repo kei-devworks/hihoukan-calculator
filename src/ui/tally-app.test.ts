@@ -463,38 +463,74 @@ describe('mountTallyApp', () => {
       button('会計￥2,800').click()
     }
 
-    it('合計を出し、押した額面を預かりに足してお釣りを出す', () => {
+    const shown = (selector: string) => !sheet()!.querySelector<HTMLElement>(selector)!.hidden
+    const receiptRows = () => [...sheet()!.querySelectorAll('.receipt-items > *')].map((el) => el.textContent)
+
+    it('お客様に見せるレシート: 品目をジャンルにまとめ、英語を先に出す。押した額面を預かりに足してお釣りを出す', () => {
       order2500()
-      expect(text('#checkout-title')).toBe('お会計（20:40 のオーダー）')
-      expect(text('.checkout-total')).toBe('￥2,800')
-      expect(text('.checkout-lines')).toBe('2,000円×1・バニラ×1（2点）')
-      expect(text('.checkout-change')).toBe('受け取ったお札・硬貨のボタンを押してください')
-      // 押すたびに足すことがわかるよう、ボタンには ＋ を付ける
-      expect([...sheet()!.querySelectorAll('.tender')].map((b) => b.textContent)).toEqual(['＋10,000', '＋5,000', '＋1,000', '＋500', '＋100'])
+      expect(sheet()!.getAttribute('aria-label')).toBe('お会計（20:40 のオーダー）')
+      expect(text('.receipt-head')).toBe('Checkout お会計20:40')
+      expect(receiptRows()).toEqual([
+        'Wagyu A5 A5和牛',
+        '¥2,000',
+        '×1',
+        '¥2,000',
+        'Cremia Soft Serve クレミア ソフトクリーム',
+        'Vanilla バニラ',
+        '×1',
+        '¥800',
+      ])
+      expect(text('.checkout-total')).toBe('¥2,800')
+      expect(text('.checkout-tendered')).toBe('—')
+      expect(text('.checkout-breakdown')).toBe('受け取ったお札・硬貨を押す')
+      expect(shown('.checkout-change')).toBe(false)
+      expect(shown('.receipt-thanks')).toBe(false)
+      // 押すたびに足すことがわかるよう、ボタンには ＋ を付ける（係の人の操作なので日本語のまま）
+      expect([...sheet()!.querySelectorAll('.tenders button')].map((b) => b.textContent)).toEqual([
+        '＋10,000',
+        '＋5,000',
+        '＋1,000',
+        '＋500',
+        '＋100',
+        '1つ戻す',
+        '0に戻す',
+      ])
       inSheet('1,000円を預かりに足す').click()
       inSheet('1,000円を預かりに足す').click()
-      expect(text('.checkout-change')).toBe('あと￥800')
+      expect(text('.checkout-change')).toBe('Amount due あと¥800')
+      expect(shown('.receipt-thanks')).toBe(false)
       inSheet('1,000円を預かりに足す').click()
-      expect(text('.checkout-tendered')).toBe('￥3,000')
-      expect(text('.checkout-breakdown')).toBe('1,000×3')
-      expect(text('.checkout-change')).toBe('お釣り￥200')
+      expect(text('.checkout-tendered')).toBe('¥3,000')
+      expect(text('.checkout-breakdown')).toBe('¥1,000×3')
+      expect(text('.checkout-change')).toBe('Change お釣り¥200')
+      expect(shown('.receipt-thanks')).toBe(true)
     })
 
-    it('［1つ戻す］［0に戻す］で押しまちがいを直せる。ちょうどなら「なし」', () => {
+    it('1品だけのジャンルは1行。ジャンルに入らない品目は日本語名のまま1行', () => {
+      mount()
+      button('ホタテを1つ増やす').click()
+      button('ホタテを1つ増やす').click()
+      button('抹茶を1つ増やす').click()
+      button('会計￥2,800').click()
+      expect(receiptRows()).toEqual(['Scallop ホタテ', '×2', '¥2,000', '抹茶', '×1', '¥800'])
+    })
+
+    it('［1つ戻す］［0に戻す］で押しまちがいを直せる。ちょうどなら「No change」', () => {
       order2500()
       inSheet('5,000円を預かりに足す').click()
       inSheet('1つ戻す').click()
-      expect(text('.checkout-tendered')).toBe('￥0')
+      expect(text('.checkout-tendered')).toBe('—')
       inSheet('1,000円を預かりに足す').click()
       inSheet('1,000円を預かりに足す').click()
       inSheet('500円を預かりに足す').click()
       inSheet('100円を預かりに足す').click()
       inSheet('100円を預かりに足す').click()
       inSheet('100円を預かりに足す').click()
-      expect(text('.checkout-breakdown')).toBe('1,000×2・500×1・100×3')
-      expect(text('.checkout-change')).toBe('お釣りなし（ちょうど）')
+      expect(text('.checkout-breakdown')).toBe('¥1,000×2, ¥500×1, ¥100×3')
+      expect(text('.checkout-change')).toBe('Change お釣りNo change')
       inSheet('0に戻す').click()
-      expect(text('.checkout-change')).toBe('受け取ったお札・硬貨のボタンを押してください')
+      expect(shown('.checkout-change')).toBe(false)
+      expect(text('.checkout-breakdown')).toBe('受け取ったお札・硬貨を押す')
     })
 
     it('預かりはオーダーに残り、パネルにお釣りを出す。会計のあとの ＋ は次のお客さんになる', () => {

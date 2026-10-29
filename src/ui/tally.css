@@ -958,17 +958,21 @@ button.ghost.handover-back {
   font-variant-numeric: tabular-nums;
 }
 
-/* 会計の画面（ui/checkout-sheet.ts）。編集の画面と同じく下から出す */
+/*
+ * 会計の画面（ui/checkout-sheet.ts）。編集の画面と同じく下から出す。
+ * iPhone の Safari（見える高さ 659px）でも1画面に収まるよう、品目が多いときは品目の欄だけ縮めてスクロールする
+ */
 dialog.checkout {
   width: 100%;
   max-width: 560px;
   max-height: 92vh;
+  max-height: 92dvh;
   margin: auto auto 0;
   border: 1px solid var(--line);
   border-bottom: 0;
   border-radius: 18px 18px 0 0;
-  padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px))
-    max(16px, env(safe-area-inset-left, 0px));
+  padding: 12px max(14px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px))
+    max(14px, env(safe-area-inset-left, 0px));
   background: var(--surface);
   color: var(--fg);
   overflow-y: auto;
@@ -981,54 +985,157 @@ dialog.checkout::backdrop {
 dialog.checkout[open] {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-dialog.checkout h2 {
-  font-size: 15px;
-}
-
-.checkout-lines,
-.checkout-label {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* お会計・お預かり・お釣り。同じ大きさの数字で並べ、お釣りだけ色を付ける */
+/*
+ * お客様に見せるレシート。お客様の多くが海外の方なので、英語を先に大きく、日本語は小さく添える。
+ * 英字は欧文の書体（iPhone は San Francisco）、金額は半角の「¥」
+ */
 .checkout-receipt {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI', Roboto, Arial, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   background: var(--bg);
-  border-radius: 12px;
-  padding: 6px 14px;
+  border-radius: 14px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  line-height: 1.25;
   font-variant-numeric: tabular-nums;
 }
 
-.checkout-line {
+.checkout-receipt small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.checkout-receipt p {
   margin: 0;
+}
+
+.receipt-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+/* 品目は「名前 ×数 金額」の3列。ジャンル名（太字）の下に品目を字下げする */
+.receipt-items {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: 14px;
+  row-gap: 3px;
+  align-items: baseline;
+  align-content: start;
   padding: 6px 0;
-  font-size: 15px;
+  border-bottom: 1px dashed var(--muted);
+  overflow-y: auto;
+  flex: 0 1 auto;
+  min-height: 72px;
 }
 
-.checkout-line + .checkout-line {
-  border-top: 1px solid var(--line);
+.receipt-items.more {
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 28px), transparent);
 }
 
-.checkout-line b {
-  font-size: 28px;
+.receipt-genre {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 0;
+}
+
+.receipt-genre.full {
+  grid-column: 1 / -1;
+}
+
+.receipt-genre:not(:first-child) {
+  margin-top: 3px;
+}
+
+/* 日本語名は途中で折り返さず、入らなければまとめて次の行へ */
+.receipt-genre small,
+.receipt-item small {
+  display: inline-block;
   white-space: nowrap;
+}
+
+.receipt-item {
+  font-size: 15px;
+  padding-left: 14px;
+  min-width: 0;
+}
+
+.receipt-count {
+  font-size: 15px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.receipt-amount {
+  font-size: 16px;
+  text-align: right;
+}
+
+.receipt-sums {
+  flex: none;
+}
+
+.receipt-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 3px;
+  line-height: 1.15;
+}
+
+.receipt-label {
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .checkout-breakdown {
   display: block;
-  font-size: 12px;
-  color: var(--muted);
+  margin-top: 1px;
+}
+
+.receipt-line b {
+  font-size: 19px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.receipt-total {
+  padding-top: 5px;
+}
+
+.receipt-total .receipt-label {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.receipt-total b {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .checkout-change b {
+  font-size: 24px;
+  font-weight: 700;
   color: var(--accent);
 }
 
@@ -1036,23 +1143,29 @@ dialog.checkout h2 {
   color: var(--danger-text);
 }
 
-.checkout-change.none {
-  color: var(--muted);
+.checkout-receipt .receipt-thanks {
+  text-align: center;
   font-size: 14px;
+  font-weight: 600;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--muted);
 }
 
-/* お札の段と硬貨の段に分かれるよう、1段に3つまで並べる */
+/* お札・硬貨と［1つ戻す］［0に戻す］を4列2段に（係の人の操作） */
 .tenders {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  flex: none;
 }
 
 .tender {
   font: inherit;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  min-height: 54px;
+  min-height: 46px;
+  padding: 0;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--bg);
@@ -1069,16 +1182,26 @@ dialog.checkout h2 {
   border-radius: 999px;
 }
 
-.checkout-fix {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
+.tenders button.tender-fix {
+  min-height: 46px;
+  padding: 0 4px;
+  font-size: 13px;
+  border-radius: 10px;
 }
 
-.checkout-fix button.ghost {
-  min-height: 38px;
-  padding: 4px 12px;
-  font-size: 13px;
+/* ［戻る］［完了］。［完了］を広く、作業中でもさっと押せる大きさで */
+.checkout-foot {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 8px;
+  flex: none;
+}
+
+.checkout-foot button {
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 700;
+  border-radius: 12px;
 }
 
 /* 品目と単価（ui/tally-items.ts） */
