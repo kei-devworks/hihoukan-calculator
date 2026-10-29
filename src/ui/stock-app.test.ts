@@ -89,13 +89,19 @@ describe('mountStockApp', () => {
     expect(document.activeElement).not.toBe(ema)
   })
 
-  it('レジ精算の釣り銭準備金も、開店時の列 → いまの列の順', () => {
+  it('レジ精算: 束を使わないページは、開店時の釣り銭準備金がコインケースだけ。使ったときの欄は釣り銭準備金の列 → 売上バッグの列', () => {
     mount()
-    expect([...document.querySelectorAll<HTMLInputElement>('#panel-a .float-grid input')].map((el) => el.id)).toEqual([
-      'cash-a-floatStart-500',
-      'cash-a-floatStart-100',
+    expect([...document.querySelectorAll('#panel-a .cash-float .cash-where')].map((el) => el.textContent)).toEqual(['コインケース'])
+    ;[...document.querySelectorAll<HTMLButtonElement>('#panel-a .cash-seg button')].find((b) => b.textContent === '使った')!.click()
+    expect(text('#panel-a .cash-bag .cash-rule')).toBe('釣り銭準備金 は、開店時の数が入っています。コインケースを見て、変わったところだけ直す')
+    expect([...document.querySelectorAll<HTMLInputElement>('#panel-a .cash-count-grid input')].map((el) => el.id)).toEqual([
       'cash-a-floatNow-500',
       'cash-a-floatNow-100',
+      'cash-a-bag-10000',
+      'cash-a-bag-5000',
+      'cash-a-bag-1000',
+      'cash-a-bag-500',
+      'cash-a-bag-100',
     ])
   })
 
@@ -215,15 +221,16 @@ describe('mountStockApp', () => {
     type('A ステッカー 残数', '3') // A の売上 2,000
     const settleButton = () => document.querySelector<HTMLButtonElement>('#panel-a .settle-button')!
     const records = () => [...document.querySelectorAll('#panel-a .settle-row')].map((el) => el.textContent)
-    // ボタンはレジ精算の中（計算の下）。ポケットを数えるまでは押せない
+    // ボタンはレジ精算の中（計算の下）。売上バッグを数えるまでは押せない
     expect(document.querySelector('#panel-a .cash .settle-button')).not.toBeNull()
     expect(settleButton().disabled).toBe(true)
-    expect(settleButton().textContent).toBe('売上のポケットを数えると、精算を完了できます')
+    expect(settleButton().textContent).toBe('売上バッグを数えると、精算を完了できます')
     expect(records()).toEqual([])
 
-    type('A 売上のポケット 千円札の枚数', '2')
-    expect(text('#panel-a .cash-verdict')).toBe('ぴったり合っています。')
-    expect(text('#panel-b .cash-verdict')).toBe('売上のポケットの枚数を入れると、在庫から出した売上と比べます。')
+    ;[...document.querySelectorAll<HTMLButtonElement>('#panel-a .cash-seg button')].find((b) => b.textContent === '使っていない')!.click()
+    type('A 売上バッグ 1,000円札の枚数', '2')
+    expect(text('#panel-a .cash-verdict[aria-live]')).toBe('ぴったり合っています。')
+    expect(text('#panel-b .cash-verdict[aria-live]')).toBe('売上バッグの枚数を入れると、在庫から出した売上と比べます。')
     expect(text('#panel-a .cash-diff')).toBe('￥0')
     expect(settleButton().textContent).toBe('精算を完了する（差 ￥0）')
 
@@ -242,7 +249,7 @@ describe('mountStockApp', () => {
     expect(text('#panel-a .settle-status')).toBe(
       '14:00 の精算（1回目）のあとで数が変わりました。数え終えたら、もう一度完了してください（前の記録は残ります）。',
     )
-    expect(text('#panel-a .cash-verdict')).toBe('お金のほうが ￥1,000 少ない。残数の数えまちがいや、お釣りのまちがいがないか確かめてください（ステッカー 1つ分と同じ額）。')
+    expect(text('#panel-a .cash-verdict[aria-live]')).toBe('お金のほうが ￥1,000 少ない。残数の数えまちがいや、お釣りのまちがいがないか確かめてください（ステッカー 1つ分と同じ額）。')
     expect(settleButton().textContent).toBe('もう一度完了する（2回目・差 −￥1,000）')
     clock = new Date('2026-10-15T21:30:00+09:00')
     settleButton().click()

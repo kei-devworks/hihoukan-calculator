@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { setCashCount } from './cash'
+import { BUNDLE, setCashCount } from './cash'
 import { sampleConfig as config, stateWithCounts } from './fixtures'
 import {
   applyHandover,
@@ -36,7 +36,7 @@ function senderState(): TallyState {
   // 取り消したオーダーは渡さない
   s = addItem(s, 'b', at('15:20'))
   s = cancelOrder(s, s.orders.at(-1)!.id, at('15:21'))
-  return { ...s, cash: setCashCount(s.cash, 'floatStart', 500, 10) }
+  return { ...s, cash: setCashCount(setCashCount(s.cash, 'floatStart', BUNDLE, 2), 'floatStart', 500, 10) }
 }
 
 describe('makeHandoverCode', () => {
@@ -48,7 +48,7 @@ describe('makeHandoverCode', () => {
       at: '2026-10-17T07:42:31Z',
       counts: { a: 5, hotate: 2, vanilla: 3, [choco]: 4 },
       custom: [{ i: choco, s: 'soft', n: 'チョコ', p: 100 }],
-      floatStart: { '500': 10 },
+      floatStart: { bundle: 2, '500': 10 },
       total: 5000 + 2000 + 2400 + 400,
     })
   })
@@ -67,7 +67,7 @@ describe('QR・リンクで引き継ぐ', () => {
     expect(countsOf(receiver)).toEqual(countsOf(sender))
     expect(buildSalesReport(config, receiver, '17:00')).toBe(buildSalesReport(config, sender, '17:00'))
     expect(receiver.customItems).toEqual(sender.customItems)
-    expect(receiver.cash.floatStart).toEqual({ '500': 10 })
+    expect(receiver.cash.floatStart).toEqual({ bundle: 2, '500': 10 })
     // お客さんのオーダーとは別の「引き継ぎ」1件。時刻は前の人が QR を出した時刻
     expect(receiver.orders).toHaveLength(1)
     expect(receiver.orders[0]).toMatchObject({
@@ -109,8 +109,8 @@ describe('QR・リンクで引き継ぐ', () => {
 describe('ゼロから引き継ぐ', () => {
   it('この端末の今日の記録は取り消し済みにして残し（元に戻せる）、前の人の数に置き換える', () => {
     let local = sold(initialState(), { a: 1, matcha: 2 }, at('16:30'))
-    local = { ...local, cash: setCashCount(setCashCount(local.cash, 'pocket', 1000, 3), 'floatStart', 100, 5) }
-    const input = { at: at('16:42').toISOString(), counts: { a: 5, hotate: 2 }, newItems: [], floatStart: { '500': 10 } }
+    local = { ...local, cash: setCashCount(setCashCount(local.cash, 'bag', 1000, 3), 'floatStart', 100, 5) }
+    const input = { at: at('16:42').toISOString(), counts: { a: 5, hotate: 2 }, newItems: [], floatStart: { bundle: 2, '500': 10 } }
 
     const plan = planHandover(config, local, input.counts, 'zero')
     expect(plan).toMatchObject({ localPieces: 3, localTotal: 2600, addPieces: 7, afterTotal: 7000 })
@@ -119,8 +119,9 @@ describe('ゼロから引き継ぐ', () => {
     expect(countsOf(next)).toEqual({ a: 5, hotate: 2 })
     expect(next.orders.filter((o) => o.kind === 'order').every((o) => o.cancelledAt !== null)).toBe(true)
     expect(next.orders).toHaveLength(3)
-    expect(next.cash.pocket).toEqual({})
-    expect(next.cash.floatStart).toEqual({ '500': 10 })
+    expect(next.cash.bag).toEqual({})
+    // 開店時の釣り銭準備金は、1万円の束の数も一緒に引き継ぐ
+    expect(next.cash.floatStart).toEqual({ bundle: 2, '500': 10 })
   })
 
   it('前の営業日の記録は残さない', () => {

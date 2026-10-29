@@ -3,6 +3,7 @@
  * JSON を UTF-8 にして base64url にする。リンクの `#` のあとはサーバーへ送られない（docs/deployment.md）
  */
 
+import { BUNDLE } from './cash'
 import { isCount, isDateString, isRecord } from './guards'
 
 /** リンクの `#` のあとに付ける名前 */
@@ -16,7 +17,7 @@ export type HandoverCode = {
   counts: Record<string, number>
   /** 画面から足した品目（i: id、s: 見出しの id、n: 名前、p: 単価） */
   custom: { i: string; s: string; n: string | null; p: number }[]
-  /** 硬貨の釣り銭準備金の開店時の枚数（額面 → 枚数） */
+  /** 開店時の釣り銭準備金（硬貨の額面 → 枚数、BUNDLE → 1万円の束の数） */
   floatStart: Record<string, number>
   /** その時点の合計（受け取った側で照合する） */
   total: number
@@ -93,7 +94,8 @@ export function decodeHandoverCode(text: string): HandoverCode | null {
 
   const floatStart: Record<string, number> = {}
   for (const [d, n] of Object.entries(raw.floatStart)) {
-    if (!/^[1-9][0-9]{0,5}$/.test(d) || !isCount(n)) return null
+    // 硬貨の額面と、1万円の束の数（BUNDLE）
+    if (!(/^[1-9][0-9]{0,5}$/.test(d) || d === BUNDLE) || !isCount(n)) return null
     floatStart[d] = n
   }
   return { v: 1, at: raw.at, counts, custom, floatStart, total: raw.total }

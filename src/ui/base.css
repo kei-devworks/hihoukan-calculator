@@ -13,6 +13,11 @@
   --notice-bg: #fff4dc;
   --notice-fg: #6b4200;
   --ok-text: #2e7d32;
+  /* レジ精算の売上バッグ（青）と釣り銭準備金（黄）。色で見分けられるように */
+  --bag-tint: #eaf1f9;
+  --bag-line: #b9cde3;
+  --float-tint: #fbf3e2;
+  --float-line: #e6cf9f;
   --font: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
 }
 
@@ -31,6 +36,10 @@
     --notice-bg: #3a2c12;
     --notice-fg: #f3d29b;
     --ok-text: #86c98b;
+    --bag-tint: #17222f;
+    --bag-line: #2c4560;
+    --float-tint: #2a2416;
+    --float-line: #5a4a26;
     color-scheme: dark;
   }
 }
@@ -49,6 +58,10 @@
   --notice-bg: #3a2c12;
   --notice-fg: #f3d29b;
   --ok-text: #86c98b;
+  --bag-tint: #17222f;
+  --bag-line: #2c4560;
+  --float-tint: #2a2416;
+  --float-line: #5a4a26;
   color-scheme: dark;
 }
 
@@ -584,19 +597,181 @@ button.hold-button.holding::after {
   font-size: 14px;
 }
 
-/* レジ精算（ui/cash-panel.ts）。タクミとネコ・グリコで使う。囲みの枠は使わず、見出しで区切る */
-.cash-h {
-  margin: 10px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent);
+/*
+ * レジ精算（ui/cash-panel.ts）。タクミとネコ・グリコで使う。上から順に、開店時の釣り銭準備金（黄）→ ① 使った？
+ * → ② 数える（青 = 売上バッグ。使ったときは中に黄の釣り銭準備金の欄）→ 結果
+ */
+.cash-float,
+.cash-bag {
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 8px;
 }
 
-.cash h2 + .cash-h {
-  border-top: 0;
-  padding-top: 0;
+.cash-float {
+  background: var(--float-tint);
+  border: 1px solid var(--float-line);
+}
+
+.cash-bag {
+  background: var(--bag-tint);
+  border: 1px solid var(--bag-line);
+}
+
+.cash-float input.num,
+.cash-bag input.num {
+  background: var(--surface);
+}
+
+.cash-block-h {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-block-total {
+  font-size: 17px;
+}
+
+.cash-one {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 「釣り銭準備金の袋」「コインケース」（開店時の釣り銭準備金を、入れる場所ごとに分ける） */
+.cash-where {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cash-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.cash-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cash-where .cash-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 手順（① 使った？ ② 数える 結果） */
+.cash-step {
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cash-step.cash-bag {
+  border-top: 1px solid var(--bag-line);
+  padding-top: 12px;
+}
+
+.cash-step .cash-one {
+  margin: 0;
+}
+
+.cash-step-h {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.cash-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* ［使っていない］［使った］。最初はどちらも選んでいない */
+.cash-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cash-seg button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 44px;
+  border: 0;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cash-seg button + button {
+  border-left: 1px solid var(--line);
+}
+
+.cash-seg button[aria-checked='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.cash-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cash-rule {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.cash-chip {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+
+.cash-chip.float {
+  background: var(--float-tint);
+  border: 1px solid var(--float-line);
+}
+
+.cash-chip.bag {
+  background: var(--surface);
+  border: 1px solid var(--bag-line);
 }
 
 .cash-grid {
@@ -609,21 +784,15 @@ button.hold-button.holding::after {
   font-variant-numeric: tabular-nums;
 }
 
-.cash-grid input,
-.float-grid input {
+.cash-grid input {
   width: 100%;
   min-width: 0;
   text-align: right;
 }
 
-.cash-unit,
-.cash-th {
+.cash-unit {
   font-size: 12px;
   color: var(--muted);
-}
-
-.cash-th {
-  text-align: center;
 }
 
 .cash-yen {
@@ -631,41 +800,88 @@ button.hold-button.holding::after {
   color: var(--muted);
 }
 
-.cash-sum {
-  margin: 6px 0 0;
-  display: flex;
-  justify-content: space-between;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-}
-
-.float-grid {
+/* 使ったとき: 「名前｜釣り銭準備金 ＋ 売上バッグ」。見出しの色の札で列を見分ける */
+.cash-count-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5.2em 5.2em;
-  gap: 6px 8px;
+  grid-template-columns: minmax(5.1em, 1fr) 5em 1em 5em;
+  gap: 6px;
   align-items: center;
-  margin-top: 6px;
   font-size: 15px;
-}
-
-.float-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
 
-.float-foot button.ghost {
-  min-height: 38px;
-  padding: 6px 12px;
+.cash-count-grid .cash-chip {
+  align-self: end;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.cash-count-grid input {
+  width: 100%;
+  min-width: 0;
+  text-align: right;
+  border-color: var(--bag-line);
+}
+
+.cash-count-grid input.float {
+  background: var(--float-tint);
+  border-color: var(--float-line);
+}
+
+.cash-name {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.cash-op,
+.cash-none {
+  text-align: center;
+  color: var(--muted);
+}
+
+.cash-op {
+  font-weight: 700;
+}
+
+.cash-changed {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.cash-sum {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 数えたお金の合計の内訳（釣り銭準備金・売上バッグ） */
+.cash-sum-sub {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 12px;
+  margin-top: -6px;
+  padding-left: 1em;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-sum-sub span:nth-child(even) {
+  text-align: right;
+}
+
+.cash-calc-sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 /* 計算は紙の筆算のように並べる。「−」の列・名前の列・金額の列（右そろえ・桁そろえ）。引き算の下に線を引いて答え */
 .cash-calc {
-  margin-top: 12px;
   display: grid;
   grid-template-columns: 1.3em minmax(0, 1fr) auto;
   align-items: baseline;

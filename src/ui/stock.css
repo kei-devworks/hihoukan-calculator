@@ -135,10 +135,11 @@
   border-top: 2px solid var(--line);
 }
 
-.settle .cash-h {
+.settle-h {
   margin: 0;
-  padding: 0;
-  border: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .settle-log {

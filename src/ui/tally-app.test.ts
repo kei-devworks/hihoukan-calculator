@@ -561,76 +561,119 @@ describe('mountTallyApp', () => {
       input.value = value
       input.dispatchEvent(new Event('input'))
     }
-
-    it('ポケットの枚数と、釣り銭準備金の開店時・いまから「お金から出した売上」を出し、注文から出した売上を引いて差を出す', () => {
+    const value = (id: string) => document.querySelector<HTMLInputElement>(`#${id}`)!.value
+    const countStep = () => document.querySelector<HTMLElement>('.cash-step.cash-bag')!
+    const calcLabels = () => [...document.querySelectorAll('.cash-calc-op + *')].map((el) => el.textContent)
+    /** 開店時の釣り銭準備金: 1万円の束 2束・500円玉 10枚・100円玉 60枚（￥31,000） */
+    const fillOpening = () => {
+      fill('cash-floatStart-bundle', '2')
+      fill('cash-floatStart-500', '10')
+      fill('cash-floatStart-100', '60')
+    }
+    const sell3000 = () => {
       mount()
       button('2,000円を1つ増やす').click()
       button('ホタテを1つ増やす').click() // 3,000
       button('レジ精算').click()
-      expect(text('.cash-verdict')).toBe('売上のポケットの枚数を入れると、注文から出した売上と比べます。')
-      // 筆算: 名前の列は「−」を含まない。ポケットを数えるまで差は出さない
-      expect([...document.querySelectorAll('.cash-calc-op + *')].map((el) => el.textContent)).toEqual([
-        'ポケットの合計',
-        '使った釣り銭',
-        'お金から出した売上',
-        '注文から出した売上',
-        '差',
-      ])
-      expect([...document.querySelectorAll('.cash-calc-op')].map((el) => el.textContent)).toEqual(['', '−', '', '−', ''])
+    }
+
+    it('開店時の釣り銭準備金は、釣り銭準備金の袋（束）とコインケース（硬貨）に分けて入れる。① を選ぶまで ② と結果は出さない', () => {
+      sell3000()
+      expect([...document.querySelectorAll('.cash-float .cash-where')].map((el) => el.textContent)).toEqual(['釣り銭準備金の袋', 'コインケース'])
+      expect([...document.querySelectorAll('.cash-float label')].map((el) => el.textContent)).toEqual(['1万円の束', '500円玉', '100円玉'])
+      fillOpening()
+      expect(text('.cash-block-total')).toBe('￥31,000')
+      expect(countStep().hidden).toBe(true)
+      expect(document.querySelector<HTMLElement>('.cash-calc')!.closest<HTMLElement>('.cash-step')!.hidden).toBe(true)
+    })
+
+    it('使っていない: 売上バッグだけ数えて、注文から出した売上と比べる', () => {
+      sell3000()
+      fillOpening()
+      button('使っていない').click()
+      expect(countStep().hidden).toBe(false)
+      expect(text('.cash-bag .cash-rule')).toBe('釣り銭準備金の袋とコインケースのお金は数えない')
+      expect([...countStep().querySelectorAll('label')].map((el) => el.textContent)).toEqual(['10,000円札', '5,000円札', '1,000円札', '500円玉', '100円玉'])
+      expect(text('.cash-verdict[aria-live]')).toBe('売上バッグの枚数を入れると、注文から出した売上と比べます。')
       expect(text('.cash-diff')).toBe('—')
-      fill('cash-pocket-1000', '4')
-      fill('cash-floatStart-100', '30')
-      fill('cash-floatNow-100', '20') // 1,000 使った
-      expect(text('.cash-sales')).toBe('￥3,000')
+      fill('cash-bag-1000', '3')
+      expect(text('.cash-sum')).toBe('売上バッグの合計￥3,000')
+      expect(calcLabels()).toEqual(['お金から出した売上売上バッグの合計', '注文から出した売上', '差'])
       expect(text('.cash-diff')).toBe('￥0')
       expect(document.querySelector<HTMLElement>('.cash-diff')!.dataset.tone).toBe('ok')
-      expect(text('.cash-verdict')).toBe('ぴったり合っています。')
-      fill('cash-floatNow-100', '22') // 使ったのは 800 → お金から出した売上 3,200
+      expect(text('.cash-verdict[aria-live]')).toBe('ぴったり合っています。')
+      fill('cash-bag-100', '2')
       expect(text('.cash-diff')).toBe('＋￥200')
-      expect(text('.cash-verdict')).toBe('お金のほうが ￥200 多い。押し忘れがないか記録を見てください。')
-      // ポケット 3,600 − 使った 800 ＝ 2,800 で、3,000 より 200 少ない
-      fill('cash-pocket-1000', '3')
-      fill('cash-pocket-500', '1')
-      fill('cash-pocket-100', '1')
-      expect(text('.cash-diff')).toBe('−￥200')
-      expect(document.querySelector<HTMLElement>('.cash-diff')!.dataset.tone).toBe('warn')
-      expect(text('.cash-verdict')).toBe('お金のほうが ￥200 少ない。押しまちがいやお釣りのまちがいがないか確かめてください。')
+      expect(text('.cash-verdict[aria-live]')).toBe('お金のほうが ￥200 多い。押し忘れがないか記録を見てください。')
+    })
+
+    it('使った: 釣り銭準備金の欄は開店時の数から始まり、変わったところだけ直す（100円玉だけ直しても、500円玉は開店時のまま）', () => {
+      sell3000()
+      fillOpening()
+      button('使った').click()
+      expect(text('.cash-bag .cash-step-h')).toBe('2売上バッグと釣り銭準備金を数える')
+      expect([...document.querySelectorAll('.cash-bag .cash-rule')].map((el) => el.textContent)).toEqual([
+        '釣り銭準備金 は、開店時の数が入っています。釣り銭準備金の袋とコインケースを見て、変わったところだけ直す',
+        '売上バッグ は、釣り銭準備金の袋・コインケースに入っていないお金を数える',
+      ])
+      expect(['bundle', '500', '100'].map((key) => value(`cash-floatNow-${key}`))).toEqual(['2', '10', '60'])
+      // 欄の並び（キーボードの「↓」）は、釣り銭準備金の列 → 売上バッグの列
+      expect([...document.querySelectorAll('.cash-count-grid input')].map((el) => el.id)).toEqual([
+        'cash-floatNow-bundle',
+        'cash-floatNow-500',
+        'cash-floatNow-100',
+        'cash-bag-10000',
+        'cash-bag-5000',
+        'cash-bag-1000',
+        'cash-bag-500',
+        'cash-bag-100',
+      ])
+      fill('cash-floatNow-100', '55') // 100円玉を 5枚お釣りに使った
+      fill('cash-bag-1000', '3')
+      fill('cash-bag-500', '1')
+      expect(text('.cash-changed')).toBe('釣り銭準備金で直したところ: 100円玉 60→55枚')
+      expect(text('.cash-sum')).toBe('数えたお金の合計￥34,000')
+      expect(text('.cash-sum-sub')).toBe('釣り銭準備金￥30,500売上バッグ￥3,500')
+      expect(calcLabels()).toEqual(['数えたお金の合計', '開店時の釣り銭準備金', 'お金から出した売上', '注文から出した売上', '差'])
+      expect(text('.cash-sales')).toBe('￥3,000')
+      expect(text('.cash-diff')).toBe('￥0')
+    })
+
+    it('使ったのに開店時の釣り銭準備金がなければ知らせる', () => {
+      sell3000()
+      button('使った').click()
+      const missing = [...document.querySelectorAll<HTMLElement>('.cash-bag .cash-verdict.warn')].filter((el) => !el.hidden)
+      expect(missing.map((el) => el.textContent)).toEqual(['開店時の釣り銭準備金が入っていません。上の欄に入れてください。'])
     })
 
     it('差がどれかの単価と同じなら、その品目を添える（単価を共有する品目は単価の名前）', () => {
       mount()
       button('バニラを1つ増やす').click() // 800
       button('レジ精算').click()
-      fill('cash-pocket-1000', '1')
-      fill('cash-pocket-500', '1')
-      fill('cash-pocket-100', '1') // 1,600
-      expect(text('.cash-verdict')).toBe('お金のほうが ￥800 多い。押し忘れがないか記録を見てください（ソフト（共通） 1つ分と同じ額）。')
-    })
-
-    it('［使っていない］でいまの準備金を開店時と同じにし、数えていなければ知らせる', () => {
-      mount()
-      button('レジ精算').click()
-      fill('cash-pocket-1000', '1')
-      fill('cash-floatStart-500', '6')
-      expect(text('.cash-verdict.warn:not([aria-live])')).toContain('いまの釣り銭準備金を数えるか')
       button('使っていない').click()
-      expect(document.querySelector<HTMLInputElement>('#cash-floatNow-500')!.value).toBe('6')
-      expect(document.querySelectorAll('.cash-verdict.warn:not([hidden])')).toHaveLength(1)
+      fill('cash-bag-1000', '1')
+      fill('cash-bag-500', '1')
+      fill('cash-bag-100', '1') // 1,600
+      expect(text('.cash-verdict[aria-live]')).toBe('お金のほうが ￥800 多い。押し忘れがないか記録を見てください（ソフト（共通） 1つ分と同じ額）。')
     })
 
-    it('枚数は保存し、リセットではポケットといまの枚数を消して開店時の枚数を残す（レジ精算に枚数だけを消すボタンは置かない）', () => {
+    it('数は保存し、リセットでは開店時の釣り銭準備金だけ残す（レジ精算に数だけを消すボタンは置かない）', () => {
       const { storage } = mount()
       button('レジ精算').click()
       expect(document.querySelectorAll('.cash button.hold-button')).toHaveLength(0)
-      fill('cash-pocket-1000', '3')
       fill('cash-floatStart-100', '30')
+      button('使った').click()
       fill('cash-floatNow-100', '25')
+      fill('cash-bag-1000', '3')
       mount(storage)
-      expect(document.querySelector<HTMLInputElement>('#cash-pocket-1000')!.value).toBe('3')
+      expect(value('cash-bag-1000')).toBe('3')
+      expect(value('cash-floatNow-100')).toBe('25')
+      expect(button('使った').getAttribute('aria-checked')).toBe('true')
       holdPress('リセット')
-      expect(document.querySelector<HTMLInputElement>('#cash-pocket-1000')!.value).toBe('')
-      expect(document.querySelector<HTMLInputElement>('#cash-floatStart-100')!.value).toBe('30')
-      expect(document.querySelector<HTMLInputElement>('#cash-floatNow-100')!.value).toBe('')
+      expect(value('cash-bag-1000')).toBe('')
+      expect(value('cash-floatStart-100')).toBe('30')
+      expect(button('使った').getAttribute('aria-checked')).toBe('false')
+      expect(countStep().hidden).toBe(true)
     })
   })
 

@@ -174,9 +174,9 @@ describe('resetCounts', () => {
     expect(reset.priceOverrides).toEqual({ a: 1200 })
   })
 
-  it('レジ精算はポケットといまの枚数を消し、釣り銭準備金の開店時の枚数は残す', () => {
-    const state = { ...withCounts({ a: 1 }), cash: { pocket: { '1000': 3 }, floatStart: { '100': 30 }, floatNow: { '100': 28 } } }
-    expect(resetCounts(state).cash).toEqual({ pocket: {}, floatStart: { '100': 30 }, floatNow: {} })
+  it('レジ精算は売上バッグ・使ったか・いまの数を消し、開店時の釣り銭準備金は残す', () => {
+    const state = { ...withCounts({ a: 1 }), cash: { floatStart: { '100': 30 }, floatUsed: true, bag: { '1000': 3 }, floatNow: { '100': 28 } } }
+    expect(resetCounts(state).cash).toEqual({ floatStart: { '100': 30 }, floatUsed: null, bag: {}, floatNow: {} })
   })
 })
 
@@ -189,7 +189,7 @@ describe('parseState（保存されていた値を戻す）', () => {
     state = removeItem(state, 'a', at(11)).state // 前のオーダーから減らす（直した記録が残る）
     state = setPrice(config, state, 'soft', 900)
     state = { ...state, orders: state.orders.map((o) => (o.id === 1 ? { ...o, tenders: [1000, 500] } : o)) }
-    state = { ...state, cash: { pocket: { '1000': 3 }, floatStart: { '100': 30 }, floatNow: { '100': 28 } } }
+    state = { ...state, cash: { floatStart: { '100': 30 }, floatUsed: true, bag: { '1000': 3 }, floatNow: { '100': 28 } } }
     expect(parseState(config, JSON.parse(JSON.stringify(state)))).toEqual(state)
   })
 

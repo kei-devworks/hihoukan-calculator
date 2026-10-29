@@ -9,7 +9,7 @@ import { allItems, defaultPrice, type Catalog, type CatalogItem, type CatalogSec
 import { isCount, isDateString, isRecord } from './guards'
 import { earlierBusinessDay } from './time'
 
-/** 整数（お金から出した売上は、使った釣り銭がポケットより多いと負になる） */
+/** 整数（お金から出した売上は、数えたお金が開店時の釣り銭準備金より少ないと負になる） */
 const isInteger = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v)
 
 /** 品目・単価・見出しの設定。見出し（弓道・手裏剣など）ごとに売上を分けて出す */
@@ -36,7 +36,7 @@ export type SectionSettlement = {
   signature: string
   /** 在庫から出した売上（そのときの見出しの売上）。金額を残す前の記録は null */
   expected: number | null
-  /** お金から出した売上（ポケット − 使った釣り銭）。金額を残す前の記録は null */
+  /** お金から出した売上（core/cash.ts の settle）。金額を残す前の記録は null */
   counted: number | null
 }
 
@@ -93,7 +93,7 @@ export function setField(
   }
 }
 
-/** レジ精算の枚数を消す（ポケットといまの準備金）。開店時の準備金の枚数は残す。精算の記録も消す */
+/** レジ精算の数を消す（売上バッグ・使ったか・いまの釣り銭準備金）。開店時の釣り銭準備金は残す。精算の記録も消す */
 function clearAllCash(state: StockState): Pick<StockState, 'cash' | 'settled'> {
   return { cash: Object.fromEntries(Object.entries(state.cash).map(([id, c]) => [id, clearCashCount(c)])), settled: {} }
 }
@@ -133,8 +133,8 @@ export function setSectionCash(state: StockState, sectionId: string, count: Cash
 /** 見出しの数（在庫の欄とレジ精算の枚数）を1つの文字列にする。精算のあとで数が変わったかを見るのに使う */
 function sectionSignature(state: StockState, section: CatalogSection): string {
   const entries = section.items.map((item) => entryOf(state, item.id))
-  const { pocket, floatStart, floatNow } = sectionCashOf(state, section.id)
-  return JSON.stringify({ entries, pocket, floatStart, floatNow })
+  const { floatStart, floatUsed, bag, floatNow } = sectionCashOf(state, section.id)
+  return JSON.stringify({ entries, floatStart, floatUsed, bag, floatNow })
 }
 
 /**
@@ -148,7 +148,7 @@ export function settleSection(config: StockConfig, state: StockState, section: C
     at: now.toISOString(),
     signature: sectionSignature(state, section),
     expected: sectionResult(config, state, section).amount,
-    counted: settle(sectionCashOf(state, section.id)).sales,
+    counted: config.cash ? settle(sectionCashOf(state, section.id), config.cash).sales : null,
   }
   const list = state.settled[section.id] ?? []
   return { ...state, settled: { ...state.settled, [section.id]: [...list, record] }, updatedAt: now.toISOString() }

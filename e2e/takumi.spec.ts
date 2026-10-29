@@ -311,22 +311,34 @@ test('会計の画面は、品目が多いと品目の欄だけスクロール�
   await expect(sheet.getByRole('button', { name: '完了' })).toBeInViewport({ ratio: 1 })
 })
 
-test('レジ精算で、ポケットと釣り銭準備金の枚数からお金から出した売上を出し、注文から出した売上との差を出す', async ({ page }) => {
+test('レジ精算: 釣り銭準備金を使ったときは、開店時の数から変わったところだけ直し、売上バッグと合わせて注文から出した売上と比べる', async ({ page }) => {
   await open(page)
   await countSample(page) // ￥12,900
   await page.getByRole('tab', { name: 'レジ精算' }).click()
-  await page.getByLabel('売上のポケット 1万円札の枚数').fill('1')
-  await page.getByLabel('売上のポケット 千円札の枚数').fill('3')
-  await page.getByLabel('釣り銭準備金 100円玉 開店時の枚数').fill('30')
-  await page.getByLabel('釣り銭準備金 100円玉 いまの枚数').fill('29')
+  // 開店時の釣り銭準備金: 1万円の束 2束・500円玉 10枚・100円玉 60枚（￥31,000）
+  await page.getByLabel('開店時の釣り銭準備金 釣り銭準備金の袋の1万円の束の数').fill('2')
+  await page.getByLabel('開店時の釣り銭準備金 コインケースの500円玉の枚数').fill('10')
+  await page.getByLabel('開店時の釣り銭準備金 コインケースの100円玉の枚数').fill('60')
+  await expect(page.locator('.cash-block-total')).toHaveText('￥31,000')
+  await page.getByRole('radio', { name: '使った', exact: true }).click()
+  // 釣り銭準備金の欄は開店時の数から始まる。100円玉だけ直しても、500円玉は開店時のまま
+  await expect(page.getByLabel('いまの釣り銭準備金 コインケースの500円玉の枚数')).toHaveValue('10')
+  await page.getByLabel('いまの釣り銭準備金 コインケースの100円玉の枚数').fill('59')
+  await page.getByLabel('売上バッグ 10,000円札の枚数').fill('1')
+  await page.getByLabel('売上バッグ 1,000円札の枚数').fill('3')
+  await expect(page.locator('.cash-changed')).toHaveText('釣り銭準備金で直したところ: 100円玉 60→59枚')
+  await expect(page.locator('.cash-sum')).toHaveText('数えたお金の合計￥43,900')
   await expect(page.locator('.cash-sales')).toHaveText('￥12,900')
   await expect(page.locator('.cash-diff')).toHaveText('￥0')
   await expect(page.locator('.cash-verdict[aria-live]')).toHaveText('ぴったり合っています。')
+  // 2列の欄でも、スマホの幅で横にはみ出さない
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
 
   await page.reload()
   await page.getByRole('tab', { name: 'レジ精算' }).click()
-  await expect(page.getByLabel('売上のポケット 千円札の枚数')).toHaveValue('3')
-  await page.getByLabel('売上のポケット 千円札の枚数').fill('4')
+  await expect(page.getByLabel('売上バッグ 1,000円札の枚数')).toHaveValue('3')
+  await expect(page.getByLabel('いまの釣り銭準備金 コインケースの100円玉の枚数')).toHaveValue('59')
+  await page.getByLabel('売上バッグ 1,000円札の枚数').fill('4')
   await expect(page.locator('.cash-verdict[aria-live]')).toHaveText(
     'お金のほうが ￥1,000 多い。押し忘れがないか記録を見てください（1,000円・ホタテ 1つ分と同じ額）。',
   )

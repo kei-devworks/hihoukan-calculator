@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BUNDLE,
   clearCashCount,
   compareCash,
   countsAmount,
   denominations,
   emptyCashCount,
-  floatUnused,
+  floatKeys,
+  floatNowOf,
   parseCashCount,
   sameAmountNames,
   setCashCount,
+  setFloatUsed,
   settle,
   validateCash,
   type CashCount,
+  type CashField,
 } from './cash'
 
 describe('denominations', () => {
@@ -25,8 +29,9 @@ describe('validateCash', () => {
     expect(validateCash({ bills: [10000, 5000, 1000], coins: [500, 100] })).toEqual([])
   })
 
-  it('空・0 以下・小数・重複を見つける', () => {
+  it('空・0 以下・小数・重複・束の金額の誤りを見つける', () => {
     expect(validateCash({ bills: [], coins: [] })).toEqual(['cash に額面がありません'])
+    expect(validateCash({ bills: [1000], coins: [100], bundle: 0 })).toEqual(['束の金額「0」は 1 以上の整数にしてください'])
     expect(validateCash({ bills: [1000, 1000], coins: [0, 50.5] })).toEqual([
       '額面「0」は 1 以上の整数にしてください',
       '額面「50.5」は 1 以上の整数にしてください',
@@ -35,55 +40,99 @@ describe('validateCash', () => {
   })
 })
 
-const cash = { bills: [10000, 5000, 1000], coins: [500, 100] }
+const cash = { bills: [10000, 5000, 1000], coins: [500, 100], bundle: 10000 }
 
-/** 枚数をまとめて入れる（[欄, 額面, 枚数]） */
-function counted(...entries: [keyof CashCount, number, number][]): CashCount {
-  return entries.reduce((c, [field, d, n]) => setCashCount(c, field, d, n), emptyCashCount())
+/** 数をまとめて入れる（[欄, 額面か BUNDLE, 数]） */
+function counted(...entries: [CashField, number | string, number][]): CashCount {
+  return entries.reduce((c, [field, key, n]) => setCashCount(c, field, key, n), emptyCashCount())
 }
 
+/** 開店時の釣り銭準備金: 1万円の束 2束・500円玉 10枚・100円玉 60枚（￥31,000） */
+const opening: [CashField, number | string, number][] = [
+  ['floatStart', BUNDLE, 2],
+  ['floatStart', 500, 10],
+  ['floatStart', 100, 60],
+]
+/** 売上バッグ: 10,000円札 3枚・1,000円札 4枚・500円玉 1枚・100円玉 10枚（￥35,500） */
+const bag: [CashField, number | string, number][] = [
+  ['bag', 10000, 3],
+  ['bag', 1000, 4],
+  ['bag', 500, 1],
+  ['bag', 100, 10],
+]
+
 describe('枚数と金額', () => {
-  it('枚数から金額を出す。欄を空にすると額面を持たない', () => {
-    let c = counted(['pocket', 10000, 2], ['pocket', 500, 3])
-    expect(countsAmount(c.pocket)).toBe(21500)
-    c = setCashCount(c, 'pocket', 500, null)
-    expect(c.pocket).toEqual({ '10000': 2 })
-    expect(() => setCashCount(c, 'pocket', 500, -1)).toThrow()
-    expect(() => setCashCount(c, 'pocket', 500, 1.5)).toThrow()
+  it('枚数から金額を出す。束は束1つの金額で数える。欄を空にすると持たない', () => {
+    let c = counted(['bag', 10000, 2], ['bag', 500, 3], ['floatStart', BUNDLE, 2])
+    expect(countsAmount(c.bag)).toBe(21500)
+    expect(countsAmount(c.floatStart, cash)).toBe(20000)
+    c = setCashCount(c, 'bag', 500, null)
+    expect(c.bag).toEqual({ '10000': 2 })
+    expect(() => setCashCount(c, 'bag', 500, -1)).toThrow()
+    expect(() => setCashCount(c, 'bag', 500, 1.5)).toThrow()
   })
 
-  it('［使っていない］はいまの準備金を開店時と同じにし、リセットすると開店時の枚数だけ残す', () => {
-    const c = counted(['pocket', 1000, 3], ['floatStart', 100, 30], ['floatNow', 100, 20])
-    expect(floatUnused(c).floatNow).toEqual({ '100': 30 })
-    expect(clearCashCount(c)).toEqual({ pocket: {}, floatStart: { '100': 30 }, floatNow: {} })
+  it('釣り銭準備金の並びは束 → 硬貨の大きい順。束の設定がなければ硬貨だけ', () => {
+    expect(floatKeys(cash)).toEqual([BUNDLE, '500', '100'])
+    expect(floatKeys({ bills: [1000], coins: [100, 500] })).toEqual(['500', '100'])
+  })
+
+  it('いまの釣り銭準備金は、入れていない欄は開店時の数。リセットすると開店時だけ残す', () => {
+    const c = setFloatUsed(counted(...opening, ...bag, ['floatNow', 500, 8]), true)
+    expect(floatNowOf(c, '500')).toBe(8)
+    expect(floatNowOf(c, '100')).toBe(60)
+    expect(floatNowOf(c, BUNDLE)).toBe(2)
+    expect(clearCashCount(c)).toEqual({ ...emptyCashCount(), floatStart: { bundle: 2, '500': 10, '100': 60 } })
   })
 })
 
-describe('settle・compareCash（売上のお金と、数えた売上の比べ方）', () => {
-  it('売上のお金 = ポケット −（開店時の準備金 − いまの準備金）', () => {
-    const c = counted(
-      ['pocket', 10000, 2], ['pocket', 5000, 3], ['pocket', 1000, 10], ['pocket', 500, 2], ['pocket', 100, 11],
-      ['floatStart', 500, 6], ['floatStart', 100, 30], ['floatNow', 500, 6], ['floatNow', 100, 22],
-    )
-    expect(settle(c)).toEqual({
-      pocket: 47100, floatStart: 6000, floatNow: 5200, floatUsed: 800, sales: 46300, counted: true, floatProblem: null,
+describe('settle・compareCash（お金から出した売上と、数えた売上の比べ方）', () => {
+  it('使っていない: お金から出した売上 = 売上バッグ（釣り銭準備金は数えない）', () => {
+    const c = setFloatUsed(counted(...opening, ...bag), false)
+    expect(settle(c, cash)).toEqual({
+      floatUsed: false, floatStart: 31000, floatNow: 31000, bag: 35500, total: 35500, sales: 35500, counted: true, changed: [],
     })
-    expect(compareCash(settle(c), 45500)).toEqual({ kind: 'over', amount: 800 })
-    expect(compareCash(settle(c), 46300)).toEqual({ kind: 'match' })
-    expect(compareCash(settle(c), 47000)).toEqual({ kind: 'under', amount: 700 })
   })
 
-  it('ポケットを数えていなければ比べない', () => {
-    expect(compareCash(settle(emptyCashCount()), 1000)).toEqual({ kind: 'none' })
+  it('使った: お金から出した売上 =（釣り銭準備金のいま ＋ 売上バッグ）− 開店時の釣り銭準備金', () => {
+    const c = setFloatUsed(counted(...opening, ...bag, ['floatNow', 500, 8], ['floatNow', 100, 55]), true)
+    expect(settle(c, cash)).toEqual({
+      floatUsed: true,
+      floatStart: 31000,
+      floatNow: 29500,
+      bag: 35500,
+      total: 65000,
+      sales: 34000,
+      counted: true,
+      changed: [
+        { key: '500', from: 10, to: 8 },
+        { key: '100', from: 60, to: 55 },
+      ],
+    })
+    expect(compareCash(settle(c, cash), 33000)).toEqual({ kind: 'over', amount: 1000 })
+    expect(compareCash(settle(c, cash), 34000)).toEqual({ kind: 'match' })
+    expect(compareCash(settle(c, cash), 34500)).toEqual({ kind: 'under', amount: 500 })
   })
 
-  it('準備金: いまを数えていない・開店時がない・いまのほうが多いときは知らせ、使った分は 0 として計算する', () => {
-    expect(settle(counted(['pocket', 1000, 1], ['floatStart', 100, 30])).floatProblem).toBe('noNow')
-    expect(settle(counted(['pocket', 1000, 1], ['floatNow', 100, 3])).floatProblem).toBe('noStart')
-    const grew = settle(counted(['pocket', 1000, 1], ['floatStart', 100, 10], ['floatNow', 100, 12]))
-    expect(grew).toMatchObject({ floatProblem: 'grew', floatUsed: 0, sales: 1000 })
-    // 準備金を使わないお店（開店時もいまも入れない）は、知らせない
-    expect(settle(counted(['pocket', 1000, 1])).floatProblem).toBeNull()
+  it('使ったときに 100円玉だけ直しても、500円玉は開店時のまま（0枚あつかいにしない）', () => {
+    const c = setFloatUsed(counted(...opening, ...bag, ['floatNow', 100, 55]), true)
+    expect(settle(c, cash)).toMatchObject({ floatNow: 30500, sales: 35000, changed: [{ key: '100', from: 60, to: 55 }] })
+  })
+
+  it('使ったのに何も直さなければ、使っていないときと同じ売上になる（わからないときは［使った］でよい）', () => {
+    const base = counted(...opening, ...bag)
+    expect(settle(setFloatUsed(base, true), cash).sales).toBe(settle(setFloatUsed(base, false), cash).sales)
+  })
+
+  it('束を崩して売上バッグに入れても、売上は合う', () => {
+    // ￥35,500 売れたあと、￥3,000 の品に 10,000円札を受け取り、束を1つ崩して 1,000円札 7枚をお釣りに出した（残りの 3枚は売上バッグへ）
+    const c = setFloatUsed(counted(...opening, ...bag, ['bag', 10000, 4], ['bag', 1000, 7], ['floatNow', BUNDLE, 1]), true)
+    expect(settle(c, cash)).toMatchObject({ total: 69500, sales: 38500, changed: [{ key: BUNDLE, from: 2, to: 1 }] })
+  })
+
+  it('使ったかを選んでいない・売上バッグを数えていなければ比べない', () => {
+    expect(compareCash(settle(counted(...opening, ...bag), cash), 1000)).toEqual({ kind: 'none' })
+    expect(compareCash(settle(setFloatUsed(counted(...opening), true), cash), 1000)).toEqual({ kind: 'none' })
   })
 })
 
@@ -101,10 +150,29 @@ describe('sameAmountNames', () => {
 })
 
 describe('parseCashCount', () => {
-  it('設定にない額面・数でない枚数は捨てる。準備金は硬貨だけ', () => {
+  it('設定にない額面・数でない枚数は捨てる。釣り銭準備金は束と硬貨だけ', () => {
     expect(
-      parseCashCount({ pocket: { '1000': 3, '2000': 1, '500': -1 }, floatStart: { '100': 30, '1000': 2 }, floatNow: 'x' }, cash),
-    ).toEqual({ pocket: { '1000': 3 }, floatStart: { '100': 30 }, floatNow: {} })
+      parseCashCount(
+        {
+          floatStart: { bundle: 2, '100': 30, '1000': 2 },
+          floatUsed: true,
+          bag: { '1000': 3, '2000': 1, '500': -1 },
+          floatNow: 'x',
+        },
+        cash,
+      ),
+    ).toEqual({ floatStart: { bundle: 2, '100': 30 }, floatUsed: true, bag: { '1000': 3 }, floatNow: {} })
+    expect(parseCashCount({ floatStart: { bundle: 2 } }, { bills: [1000], coins: [100] }).floatStart).toEqual({})
     expect(parseCashCount(null, cash)).toEqual(emptyCashCount())
+  })
+
+  it('前の形（売上のポケットと硬貨の釣り銭準備金）は、ポケットを売上バッグとして読み、いまを数えていたら「使った」にする', () => {
+    expect(parseCashCount({ pocket: { '1000': 3 }, floatStart: { '100': 30 }, floatNow: { '100': 22 } }, cash)).toEqual({
+      floatStart: { '100': 30 },
+      floatUsed: true,
+      bag: { '1000': 3 },
+      floatNow: { '100': 22 },
+    })
+    expect(parseCashCount({ pocket: { '1000': 3 }, floatStart: { '100': 30 }, floatNow: {} }, cash)).toMatchObject({ floatUsed: null })
   })
 })

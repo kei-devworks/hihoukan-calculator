@@ -147,7 +147,7 @@ export function startedAtOf(state: TallyState): string | null {
   return opened.length === 0 ? null : opened.reduce((min, at) => (Date.parse(at) < Date.parse(min) ? at : min))
 }
 
-/** 記録をすべて消して 0 に戻す。レジ精算はポケットといまの枚数を消す。単価の変更と、釣り銭準備金の開店時の枚数は残す */
+/** 記録をすべて消して 0 に戻す。レジ精算は売上バッグ・使ったか・いまの数を消す。単価の変更と、開店時の釣り銭準備金は残す */
 export function resetCounts(state: TallyState): TallyState {
   return { ...state, orders: [], cash: clearCashCount(state.cash), updatedAt: null }
 }
@@ -232,7 +232,7 @@ export function parseState(config: TallyConfig, raw: unknown): TallyState {
   }
   // レジ精算の枚数は版 2 のあとから足した項目。なければ空にする
   if (config.cash) state.cash = parseCashCount(raw.cash, config.cash)
-  const counted = Object.keys(state.cash.pocket).length > 0 || Object.keys(state.cash.floatNow).length > 0
+  const counted = Object.keys(state.cash.bag).length > 0 || Object.keys(state.cash.floatNow).length > 0 || state.cash.floatUsed !== null
   if (state.orders.length > 0 || counted) state.updatedAt = isDateString(raw.updatedAt) ? raw.updatedAt : null
   return state
 }
