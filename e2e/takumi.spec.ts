@@ -279,7 +279,7 @@ test('会計で、受け取ったお札・硬貨を押すとお釣りが出て�
   await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜1点￥1,000')
 })
 
-test('会計の画面は、7品・5ジャンルの注文でもスクロールなしで1画面に収まる', async ({ page }) => {
+test('会計の画面は全画面で、7品・5ジャンルの注文でもスクロールなしで収まる', async ({ page }) => {
   await open(page)
   await tap(page, '1,000円を1つ増やす', 3)
   await tap(page, '2,000円を1つ増やす')
@@ -290,6 +290,10 @@ test('会計の画面は、7品・5ジャンルの注文でもスクロールな
   await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: /^会計/ }).click()
   const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
   await expect(sheet.locator('.checkout-total')).toHaveText('¥14,100')
+  // お客様に見せるので全画面（後ろの注文の画面は見せない）
+  const box = (await sheet.boundingBox())!
+  const view = page.viewportSize()!
+  expect([box.x, box.y, box.width, box.height].map(Math.round)).toEqual([0, 0, view.width, view.height])
   await sheet.getByRole('button', { name: '10,000円を預かりに足す' }).click()
   await sheet.getByRole('button', { name: '5,000円を預かりに足す' }).click()
   await expect(sheet.locator('.checkout-change')).toHaveText('Change お釣り¥900')

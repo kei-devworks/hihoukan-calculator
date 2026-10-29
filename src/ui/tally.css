@@ -959,20 +959,21 @@ button.ghost.handover-back {
 }
 
 /*
- * 会計の画面（ui/checkout-sheet.ts）。編集の画面と同じく下から出す。
+ * 会計の画面（ui/checkout-sheet.ts）。お客様に見せるので全画面で出す（後ろの注文の画面は見せない）。
+ * 広い画面では、中身を 560px の幅で真ん中に置く。
  * iPhone の Safari（見える高さ 659px）でも1画面に収まるよう、品目が多いときは品目の欄だけ縮めてスクロールする
  */
 dialog.checkout {
+  inset: 0;
   width: 100%;
-  max-width: 560px;
-  max-height: 92vh;
-  max-height: 92dvh;
-  margin: auto auto 0;
-  border: 1px solid var(--line);
-  border-bottom: 0;
-  border-radius: 18px 18px 0 0;
-  padding: 12px max(14px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px))
-    max(14px, env(safe-area-inset-left, 0px));
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px), calc((100% - 560px) / 2))
+    max(14px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px), calc((100% - 560px) / 2));
   background: var(--surface);
   color: var(--fg);
   overflow-y: auto;
@@ -1052,7 +1053,7 @@ dialog.checkout[open] {
 }
 
 .receipt-genre {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   min-width: 0;
 }
@@ -1062,7 +1063,7 @@ dialog.checkout[open] {
 }
 
 .receipt-genre:not(:first-child) {
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 /* 日本語名は途中で折り返さず、入らなければまとめて次の行へ */
@@ -1073,19 +1074,19 @@ dialog.checkout[open] {
 }
 
 .receipt-item {
-  font-size: 15px;
+  font-size: 16px;
   padding-left: 14px;
   min-width: 0;
 }
 
 .receipt-count {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--muted);
   text-align: right;
 }
 
 .receipt-amount {
-  font-size: 16px;
+  font-size: 17px;
   text-align: right;
 }
 
@@ -1103,7 +1104,7 @@ dialog.checkout[open] {
 }
 
 .receipt-label {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -1113,7 +1114,7 @@ dialog.checkout[open] {
 }
 
 .receipt-line b {
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1123,18 +1124,18 @@ dialog.checkout[open] {
 }
 
 .receipt-total .receipt-label {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .receipt-total b {
-  font-size: 30px;
+  font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 .checkout-change b {
-  font-size: 24px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--accent);
 }
@@ -1145,19 +1146,23 @@ dialog.checkout[open] {
 
 .checkout-receipt .receipt-thanks {
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   margin-top: 5px;
   padding-top: 5px;
   border-top: 1px dashed var(--muted);
 }
 
-/* お札・硬貨と［1つ戻す］［0に戻す］を4列2段に（係の人の操作） */
+/*
+ * お札・硬貨と［1つ戻す］［0に戻す］を4列2段に（係の人の操作）。
+ * 画面の下に寄せ、空きはお客様に見せる囲みとのあいだに回す（囲みは品目のすぐ下に金額を詰める）
+ */
 .tenders {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   flex: none;
+  margin-top: auto;
 }
 
 .tender {
