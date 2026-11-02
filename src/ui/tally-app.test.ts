@@ -464,7 +464,9 @@ describe('mountTallyApp', () => {
     }
 
     const shown = (selector: string) => !sheet()!.querySelector<HTMLElement>(selector)!.hidden
-    const receiptRows = () => [...sheet()!.querySelectorAll('.receipt-items > *')].map((el) => el.textContent)
+    /** ジャンル名と、各行の名前・×数・金額（罫線は除く） */
+    const receiptRows = () =>
+      [...sheet()!.querySelectorAll('.receipt-genre, .receipt-item, .receipt-count, .receipt-amount')].map((el) => el.textContent)
 
     it('お客様に見せるレシート: 品目をジャンルにまとめ、英語を先に出す。押した額面を預かりに足してお釣りを出す', () => {
       order2500()
@@ -513,6 +515,8 @@ describe('mountTallyApp', () => {
       button('抹茶を1つ増やす').click()
       button('会計￥2,800').click()
       expect(receiptRows()).toEqual(['Scallop ホタテ', '×2', '¥2,000', '抹茶', '×1', '¥800'])
+      // 1行ずつ .receipt-row にまとめ（行ごとの罫線）、×数は枠付きの太字
+      expect([...sheet()!.querySelectorAll('.receipt-row')].map((row) => row.querySelector('.receipt-count b')?.textContent)).toEqual(['×2', '×1'])
     })
 
     it('［1つ戻す］［0に戻す］で押しまちがいを直せる。ちょうどなら「No change」', () => {

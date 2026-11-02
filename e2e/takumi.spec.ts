@@ -262,7 +262,15 @@ test('会計で、受け取ったお札・硬貨を押すとお釣りが出る�
   await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: '会計' }).click()
   const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
   // お客様に見せるレシート: ジャンルにまとめ、英語を先に出す
-  await expect(sheet.locator('.receipt-items > *')).toHaveText(['Wagyu A5 A5和牛', '¥1,000', '×2', '¥2,000', 'Beer ビール', '×1', '¥500'])
+  await expect(sheet.locator('.receipt-genre, .receipt-item, .receipt-count, .receipt-amount')).toHaveText([
+    'Wagyu A5 A5和牛',
+    '¥1,000',
+    '×2',
+    '¥2,000',
+    'Beer ビール',
+    '×1',
+    '¥500',
+  ])
   await expect(sheet.locator('.checkout-total')).toHaveText('¥2,500')
   await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
   await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
@@ -307,6 +315,24 @@ test('会計の画面は全画面で、7品・5ジャンルの注文でもスク
   expect(await overflow('dialog.checkout .receipt-items')).toBeLessThanOrEqual(1)
   expect(await overflow('dialog.checkout')).toBeLessThanOrEqual(1)
   await expect(sheet.getByRole('button', { name: '完了' })).toBeInViewport({ ratio: 1 })
+
+  // ×数は縦にそろい、いちばん長い名前のすぐ右に並ぶ（右端の金額に寄せない）
+  const counts = await sheet.locator('.receipt-count b').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().left))
+  expect(counts).toHaveLength(6)
+  expect(new Set(counts.map(Math.round)).size).toBe(1)
+  const nameRight = await sheet.locator('.receipt-row > :first-child').evaluateAll((els) =>
+    Math.max(
+      ...els.map((el) => {
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        return range.getBoundingClientRect().right
+      }),
+    ),
+  )
+  expect(counts[0]! - nameRight).toBeGreaterThanOrEqual(4)
+  expect(counts[0]! - nameRight).toBeLessThanOrEqual(16)
+  // 罫線は行のあいだだけ（6行なら5本）。いちばん下の行の下は点線
+  await expect(sheet.locator('.receipt-rule:visible')).toHaveCount(5)
 })
 
 test('会計の画面は、品目が多いと品目の欄だけスクロールし、合計とボタンは見えたまま', async ({ page }) => {
