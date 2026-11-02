@@ -161,7 +161,7 @@ export function orderPanel(config: TallyConfig, actions: OrderPanelActions): Ord
     if (open && onCount) {
       const payment = describePayment(config, state, open)
       openPaid.hidden = payment === null
-      openPaid.textContent = payment && payment.includes('お釣り') ? `${payment}。次の ＋ で次のお客さんになります` : (payment ?? '')
+      openPaid.textContent = payment ?? ''
     }
 
     // 押した品目の行が、パネルの中のスクロールで隠れていたら見えるところまで動かす（ページは動かさない）

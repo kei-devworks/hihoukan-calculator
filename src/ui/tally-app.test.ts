@@ -533,16 +533,40 @@ describe('mountTallyApp', () => {
       expect(text('.checkout-breakdown')).toBe('受け取ったお札・硬貨を押す')
     })
 
-    it('預かりはオーダーに残り、パネルにお釣りを出す。会計のあとの ＋ は次のお客さんになる', () => {
+    it('［戻る］で戻ると、預かりはオーダーに残り、注文の直しの ＋ は同じオーダーに足す', () => {
       order2500()
       inSheet('5,000円を預かりに足す').click()
       inSheet('戻る').click()
       expect(sheet()).toBeNull()
-      expect(text('.order-panel .order-paid')).toBe('預かり ￥5,000 → お釣り ￥2,200。次の ＋ で次のお客さんになります')
+      expect(text('.order-panel .order-paid')).toBe('預かり ￥5,000 → お釣り ￥2,200')
       button('ホタテを1つ増やす').click()
-      expect(text('.order-panel .order-sum')).toBe('今のオーダー 20:40〜1点￥1,000')
+      expect(text('.order-panel .order-sum')).toBe('今のオーダー 20:40〜3点￥3,800')
+      expect(text('.order-panel .order-paid')).toBe('預かり ￥5,000 → お釣り ￥1,200')
+      button('会計￥3,800').click()
+      expect(text('.checkout-change')).toBe('Change お釣り¥1,200')
+      inSheet('完了').click()
       button('記録').click()
-      expect(text('.log-order[data-order="1"] .log-meta')).toBe('2点預かり ￥5,000 → お釣り ￥2,200')
+      expect(text('.log-order[data-order="1"] .log-meta')).toBe('3点預かり ￥5,000 → お釣り ￥1,200')
+      expect(document.querySelector('.log-order[data-order="2"]')).toBeNull()
+    })
+
+    it('会計の画面に3分より長くいても、［戻る］のあとは同じオーダー。3分は戻ったときから数える', () => {
+      order2500()
+      clock = new Date('2026-10-15T20:44:00+09:00')
+      inSheet('戻る').click()
+      expect(text('.order-panel .order-sum')).toBe('今のオーダー 20:40〜2点￥2,800')
+      clock = new Date('2026-10-15T20:46:30+09:00')
+      button('ホタテを1つ増やす').click()
+      expect(text('.order-panel .order-sum')).toBe('今のオーダー 20:40〜3点￥3,800')
+    })
+
+    it('端末の戻る操作（Esc）で閉じたときも［戻る］と同じ', () => {
+      order2500()
+      clock = new Date('2026-10-15T20:44:00+09:00')
+      sheet()!.dispatchEvent(new Event('cancel', { cancelable: true }))
+      expect(sheet()).toBeNull()
+      button('ホタテを1つ増やす').click()
+      expect(text('.order-panel .order-sum')).toBe('今のオーダー 20:40〜3点￥3,800')
     })
 
     it('［完了］でオーダーを閉じる', () => {

@@ -255,7 +255,7 @@ test('記録の画面に、オーダーの数・1時間ごとの推移・オー�
   await expect(total(page)).toHaveText('￥2,000-')
 })
 
-test('会計で、受け取ったお札・硬貨を押すとお釣りが出て、次の ＋ は次のお客さんになる', async ({ page }) => {
+test('会計で、受け取ったお札・硬貨を押すとお釣りが出る。［戻る］で戻って直した分は同じオーダーに入る', async ({ page }) => {
   await open(page)
   await tap(page, '1,000円を1つ増やす', 2)
   await tap(page, 'ビールを1つ増やす')
@@ -272,11 +272,17 @@ test('会計で、受け取ったお札・硬貨を押すとお釣りが出て�
   await expect(sheet.locator('.checkout-change')).toHaveText('Change お釣り¥500')
   await expect(sheet.getByText('Thank you!')).toBeVisible()
 
+  // 会計の画面に3分より長くいても、［戻る］のあとは同じオーダー
+  await page.clock.setFixedTime(new Date('2026-10-15T20:54:00+09:00'))
+  await sheet.getByRole('button', { name: '戻る' }).click()
   await page.reload() // 預かりは保存される
   const panel = page.getByRole('region', { name: '今のオーダー' })
-  await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000 → お釣り ￥500。次の ＋ で次のお客さんになります')
+  await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000 → お釣り ￥500')
   await tap(page, 'ホタテを1つ増やす')
-  await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜1点￥1,000')
+  await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜4点￥3,500')
+  await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000（あと ￥500）')
+  await panel.getByRole('button', { name: /^会計/ }).click()
+  await expect(sheet.locator('.checkout-change')).toHaveText('Amount due あと¥500')
 })
 
 test('会計の画面は全画面で、7品・5ジャンルの注文でもスクロールなしで収まる', async ({ page }) => {

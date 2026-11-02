@@ -3,10 +3,10 @@ import { formatNumber, formatPrice, formatYen } from '../core/format'
 import type { SaveResult } from '../core/json-store'
 import { buildSalesReport } from '../core/report'
 import { openLocalStorage, type KeyValueStorage } from '../core/storage'
-import { addItemForCustomer } from '../core/checkout'
 import { applyHandover, inputFromCode, planHandover, withNewItems, type HandoverInput, type HandoverMode } from '../core/handover'
 import { decodeHandoverCode, HANDOVER_PARAM } from '../core/handover-code'
 import {
+  addItem,
   addTender,
   cancelOrder,
   closeOrder,
@@ -17,6 +17,7 @@ import {
   removeItem,
   removeTender,
   restoreOrder,
+  resumeOrder,
   revertEdit,
   type Order,
 } from '../core/orders'
@@ -118,8 +119,7 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
   let cardsKey = ''
   const addOne = (itemId: string) => {
     orders.touch(itemId)
-    // 会計が済んだオーダーのあとに押した分は、次のお客さんのオーダーになる
-    change(addItemForCustomer(config, store.current, itemId, now()))
+    change(addItem(store.current, itemId, now()))
   }
   const removeOne = (itemId: string) => {
     const item = rows.find((row) => row.item.id === itemId)?.item
@@ -263,6 +263,8 @@ export function mountTallyApp(root: HTMLElement, config: TallyConfig, options: M
         addTender: (orderId, d) => change(addTender(store.current, orderId, d, now())),
         removeTender: (orderId, all) => change(removeTender(store.current, orderId, now(), all)),
         complete: (orderId) => change(closeOrder(store.current, orderId, now())),
+        // 会計のあとで注文が変わったとき、＋/− が同じオーダーに入るように（預かりは残す）
+        back: (orderId) => change(resumeOrder(store.current, orderId, now())),
       }),
     showCount: () => tabs.select('count'),
   })

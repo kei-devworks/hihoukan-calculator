@@ -12,6 +12,8 @@ export type CheckoutActions = {
   removeTender: (orderId: number, all: boolean) => void
   /** ［完了］: オーダーを閉じる */
   complete: (orderId: number) => void
+  /** ［戻る］（端末の戻る操作で閉じたときも）: オーダーは閉じず、注文の直しを同じオーダーに足せるようにする */
+  back: (orderId: number) => void
 }
 
 /** 「預かり ￥5,000 → お釣り ￥2,000」「預かり ￥1,000（あと ￥1,500）」。預かっていなければ null */
@@ -99,10 +101,19 @@ export function openCheckout(
     if (typeof dialog.close === 'function' && dialog.open) dialog.close()
     dialog.remove()
   }
-  backButton.addEventListener('click', close)
+  const back = () => {
+    close()
+    actions.back(orderId)
+  }
+  backButton.addEventListener('click', back)
   completeButton.addEventListener('click', () => {
     close()
     actions.complete(orderId)
+  })
+  // Android の戻る操作や Esc で閉じたときも［戻る］と同じにする
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault()
+    back()
   })
   dialog.addEventListener('close', () => dialog.remove())
 

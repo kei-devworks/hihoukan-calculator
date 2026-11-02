@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addItem,
+  addTender,
   cancelOrder,
   closeOrder,
   editOrder,
@@ -13,6 +14,7 @@ import {
   previousOrder,
   removeItem,
   restoreOrder,
+  resumeOrder,
   revertEdit,
 } from './orders'
 import { countsOf, initialState, type TallyState } from './tally'
@@ -185,6 +187,36 @@ describe('cancelOrder・restoreOrder（取り消しと元に戻す）', () => {
     expect(cancelOrder(cancelled, 1, at(2))).toBe(cancelled)
     const live = press(initialState(), ['a', 0])
     expect(restoreOrder(live, 1, at(1))).toBe(live)
+  })
+})
+
+describe('resumeOrder（会計から［戻る］）', () => {
+  it('預かりがあっても、戻ったあとの ＋ は同じオーダーに足す', () => {
+    let state = press(initialState(), ['a', 0], ['b', 0.5])
+    state = addTender(state, 1, 5000, at(1)) // 足りている
+    state = resumeOrder(state, 1, at(1.5))
+    state = press(state, ['hotate', 2])
+    expect(state.orders).toHaveLength(1)
+    expect(state.orders[0]).toMatchObject({ lines: { a: 1, b: 1, hotate: 1 }, tenders: [5000] })
+  })
+
+  it('3分は戻ったときから数え直す（会計の画面にいたあいだに3分たっていても、同じオーダーに戻す）', () => {
+    let state = press(initialState(), ['a', 0])
+    expect(openOrder(state, at(4))).toBeNull()
+    state = resumeOrder(state, 1, at(4))
+    expect(state.orders[0]!.lastAt).toBe(at(4).toISOString())
+    expect(openOrder(state, at(6.9))?.id).toBe(1)
+    expect(openOrder(state, at(7))).toBeNull()
+    expect(press(state, ['b', 5]).orders).toHaveLength(1)
+  })
+
+  it('［完了］で閉じた・取り消した・あとにほかのオーダーがあるときは何もしない', () => {
+    const closed = closeOrder(press(initialState(), ['a', 0]), 1, at(1))
+    expect(resumeOrder(closed, 1, at(2))).toBe(closed)
+    const cancelled = cancelOrder(press(initialState(), ['a', 0]), 1, at(1))
+    expect(resumeOrder(cancelled, 1, at(2))).toBe(cancelled)
+    const newer = press(initialState(), ['a', 0], ['b', 5])
+    expect(resumeOrder(newer, 1, at(6))).toBe(newer)
   })
 })
 
