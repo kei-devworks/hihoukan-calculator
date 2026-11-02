@@ -972,7 +972,7 @@ dialog.checkout {
   margin: 0;
   border: 0;
   border-radius: 0;
-  padding: max(12px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px), calc((100% - 560px) / 2))
+  padding: max(10px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px), calc((100% - 560px) / 2))
     max(14px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px), calc((100% - 560px) / 2));
   background: var(--surface);
   color: var(--fg);
@@ -986,7 +986,7 @@ dialog.checkout::backdrop {
 dialog.checkout[open] {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /*
@@ -997,7 +997,7 @@ dialog.checkout[open] {
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI', Roboto, Arial, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   background: var(--bg);
   border-radius: 14px;
-  padding: 8px 14px;
+  padding: 6px 14px;
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;
@@ -1027,24 +1027,55 @@ dialog.checkout[open] {
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding-bottom: 5px;
+  padding-bottom: 4px;
   border-bottom: 1px solid var(--line);
   flex: none;
 }
 
-/* 品目は「名前 ×数 金額」の3列。ジャンル名（太字）の下に品目を字下げする */
+/*
+ * 品目は「名前 ×数 … 金額」。×数の列は、いちばん長い名前のすぐ右に縦にそろえる（右端に寄せると名前と離れて
+ * どれが何個か見にくい）。とても長い名前は折り返す。ジャンル名（太字）の下に品目を字下げし、行ごとに罫線を引く
+ */
 .receipt-items {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  column-gap: 14px;
-  row-gap: 3px;
+  grid-template-columns: fit-content(60%) auto minmax(0, 1fr) auto;
+  column-gap: 10px;
   align-items: baseline;
   align-content: start;
-  padding: 6px 0;
+  padding: 2px 0;
   border-bottom: 1px dashed var(--muted);
   overflow-y: auto;
   flex: 0 1 auto;
   min-height: 72px;
+}
+
+/* 1行（名前・×数・金額と、下の罫線）。中身を .receipt-items の列に並べる。3列めは空けて、金額を右端に */
+.receipt-row {
+  display: contents;
+}
+
+.receipt-row > * {
+  padding: 5px 0;
+}
+
+.receipt-row.single > * {
+  padding-top: 6px;
+}
+
+.receipt-row > .receipt-amount {
+  grid-column: 4;
+}
+
+/* 罫線は行の幅いっぱいに。いちばん下の行は、すぐ下に点線があるので引かない */
+.receipt-row > .receipt-rule {
+  grid-column: 1 / -1;
+  padding: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.receipt-row:last-child > .receipt-rule {
+  display: none;
 }
 
 .receipt-items.more {
@@ -1060,10 +1091,8 @@ dialog.checkout[open] {
 
 .receipt-genre.full {
   grid-column: 1 / -1;
-}
-
-.receipt-genre:not(:first-child) {
-  margin-top: 4px;
+  font-size: 16px;
+  padding-top: 6px;
 }
 
 /* 日本語名は途中で折り返さず、入らなければまとめて次の行へ */
@@ -1073,21 +1102,26 @@ dialog.checkout[open] {
   white-space: nowrap;
 }
 
-.receipt-item {
-  font-size: 16px;
+.receipt-row > .receipt-item {
+  font-size: 17px;
   padding-left: 14px;
   min-width: 0;
 }
 
-.receipt-count {
-  font-size: 16px;
-  color: var(--muted);
-  text-align: right;
+/* ×数は太字で、薄い色の枠に入れる */
+.receipt-count b {
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .receipt-amount {
   font-size: 17px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .receipt-sums {
@@ -1120,7 +1154,7 @@ dialog.checkout[open] {
 }
 
 .receipt-total {
-  padding-top: 5px;
+  padding-top: 4px;
 }
 
 .receipt-total .receipt-label {
@@ -1148,8 +1182,8 @@ dialog.checkout[open] {
   text-align: center;
   font-size: 15px;
   font-weight: 600;
-  margin-top: 5px;
-  padding-top: 5px;
+  margin-top: 4px;
+  padding-top: 4px;
   border-top: 1px dashed var(--muted);
 }
 
@@ -1169,7 +1203,7 @@ dialog.checkout[open] {
   font: inherit;
   font-size: 16px;
   font-weight: 700;
-  min-height: 46px;
+  min-height: 44px;
   padding: 0;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -1188,7 +1222,7 @@ dialog.checkout[open] {
 }
 
 .tenders button.tender-fix {
-  min-height: 46px;
+  min-height: 44px;
   padding: 0 4px;
   font-size: 13px;
   border-radius: 10px;

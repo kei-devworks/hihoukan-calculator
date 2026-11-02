@@ -12,6 +12,8 @@ export type CheckoutActions = {
   removeTender: (orderId: number, all: boolean) => void
   /** ［完了］: オーダーを閉じる */
   complete: (orderId: number) => void
+  /** ［戻る］（端末の戻る操作で閉じたときも）: オーダーは閉じず、注文の直しを同じオーダーに足せるようにする */
+  back: (orderId: number) => void
 }
 
 /** 「預かり ￥5,000 → お釣り ￥2,000」「預かり ￥1,000（あと ￥1,500）」。預かっていなければ null */
@@ -99,10 +101,19 @@ export function openCheckout(
     if (typeof dialog.close === 'function' && dialog.open) dialog.close()
     dialog.remove()
   }
-  backButton.addEventListener('click', close)
+  const back = () => {
+    close()
+    actions.back(orderId)
+  }
+  backButton.addEventListener('click', back)
   completeButton.addEventListener('click', () => {
     close()
     actions.complete(orderId)
+  })
+  // Android の戻る操作や Esc で閉じたときも［戻る］と同じにする
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault()
+    back()
   })
   dialog.addEventListener('close', () => dialog.remove())
 
@@ -146,18 +157,22 @@ function describeTendersEn(tenders: readonly number[]): string {
 }
 
 /**
- * レシートのジャンル1つ分の行（「名前 ×数 金額」の3列）。1品だけのジャンルはジャンル名の行に数と金額、
- * そうでなければジャンル名の下に品目を字下げして並べる
+ * レシートのジャンル1つ分の行（「名前 ×数 … 金額」）。×数は名前のすぐ右に、薄い色の枠で縦にそろえる
+ * （列はいちばん長い名前に合わせる）。1品だけのジャンルはジャンル名の行に数と金額、
+ * そうでなければジャンル名の下に品目を字下げして並べる。1行は .receipt-row にまとめ、行の下に罫線（.receipt-rule）を引く
  */
 function receiptRows(group: ReceiptGroup): HTMLElement[] {
   const name = (cls: string, en: string, ja: string | null) => h('span', { class: cls }, ja ? [`${en} `, h('small', { text: ja })] : [en])
-  const amounts = (line: ReceiptLine) => [
-    h('span', { class: 'receipt-count', text: `×${line.count}` }),
-    h('span', { class: 'receipt-amount', text: formatPriceEn(line.amount) }),
-  ]
-  if (group.single) return [name('receipt-genre', group.en, group.ja), ...amounts(group.lines[0]!)]
+  const row = (cls: string, label: HTMLElement, line: ReceiptLine) =>
+    h('div', { class: cls }, [
+      label,
+      h('span', { class: 'receipt-count' }, [h('b', { text: `×${line.count}` })]),
+      h('span', { class: 'receipt-amount', text: formatPriceEn(line.amount) }),
+      h('span', { class: 'receipt-rule' }),
+    ])
+  if (group.single) return [row('receipt-row single', name('receipt-genre', group.en, group.ja), group.lines[0]!)]
   return [
     name('receipt-genre full', group.en, group.ja),
-    ...group.lines.flatMap((line) => [name('receipt-item', line.en, line.ja), ...amounts(line)]),
+    ...group.lines.map((line) => row('receipt-row', name('receipt-item', line.en, line.ja), line)),
   ]
 }

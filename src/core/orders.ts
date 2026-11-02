@@ -18,7 +18,7 @@ export type Order = {
   kind: 'order' | 'handover'
   /** 始めた時刻（ISO 8601）。1時間ごとの推移はこの時刻で分ける */
   openedAt: string
-  /** 最後に足した時刻。ここから ORDER_IDLE_MS たつと、今のオーダーではなくなる */
+  /** 最後に足した（会計から戻った）時刻。ここから ORDER_IDLE_MS たつと、今のオーダーではなくなる */
   lastAt: string
   /** ［完了］などで閉じた時刻。null でも、時間がたてば閉じた扱い（isOpen） */
   closedAt: string | null
@@ -146,6 +146,18 @@ export function removeItem(state: TallyState, itemId: string, now: Date): Remove
     return { state: replaceOrder(state, changed, at), from: order, fromOpen: false }
   }
   return { state, from: null, fromOpen: false }
+}
+
+/**
+ * 会計から［戻る］で戻ったとき: そのオーダーを今のオーダーにする（注文の直しを同じオーダーに足せるように）。
+ * 預かりがあってもそのまま。3分は戻ったときから数え直す（会計の画面にいたあいだに3分たっていても戻す）。
+ * ［完了］で閉じた・取り消した・あとにほかのオーダーがあるときは何もしない
+ */
+export function resumeOrder(state: TallyState, id: number, now: Date): TallyState {
+  const order = state.orders.at(-1)
+  if (!order || order.id !== id || order.kind !== 'order' || order.closedAt !== null || order.cancelledAt !== null) return state
+  const at = now.toISOString()
+  return replaceOrder(state, { ...order, lastAt: at }, at)
 }
 
 /** ［完了］: 今のオーダーを閉じる */

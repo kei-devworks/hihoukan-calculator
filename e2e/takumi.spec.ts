@@ -255,14 +255,22 @@ test('記録の画面に、オーダーの数・1時間ごとの推移・オー�
   await expect(total(page)).toHaveText('￥2,000-')
 })
 
-test('会計で、受け取ったお札・硬貨を押すとお釣りが出て、次の ＋ は次のお客さんになる', async ({ page }) => {
+test('会計で、受け取ったお札・硬貨を押すとお釣りが出る。［戻る］で戻って直した分は同じオーダーに入る', async ({ page }) => {
   await open(page)
   await tap(page, '1,000円を1つ増やす', 2)
   await tap(page, 'ビールを1つ増やす')
   await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: '会計' }).click()
   const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
   // お客様に見せるレシート: ジャンルにまとめ、英語を先に出す
-  await expect(sheet.locator('.receipt-items > *')).toHaveText(['Wagyu A5 A5和牛', '¥1,000', '×2', '¥2,000', 'Beer ビール', '×1', '¥500'])
+  await expect(sheet.locator('.receipt-genre, .receipt-item, .receipt-count, .receipt-amount')).toHaveText([
+    'Wagyu A5 A5和牛',
+    '¥1,000',
+    '×2',
+    '¥2,000',
+    'Beer ビール',
+    '×1',
+    '¥500',
+  ])
   await expect(sheet.locator('.checkout-total')).toHaveText('¥2,500')
   await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
   await sheet.getByRole('button', { name: '1,000円を預かりに足す' }).click()
@@ -272,11 +280,17 @@ test('会計で、受け取ったお札・硬貨を押すとお釣りが出て�
   await expect(sheet.locator('.checkout-change')).toHaveText('Change お釣り¥500')
   await expect(sheet.getByText('Thank you!')).toBeVisible()
 
+  // 会計の画面に3分より長くいても、［戻る］のあとは同じオーダー
+  await page.clock.setFixedTime(new Date('2026-10-15T20:54:00+09:00'))
+  await sheet.getByRole('button', { name: '戻る' }).click()
   await page.reload() // 預かりは保存される
   const panel = page.getByRole('region', { name: '今のオーダー' })
-  await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000 → お釣り ￥500。次の ＋ で次のお客さんになります')
+  await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000 → お釣り ￥500')
   await tap(page, 'ホタテを1つ増やす')
-  await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜1点￥1,000')
+  await expect(panel.locator('.order-sum')).toHaveText('今のオーダー 20:50〜4点￥3,500')
+  await expect(panel.locator('.order-paid')).toHaveText('預かり ￥3,000（あと ￥500）')
+  await panel.getByRole('button', { name: /^会計/ }).click()
+  await expect(sheet.locator('.checkout-change')).toHaveText('Amount due あと¥500')
 })
 
 test('会計の画面は全画面で、7品・5ジャンルの注文でもスクロールなしで収まる', async ({ page }) => {
@@ -301,6 +315,24 @@ test('会計の画面は全画面で、7品・5ジャンルの注文でもスク
   expect(await overflow('dialog.checkout .receipt-items')).toBeLessThanOrEqual(1)
   expect(await overflow('dialog.checkout')).toBeLessThanOrEqual(1)
   await expect(sheet.getByRole('button', { name: '完了' })).toBeInViewport({ ratio: 1 })
+
+  // ×数は縦にそろい、いちばん長い名前のすぐ右に並ぶ（右端の金額に寄せない）
+  const counts = await sheet.locator('.receipt-count b').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().left))
+  expect(counts).toHaveLength(6)
+  expect(new Set(counts.map(Math.round)).size).toBe(1)
+  const nameRight = await sheet.locator('.receipt-row > :first-child').evaluateAll((els) =>
+    Math.max(
+      ...els.map((el) => {
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        return range.getBoundingClientRect().right
+      }),
+    ),
+  )
+  expect(counts[0]! - nameRight).toBeGreaterThanOrEqual(4)
+  expect(counts[0]! - nameRight).toBeLessThanOrEqual(16)
+  // 罫線は行のあいだだけ（6行なら5本）。いちばん下の行の下は点線
+  await expect(sheet.locator('.receipt-rule:visible')).toHaveCount(5)
 })
 
 test('会計の画面は、品目が多いと品目の欄だけスクロールし、合計とボタンは見えたまま', async ({ page }) => {
@@ -310,7 +342,8 @@ test('会計の画面は、品目が多いと品目の欄だけスクロール�
   }
   await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: /^会計/ }).click()
   const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
-  await expect(sheet.locator('.receipt-genre')).toHaveText(['Wagyu A5 A5和牛', 'Kobe Beef 神戸牛', 'Scallop ホタテ', 'Beer ビール', 'Cremia Soft Serve クレミア ソフトクリーム'])
+  // ジャンルは画面の並び（ソフトが上）
+  await expect(sheet.locator('.receipt-genre')).toHaveText(['Cremia Soft Serve クレミア ソフトクリーム', 'Wagyu A5 A5和牛', 'Kobe Beef 神戸牛', 'Scallop ホタテ', 'Beer ビール'])
   await expect(sheet.locator('.checkout-total')).toBeInViewport({ ratio: 1 })
   await expect(sheet.getByRole('button', { name: '完了' })).toBeInViewport({ ratio: 1 })
 })

@@ -15,6 +15,14 @@ export function reportSectionTitle(config: TallyConfig, section: TallySection): 
   return `${config.reportSectionMark ?? ''}${section.title}`
 }
 
+/** 報告文に書く順の見出し（設定の reportSections の順。なければ画面と同じ順） */
+function reportSectionsOf(config: TallyConfig, state: TallyState): TallySection[] {
+  const sections = sectionsOf(config, state)
+  const order = config.reportSections
+  if (!order) return sections
+  return order.flatMap((id) => sections.filter((s) => s.id === id))
+}
+
 /**
  * 売上報告の定型文。
  *
@@ -35,11 +43,11 @@ export function reportSectionTitle(config: TallyConfig, section: TallySection): 
  * ```
  *
  * 0個の品目は書かない。見出しと小計は、0円でも必ず書く。見出しの「◾️」は設定の reportSectionMark で、報告文にだけ付ける。
- * 画面から足した品目は、その見出しの最後に並ぶ
+ * 見出しの順は設定の reportSections（なければ画面と同じ順）。画面から足した品目は、その見出しの最後に並ぶ
  */
 export function buildSalesReport(config: TallyConfig, state: TallyState, time: string): string {
   const lines = [config.reportTitle, `${time}時点`, '']
-  for (const section of sectionsOf(config, state)) {
+  for (const section of reportSectionsOf(config, state)) {
     lines.push(reportSectionTitle(config, section))
     for (const item of section.items) {
       const n = countOf(state, item.id)

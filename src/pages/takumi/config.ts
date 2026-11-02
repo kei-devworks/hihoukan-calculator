@@ -10,6 +10,8 @@ export const takumi: TallyConfig = {
   reportTitle: '売上報告',
   // 報告文の見出しだけに付ける（「◾️肉」）。画面の見出しは「肉」
   reportSectionMark: '◾️',
+  // 画面はよく出るソフトを上にするが、報告文はいつもの定型文どおり肉が先
+  reportSections: ['meat', 'soft'],
   dayStartHour: 4,
   // お札と 500円玉・100円玉だけを受け取る。会計の預かりのボタンになる。
   // 釣り銭準備金は 1万円の束（釣り銭準備金の袋）と硬貨（コインケース）
@@ -32,7 +34,17 @@ export const takumi: TallyConfig = {
     { en: 'Beer', ja: 'ビール', item: 'beer' },
     { en: 'Cremia Soft Serve', ja: 'クレミア ソフトクリーム', items: { vanilla: 'Vanilla', mix: 'Mix', matcha: 'Matcha' } },
   ],
+  // 画面の並び。注文の多いソフトを上に置く
   sections: [
+    {
+      id: 'soft',
+      title: 'ソフト',
+      items: [
+        { id: 'vanilla', name: 'バニラ', priceId: 'soft' },
+        { id: 'mix', name: 'ミックス', priceId: 'soft' },
+        { id: 'matcha', name: '抹茶', priceId: 'soft' },
+      ],
+    },
     {
       id: 'meat',
       title: '肉',
@@ -44,15 +56,6 @@ export const takumi: TallyConfig = {
         { id: 'skewer4', priceId: 'skewer4' },
         { id: 'hotate', name: 'ホタテ', priceId: 'hotate' },
         { id: 'beer', name: 'ビール', priceId: 'beer' },
-      ],
-    },
-    {
-      id: 'soft',
-      title: 'ソフト',
-      items: [
-        { id: 'vanilla', name: 'バニラ', priceId: 'soft' },
-        { id: 'mix', name: 'ミックス', priceId: 'soft' },
-        { id: 'matcha', name: '抹茶', priceId: 'soft' },
       ],
     },
   ],

@@ -3,9 +3,9 @@
  */
 
 import { formatPriceEn } from './format'
-import { addItem, closeOrder, openOrder, type Order, type OrderLines } from './orders'
+import type { OrderLines } from './orders'
 import type { ReceiptGenre } from './receipt'
-import { displayName, linesTotal, priceOf, sectionsOf, type TallyConfig, type TallyState } from './tally'
+import { displayName, priceOf, sectionsOf, type TallyConfig, type TallyState } from './tally'
 
 export function tenderTotal(tenders: readonly number[]): number {
   return tenders.reduce((sum, d) => sum + d, 0)
@@ -29,22 +29,6 @@ export type ChangeDue =
 export function changeDue(total: number, tendered: number): ChangeDue {
   if (tendered <= 0) return { kind: 'none' }
   return tendered < total ? { kind: 'short', amount: total - tendered } : { kind: 'change', amount: tendered - total }
-}
-
-/** 預かりが合計に届いたか（会計が済んだか） */
-export function isPaid(config: TallyConfig, state: TallyState, order: Order): boolean {
-  const tendered = tenderTotal(order.tenders)
-  return tendered > 0 && tendered >= linesTotal(config, state, order.lines)
-}
-
-/**
- * ＋（お客さんの流れに合わせたもの）: 今のオーダーの会計が済んでいたら、そのオーダーを閉じてから
- * 次のお客さんのオーダーを始める。済んでいなければ addItem と同じ
- */
-export function addItemForCustomer(config: TallyConfig, state: TallyState, itemId: string, now: Date): TallyState {
-  const open = openOrder(state, now)
-  const base = open && isPaid(config, state, open) ? closeOrder(state, open.id, now) : state
-  return addItem(base, itemId, now)
 }
 
 /** レシートの1行（品目） */
