@@ -310,7 +310,8 @@ test('会計の画面は、品目が多いと品目の欄だけスクロール�
   }
   await page.getByRole('region', { name: '今のオーダー' }).getByRole('button', { name: /^会計/ }).click()
   const sheet = page.getByRole('dialog', { name: 'お会計（20:50 のオーダー）' })
-  await expect(sheet.locator('.receipt-genre')).toHaveText(['Wagyu A5 A5和牛', 'Kobe Beef 神戸牛', 'Scallop ホタテ', 'Beer ビール', 'Cremia Soft Serve クレミア ソフトクリーム'])
+  // ジャンルは画面の並び（ソフトが上）
+  await expect(sheet.locator('.receipt-genre')).toHaveText(['Cremia Soft Serve クレミア ソフトクリーム', 'Wagyu A5 A5和牛', 'Kobe Beef 神戸牛', 'Scallop ホタテ', 'Beer ビール'])
   await expect(sheet.locator('.checkout-total')).toBeInViewport({ ratio: 1 })
   await expect(sheet.getByRole('button', { name: '完了' })).toBeInViewport({ ratio: 1 })
 })

@@ -309,6 +309,15 @@ describe('validateConfig', () => {
     )
   })
 
+  it('報告文の見出しの順（reportSections）: 重複・ない見出し・抜けた見出しを見つける', () => {
+    expect(validateConfig({ ...config, reportSections: ['soft', 'meat'] })).toEqual([])
+    expect(validateConfig({ ...config, reportSections: ['meat', 'meat', 'nothing'] })).toEqual([
+      '報告文の見出しの順（reportSections）で「meat」が重複しています',
+      '報告文の見出しの順（reportSections）の「nothing」という見出しがありません',
+      '報告文の見出しの順（reportSections）に見出し「soft」がありません',
+    ])
+  })
+
   it('会計のレシートのジャンル: ない品目・見出し、空の名前、値段の範囲の誤りと重なり、2つのジャンルに入った品目を見つける', () => {
     const errors = validateConfig({
       ...config,

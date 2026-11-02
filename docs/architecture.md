@@ -111,24 +111,26 @@ const config: TallyConfig = {
   title: 'タクミ売上カウンター',
   reportTitle: '売上報告',        // 報告文の1行目
   reportSectionMark: '◾️',        // 報告文の見出しだけに付ける（報告文は「◾️肉」、画面は「肉」）
+  reportSections: ['meat', 'soft'], // 報告文の見出しの順（見出しの id を全部）。省くと画面と同じ順
   dayStartHour: 4,              // 営業日の切り替わり（深夜 3:59 までは前日扱い）
   prices: [                     // 単価。画面の「単価設定」に並ぶ順
     { id: 'skewer1', label: '串①', default: 1000 },
     { id: 'soft', label: 'ソフト（共通）', default: 800 },
   ],
-  sections: [                   // 見出しごとの品目。画面と報告文に出る順
-    { id: 'meat', title: '肉', items: [
-      { id: 'skewer1', priceId: 'skewer1' },          // name なし → 「1,000円」と値段で呼ぶ
-    ] },
+  sections: [                   // 見出しごとの品目。画面に出る順（報告文も、reportSections がなければこの順）
     { id: 'soft', title: 'ソフト', items: [
       { id: 'vanilla', name: 'バニラ', priceId: 'soft' }, // 単価を共有
       { id: 'matcha', name: '抹茶', priceId: 'soft' },
+    ] },
+    { id: 'meat', title: '肉', items: [
+      { id: 'skewer1', priceId: 'skewer1' },          // name なし → 「1,000円」と値段で呼ぶ
     ] },
   ],
 }
 ```
 
 設定の書き間違い（id の重複、存在しない単価など）は `validateCatalog` が見つける。
+`reportSections` の重複・ない見出し・抜けた見出しは `validateConfig` が見つける。
 登録されている全ページの設定をテストで検証するので、書き間違えると CI が落ちる。
 
 会計の画面のレシート（お客様に見せる）は、品目をジャンルにまとめて英語を先に出す。ジャンルは `receipt` に書く（`core/receipt.ts`）。

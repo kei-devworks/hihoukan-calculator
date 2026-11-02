@@ -22,6 +22,11 @@ export type TallyConfig = Catalog & {
   reportTitle: string
   /** 報告文の見出しの前にだけ付ける印（例: '◾️' → 報告文は「◾️肉」、画面は「肉」）。省くと付けない */
   reportSectionMark?: string
+  /**
+   * 報告文の見出しの順（見出しの id を全部）。画面の並びを変えても、報告文の定型文を変えないときに書く。
+   * 省くと画面と同じ順（sections の順）
+   */
+  reportSections?: string[]
 }
 
 /** 品目 id → 個数 */
@@ -332,5 +337,18 @@ function parseOrder(raw: unknown, itemIds: Set<string>): Order | null {
 
 /** 設定の書き間違いを探す。問題がなければ空の配列 */
 export function validateConfig(config: TallyConfig): string[] {
-  return validateCatalog(config)
+  const errors = validateCatalog(config)
+  if (config.reportSections) {
+    const ids = config.sections.map((s) => s.id)
+    const seen = new Set<string>()
+    for (const id of config.reportSections) {
+      if (seen.has(id)) errors.push(`報告文の見出しの順（reportSections）で「${id}」が重複しています`)
+      else if (!ids.includes(id)) errors.push(`報告文の見出しの順（reportSections）の「${id}」という見出しがありません`)
+      seen.add(id)
+    }
+    for (const id of ids) {
+      if (!seen.has(id)) errors.push(`報告文の見出しの順（reportSections）に見出し「${id}」がありません`)
+    }
+  }
+  return errors
 }
