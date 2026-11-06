@@ -1,6 +1,7 @@
 # 秘宝館 計算機
 
 お店の業務で使う集計用の Web ページ集です。端末のブラウザだけで動き、サーバーは使いません。
+入力した数は端末の中だけに保存し、外に送るのは閲覧数だけです（GoatCounter。[docs/deployment.md](docs/deployment.md#閲覧数の計測)）。
 
 **公開先: https://kei-devworks.github.io/hihoukan-calculator/**
 

@@ -90,6 +90,59 @@ Pages のサイトにアクセス制限はかけられない（URL を知って�
 - 売上の数字は端末の中にしかないので、ほかの人がページを開いても見えない
 - リポジトリは公開しているので、GitHub のリポジトリのページ（コードと README）は検索に出ることがある。売上の数字は入っていない
 
+## 閲覧数の計測
+
+公開を続けるかを決めるために、ページごとの閲覧数と、月ごとに使われた端末の数を [GoatCounter](https://www.goatcounter.com/) で数える
+（2026-11 に管理者が退職し、お店も業態を変える予定のため。誰も使わなくなったら公開を止める）。
+Pages には閲覧数を数える機能がない。見方は [maintenance.md](maintenance.md#閲覧数を見る)。
+
+### 送るもの・送らないもの
+
+| 送る | 送らない |
+| --- | --- |
+| ページの id（`/`・`/takumi`・`/neko`・`/kinmu`・`/check`）と題名 | 入力した数・単価・勤務の記録（端末の中だけ） |
+| 「その月に使った端末」（`device-2026-11`。各端末が月に1回） | URL の `#` のあと（`#hikitsugi=` の引き継ぎのデータなど） |
+| 通信のしくみ上届く、IP アドレスとブラウザの種類（GoatCounter の画面では、ブラウザ・OS・国の集計になる） | 端末を見分ける番号・Cookie |
+
+画面での告知はしない（2026-11-06 に決めた）。
+
+### しくみ
+
+- 各ページの入口で `countVisit('/<フォルダ名>')`（`src/ui/analytics.ts`）を呼び、GoatCounter の `/count` に `navigator.sendBeacon` で送る。
+  スクリプトを使わずに数える方法として公開されている口（[GoatCounter: pixel](https://www.goatcounter.com/help/pixel)）
+- **公式の `count.js` は読み込まない。** 売上や勤務の記録がある保存場所（同じオリジン）で、外部のスクリプトを動かさないため。E2E でも外部のスクリプトを読まない
+- **`ns=1` を付けて送る。** GoatCounter は、IP アドレスとブラウザの種類が同じ閲覧を8時間まとめて1人と数える（[sessions](https://www.goatcounter.com/help/sessions)）。
+  まとめると、お店の Wi-Fi で同じ機種の2台が1人に、Wi-Fi とモバイル回線を行き来する1台が2人になる。まとめないので、ダッシュボードの数が
+  ページの行では開いた回数、`device-YYYY-MM` の行ではその月の端末の数になる
+- 「使った端末」は、送った月を `hihoukan-calc:analytics:v1` に覚えて、月に1回だけ送る。月の区切りは端末の時刻。
+  保存できない端末では送らない（開くたびに数えてしまうため）
+- 数えないとき: 手元で開いたとき（localhost・192.168.* など。`npm run dev` と E2E）、自動テスト（`navigator.webdriver`。デプロイのあとの smoke も含む）、
+  `#count-off` にした端末（[maintenance.md](maintenance.md#自分の端末を数えない)）
+- 送れなくても、ページはそのまま使える
+
+### 数えもれ
+
+- 広告ブロッカー（多くが goatcounter.com を止める）と、Safari のプライベートブラウズ（知られた計測先を止める）では届かない。
+  お店の端末はふつうのブラウザで使うので、「使われているか（0 か 0 でないか）」を見るには足りる
+- iPhone の Safari が保存を消すと（[注意点と対策](#注意点と対策)）、同じ月に同じ端末を2回数えることがある
+- 1台は「ブラウザ1つ」。同じ iPhone でも Safari とホーム画面のアプリは別に数える（保存場所が別のため）
+
+### GoatCounter にした理由（2026-11-06）
+
+| | GoatCounter | Cloudflare Web Analytics |
+| --- | --- | --- |
+| 料金 | 無料（個人サイトや中小の事業で使うのは問題ないとしている） | 無料 |
+| ページごとの閲覧数 | ○ | ○ |
+| 人数 | 「訪問者」あり。`ns=1` で開いた回数をそのまま数えられる | なし（「visits」は外から入ってきた回数で、人数ではない） |
+| 少ないアクセスの正確さ | 全件を数える | 7日を過ぎると約10%に間引いて保存し、表示でもサンプリングする。1日に数回のサイトだと 0 に見えうる |
+| データの持ち出し | CSV・JSON で書き出せる | ダッシュボードだけ |
+
+「使われているか」を何か月か見て決める用途なので、少ない数が間引かれる Cloudflare は合わない。
+
+出典: [GoatCounter](https://www.goatcounter.com/)、[GoatCounter: Sessions and visitors](https://www.goatcounter.com/help/sessions)、
+[Cloudflare: Web Analytics FAQ](https://developers.cloudflare.com/web-analytics/faq/)、
+[Cloudflare: High-level metrics](https://developers.cloudflare.com/web-analytics/data-metrics/high-level-metrics/)
+
 ## 端末どうしの渡し方（引き継ぎ）の確認
 
 タクミの引き継ぎでは、前の人の端末の数を次の人の端末へ、サーバーを使わずに渡す。主な方法は

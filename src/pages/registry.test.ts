@@ -1,5 +1,5 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { looksLikeCatalog, validateCatalog } from '../core/catalog'
 import { pages } from './registry'
@@ -54,5 +54,20 @@ describe('検索に出さない', () => {
   it.each(htmlFiles)('%s に noindex, nofollow の meta がある', (file) => {
     const html = readFileSync(resolve(import.meta.dirname, file), 'utf8')
     expect(html).toContain('<meta name="robots" content="noindex, nofollow" />')
+  })
+})
+
+// 公開を続けるかを決めるために、どのページも閲覧数を数える（docs/deployment.md の「閲覧数の計測」）。
+// 行の名前はフォルダ名（ポータルは '/'）。ページを足すときに付け忘れないよう、HTML から入口のスクリプトをたどって見る
+describe('閲覧数を数える', () => {
+  const htmlFiles = globSync('**/index.html', { cwd: import.meta.dirname })
+
+  it.each(htmlFiles)('%s の入口が countVisit をフォルダ名で呼んでいる', (file) => {
+    const html = readFileSync(resolve(import.meta.dirname, file), 'utf8')
+    const entry = html.match(/<script type="module" src="([^"]+)"><\/script>/)?.[1]
+    expect(entry, '入口の <script type="module">').toBeDefined()
+    const script = readFileSync(resolve(import.meta.dirname, dirname(file), entry!), 'utf8')
+    const dir = dirname(file)
+    expect(script).toContain(`countVisit('/${dir === '.' ? '' : dir}')`)
   })
 })

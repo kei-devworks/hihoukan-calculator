@@ -19,6 +19,14 @@
   （「個数 × 単価」も「在庫の差」も同じ形なので、ページを足してもテストを書き足さなくてよい）。
   報告文の定型や1日分の計算は、各ページの `config.test.ts` で固定する
 
+## 閲覧数の計測
+
+- 送る中身（数えない条件・月ごとの端末・送る URL）は `core/analytics.test.ts` で確かめる
+- 送るところは `ui/analytics.test.ts`。jsdom の URL を本番と同じにして（`// @vitest-environment-options { "url": … }`）、
+  sendBeacon を差し替えて、送った URL を見る（`#hikitsugi=` を送らない、`#count-off`、fetch に切り替える、送れなくても例外を投げない）
+- どのページも入口で呼んでいることは `src/pages/registry.test.ts` が、HTML から入口のスクリプトをたどって確かめる
+- E2E と smoke は `navigator.webdriver` が true なので、GoatCounter に送らない（数に混ざらない）
+
 ## CSS
 
 `src/ui/css.test.ts` が `src` の CSS を全部読み、かっこの閉じ忘れがないことを確かめる。閉じ忘れても CSS はエラーにならず、
