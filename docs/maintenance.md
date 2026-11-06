@@ -183,7 +183,10 @@ https://hihoukan-calc.goatcounter.com にログインして見る。ブラウザ
 - 数は例。ページの行は開いた回数で、人数ではない（1人が何度も開けば、その分増える）
 - 1台は「ブラウザ1つ」。同じ iPhone でも Safari とホーム画面のアプリは別に数える
 - 右側のブラウザ・OS・国の集計は参考。画面の大きさは送っていないので出ない
-- GoatCounter の設定の時間帯は **Asia/Tokyo** にしておく（日・月の区切りを日本時間にそろえる）
+- GoatCounter の設定は次のとおりにしてある
+  - ユーザーの設定（上のメニューのメールアドレス）の時間帯を **Asia/Tokyo**（日・月の区切りを日本時間にそろえる）
+  - Settings の **Sessions はオフ**（8時間まとめる数え方。送るときの `ns=1` でも外しているが、設定でも外して、数が開いた回数そのものになるようにする）
+  - Data retention は **0**（消さない）。Individual pageviews はオン（公開を止める前に CSV で書き出せるように）
 
 #### 自分の端末を数えない
 
@@ -194,6 +197,9 @@ https://hihoukan-calc.goatcounter.com にログインして見る。ブラウザ
 
 設定はブラウザごと。iPhone・Mac の Safari は、7日開かないと保存を消すことがあり、そうなると元に戻る。
 自分の確認は、できれば保存が消えないブラウザ（Mac の Chrome など）で開く。
+
+GoatCounter の設定画面にある「disable for this browser」（`#toggle-goatcounter`）は、公式の `count.js` 用なので、このサイトでは効かない。
+「Ignore IPs」も使わない（モバイル回線の IP アドレスはほかの人と共有されることがあり、ほかの人の閲覧まで数えなくなる）。
 
 #### アカウント
 
