@@ -3,12 +3,15 @@
  * ポータルには載せない（docs/deployment.md の「端末どうしの渡し方」）
  */
 import '../../ui/base.css'
+import { countVisit } from '../../ui/analytics'
 import { readJson, storageKey, writeJson, openLocalStorage } from '../../core/storage'
 import { copyText } from '../../ui/clipboard'
 import { byId, h } from '../../ui/dom'
 import { pageHeader } from '../../ui/page-parts'
 import { qrSvg } from '../../ui/qr'
 import { qrScanner } from '../../ui/qr-scanner'
+
+countVisit('/check')
 
 const root = byId('app')
 const storage = openLocalStorage()

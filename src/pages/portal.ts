@@ -1,7 +1,10 @@
 import '../ui/base.css'
+import { countVisit } from '../ui/analytics'
 import { byId, h } from '../ui/dom'
 import { openShareDialog } from '../ui/share-dialog'
 import { pages } from './registry'
+
+countVisit('/')
 
 const list = byId<HTMLUListElement>('page-list')
 

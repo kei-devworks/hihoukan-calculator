@@ -50,12 +50,18 @@ export const kiosk: TallyConfig = {
 
 ```ts
 import '../../ui/base.css'
+import { countVisit } from '../../ui/analytics'
 import { byId } from '../../ui/dom'
 import { mountTallyApp } from '../../ui/tally-app'
 import { kiosk } from './config'
 
+countVisit('/kiosk')
+
 mountTallyApp(byId('app'), kiosk)
 ```
+
+`countVisit('/<フォルダ名>')` で閲覧数を数える（[deployment.md](deployment.md#閲覧数の計測)）。
+フォルダ名とちがう名前や付け忘れは、`src/pages/registry.test.ts` が見つける。
 
 ### 3. HTML `src/pages/kiosk/index.html`
 
@@ -104,9 +110,12 @@ export const kiosk: StockConfig = {
 ```ts
 // main.ts
 import '../../ui/base.css'
+import { countVisit } from '../../ui/analytics'
 import { byId } from '../../ui/dom'
 import { mountStockApp } from '../../ui/stock-app'
 import { kiosk } from './config'
+
+countVisit('/kiosk')
 
 mountStockApp(byId('app'), kiosk)
 ```
@@ -119,7 +128,7 @@ mountStockApp(byId('app'), kiosk)
 例: レジ締めの金種計算など、既存の種類に当てはまらないもの。勤務時間報告（`src/pages/kinmu/`、
 `src/core/work-report.ts`・`src/ui/work-report-app.ts`）がこの作り方の見本になる。
 
-- `src/pages/<名前>/` に `index.html` と `main.ts` を置き、画面は自由に作る
+- `src/pages/<名前>/` に `index.html` と `main.ts` を置き、画面は自由に作る。`main.ts` の最初で `countVisit('/<名前>')` を呼ぶ
 - 品目・単価・見出しがあるなら、設定は `Catalog`（`src/core/catalog.ts`）の形にする。書き間違いのテストが自動で付く
 - 共通の部品を使う（[architecture.md](architecture.md) の「ページの共通部分」）
   - 保存: `JsonStore`（`src/core/json-store.ts`）。キーは `storageKey('<名前>', 1)`（`hihoukan-calc:` で始まる）。

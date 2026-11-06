@@ -14,6 +14,7 @@
   | 勤務時間報告（work-report） | 勤務日・勤務時間・交通費から報告文を作ってコピーする | 勤務時間報告（`kinmu/`） |
 
 - 数字は**各端末のブラウザ（localStorage）にだけ**保存する。端末どうしで共有はしない
+- 外に送るのは閲覧数だけ（GoatCounter。ページの id と「その月に使った端末」の数）。入力した数は送らない（[deployment.md](deployment.md#閲覧数の計測)）
 
 ## ディレクトリ
 
@@ -37,6 +38,7 @@ src/
     work-report-store.ts  WorkReportState を端末に保存・復元する
     json-store.ts  1ページ分の状態を JSON で保存・復元する（JsonStore。各ページの store の土台）
     storage.ts     localStorage の薄い包み（キーの接頭辞・例外を投げない読み書き）
+    analytics.ts   閲覧数の計測で送る中身（数えない条件・月ごとの端末・GoatCounter に送る URL）
     guards.ts      保存値を読み戻すときの型の確かめ
     time.ts        報告時刻・営業日・日時の表示
     format.ts      金額の表示
@@ -44,6 +46,7 @@ src/
     qr-read.ts     画像から QR コードを読む（jsQR は使うときだけ読み込む）
   ui/            DOM の共通部品と共通スタイル
     page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
+    analytics.ts   閲覧数を GoatCounter に送る（countVisit。各ページの入口で呼ぶ）
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
     order-panel.ts 画面の下の「今のオーダー」「前のオーダー」
     order-editor.ts  オーダーを直す画面（下から出すダイアログ）
@@ -95,6 +98,7 @@ scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg か�
 | `JsonStore`（`core/json-store.ts`） | 状態を `hihoukan-calc:<ページの id>:v<版>` に保存・復元する。読み戻しはページごとの `parse` 関数に任せ、壊れた値でも例外にしない |
 | `earlierBusinessDay`（`core/time.ts`） | 「数え始めた時刻」が前の営業日かを判定する（前日の数字が残っている知らせに使う） |
 | `pageHeader` / `pageStatus` / `keepFresh`（`ui/page-parts.ts`） | 「‹ 一覧」と題名、保存の状態と赤い警告、前の営業日の黄色い知らせ、30秒ごと・画面復帰・別タブ・戻るボタンでの再描画 |
+| `countVisit`（`ui/analytics.ts`） | 入口（`portal.ts`・`<フォルダ>/main.ts`）の最初で、ページの id（`'/takumi'`。ポータルは `'/'`）を渡して呼ぶ。閲覧と、その端末でその月はじめてなら「使った端末」を GoatCounter に送る。手元・自動テスト・`#count-off` にした端末では送らない。失敗してもページは止めない |
 | アイコン（`public/`） | どのページの `<head>` にも、タブのアイコン（射的の的。`favicon.svg` と、SVG を表示できない iOS 26 より前の Safari 向けの `favicon-32.png`）とホーム画面のアイコン（`apple-touch-icon.png`）を書く |
 
 アイコンは `/favicon.svg` のようにサイトの根からのパスで書く。ビルドすると、ページの場所に合わせた相対パス（`takumi/` なら `../favicon.svg`）に直る。
@@ -387,7 +391,7 @@ type ReportDraft = { workDate; start; end; breakMinutes; receivedDate: string | 
 | 項目 | 内容 |
 | --- | --- |
 | 場所 | ブラウザの `localStorage`（端末 × ブラウザごと） |
-| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v2`、`hihoukan-calc:neko:v1`、`hihoukan-calc:kinmu:v1`） |
+| キー | `hihoukan-calc:<ページの id>:v<版>`（例: `hihoukan-calc:takumi:v2`、`hihoukan-calc:neko:v1`、`hihoukan-calc:kinmu:v1`）。<br>ほかに、閲覧数の計測の `hihoukan-calc:analytics:v1`（`{ "deviceMonth": "2026-11", "off": false }`。「使った端末」を最後に送った月と、この端末を数えないか） |
 | 中身 | `TallyState` / `StockState` / `WorkReportState` の JSON |
 | 書くとき | 個数・単価・欄の数字・設定を変えるたびと、勤務時間報告をコピーしたとき |
 
