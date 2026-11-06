@@ -2,6 +2,7 @@
 
 お店（秘宝館）の業務で使う集計用の静的サイト。GitHub Pages に置く（https://kei-devworks.github.io/hihoukan-calculator/）。
 サーバーはなく、データは各端末の `localStorage` にだけ保存する。
+外に送るのは閲覧数だけ（GoatCounter。`src/ui/analytics.ts`。公開を続けるかを決めるため。docs/deployment.md）。
 
 ## コマンド
 
@@ -17,7 +18,8 @@ node scripts/make-icons.mjs                       # favicon.svg から PNG の�
 - `src/pages/` — 1ページ = 1フォルダ。`index.html` を置くとビルドの入口になる（`vite.config.ts` が自動で拾う）。
   「個数 × 単価」のページ（タクミ）は `config.ts`（`TallyConfig`）を `mountTallyApp` に、
   「在庫の差」のページ（ネコ・グリコ）は `config.ts`（`StockConfig`）を `mountStockApp` に渡すだけ（docs/adding-a-page.md）。
-  勤務時間報告（`kinmu/`）は `WorkReportConfig` を `mountWorkReportApp` に渡す
+  勤務時間報告（`kinmu/`）は `WorkReportConfig` を `mountWorkReportApp` に渡す。
+  どの入口（`portal.ts`・`<フォルダ>/main.ts`）も最初に `countVisit('/<フォルダ名>')` を呼ぶ（閲覧数）
 - `src/core/` — DOM に触れないロジック。単体テストはここが中心
 - `src/ui/` — DOM の共通部品と共通スタイル
 - `e2e/` — Playwright。本番と同じサブパス `/hihoukan-calculator/` で配信して流す

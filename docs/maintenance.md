@@ -144,6 +144,7 @@
 - 保存の形を変えるときは版を上げ、古い版を読み替える（[architecture.md](architecture.md) の「保存」）
 - `localStorage` のキーは `hihoukan-calc:` で始め、`localStorage.clear()` は使わない。同じ持ち主の `github.io` のサイトは保存場所を共有する
 - どのページも検索に出さない（各ページの `noindex, nofollow`。テストで確かめている）
+- どのページも入口で `countVisit('/<フォルダ名>')` を呼ぶ（閲覧数。テストで確かめている）。外に送るのは閲覧数だけにし、入力した数は送らない
 - サーバー・ログイン・端末をまたいだ共有が要る機能は、作る前に相談する（Pages ではできない。[deployment.md](deployment.md)）
 - 公開リポジトリなので、売上・個人の情報・秘密の値は書かない
 
@@ -152,6 +153,54 @@
 - 依存の更新: `npm outdated` で確かめ、上げたら全部のテストを流す。Playwright を上げたら `npx playwright install chromium webkit` もやり直す
 - GitHub Actions（`.github/workflows/*.yml` の `actions/*@v7` など）と Node.js（`.nvmrc`）は、Actions に古いという警告が出たら上げる
 - デプロイが落ちたら Actions のログを見る。止まったときの対処は [deployment.md](deployment.md#デプロイが止まったとき)
+- 月に1回ほど、[閲覧数を見る](#閲覧数を見る)。誰も使わなくなっていたら、公開を止めるかを決める
+
+### 閲覧数を見る
+
+公開を続けるかを決めるために、[GoatCounter](https://www.goatcounter.com/) で閲覧数を数えている（しくみは [deployment.md](deployment.md#閲覧数の計測)）。
+https://hihoukan-calc.goatcounter.com にログインして見る。ブラウザでもスマホでも見られる。
+
+| 知りたいこと | 見方 |
+| --- | --- |
+| ページごとの閲覧数 | 期間を **month** にする。ページの行の数が、その月にそのページを開いた回数。「← back」で前の月へ。端末の行を隠すなら、絞り込みに `is:pageview` |
+| 月ごとに使った端末の数 | 期間を **year**（か half year）にして、絞り込みに `device` と入れる。`device-2026-11` の行の数が、2026年11月に使った端末の数。**行がない月は 0 台** |
+
+```
+【期間 month】 2026-11-01 〜 2026-11-30
+ 310  /takumi         タクミ売上カウンター
+ 120  /               秘宝館 計算機
+  80  /neko           ネコ・グリコ売上カウンター
+  45  /kinmu          勤務時間報告
+   5  device-2026-11  2026年11月に使った端末
+   2  /check          QR の読み取りの確認
+
+【期間 year ＋ 絞り込み device】
+   5  device-2026-11  2026年11月に使った端末
+   4  device-2026-12  2026年12月に使った端末
+      （device-2027-01 の行がない ＝ 1月は誰も開いていない）
+```
+
+- 数は例。ページの行は開いた回数で、人数ではない（1人が何度も開けば、その分増える）
+- 1台は「ブラウザ1つ」。同じ iPhone でも Safari とホーム画面のアプリは別に数える
+- 右側のブラウザ・OS・国の集計は参考。画面の大きさは送っていないので出ない
+- GoatCounter の設定の時間帯は **Asia/Tokyo** にしておく（日・月の区切りを日本時間にそろえる）
+
+#### 自分の端末を数えない
+
+管理者が確認で開いた分を数えないよう、自分の端末のブラウザで、一度だけ次を開く。
+
+- 数えない: https://kei-devworks.github.io/hihoukan-calculator/#count-off （「この端末の閲覧は、これから数えません。」と出る）
+- 戻す: `…/hihoukan-calculator/#count-on`
+
+設定はブラウザごと。iPhone・Mac の Safari は、7日開かないと保存を消すことがあり、そうなると元に戻る。
+自分の確認は、できれば保存が消えないブラウザ（Mac の Chrome など）で開く。
+
+#### アカウント
+
+- GoatCounter のアカウントは管理者のもの（2026-11 に作った。サイトのコードは `hihoukan-calc`）。料金はかからない
+- 送り先は `src/core/analytics.ts` の `GOATCOUNTER_ENDPOINT`。サイトのコードを変えたら、ここも直す
+- 管理者を代えるときは、GoatCounter の設定（Users）で新しい管理者を足す。送るのはページの id なので、サイトの URL が変わっても同じ行で数え続ける
+- 公開を止めたら、要るなら CSV で書き出してから GoatCounter のサイトを消す
 
 ### Claude Code で保守するとき
 
