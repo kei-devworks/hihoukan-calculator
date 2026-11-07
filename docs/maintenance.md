@@ -158,6 +158,7 @@
 ### 閲覧数を見る
 
 公開を続けるかを決めるために、[GoatCounter](https://www.goatcounter.com/) で閲覧数を数えている（しくみは [deployment.md](deployment.md#閲覧数の計測)）。
+ページからの送信は、自分の[中継](#中継cloudflare-worker)を通して GoatCounter に届く。
 https://hihoukan-calc.goatcounter.com にログインして見る。ブラウザでもスマホでも見られる。
 
 | 知りたいこと | 見方 |
@@ -204,9 +205,27 @@ GoatCounter の設定画面にある「disable for this browser」（`#toggle-go
 #### アカウント
 
 - GoatCounter のアカウントは管理者のもの（2026-11 に作った。サイトのコードは `hihoukan-calc`）。料金はかからない
-- 送り先は `src/core/analytics.ts` の `GOATCOUNTER_ENDPOINT`。サイトのコードを変えたら、ここも直す
+- 中継が送る先は `src/core/analytics.ts` の `GOATCOUNTER_ENDPOINT`。サイトのコードを変えたら、ここも直して[中継を公開し直す](#中継cloudflare-worker)
 - 管理者を代えるときは、GoatCounter の設定（Users）で新しい管理者を足す。送るのはページの id なので、サイトの URL が変わっても同じ行で数え続ける
 - 公開を止めたら、要るなら CSV で書き出してから GoatCounter のサイトを消す
+
+#### 中継（Cloudflare Worker）
+
+ページは GoatCounter に直接ではなく、中継 `https://hihoukan-calc.kei-devworks.workers.dev/v` に送る。
+広告ブロッカーに止められないため（[deployment.md](deployment.md#広告ブロッカーを避ける2026-11-07)）。
+中身は [worker/index.ts](../worker/index.ts)、設定は [worker/wrangler.jsonc](../worker/wrangler.jsonc)。
+
+- Cloudflare のアカウントは管理者のもの（2026-11 に作った。workers.dev のサブドメインは `kei-devworks`）。無料枠で動く
+- **中継は自動では公開されない。** `worker/` か、中継が使う `src/core/analytics.ts` の値（`SITE_ORIGIN`・`GOATCOUNTER_ENDPOINT`・`parseRelayBody`・`countUrl`）を直したら、
+  PR をマージしたあと手で公開する
+  1. `npx --yes wrangler@4.155.0 login`（その端末で初めてのときだけ。ブラウザで Cloudflare にログインする）
+  2. `npm run worker:deploy`
+- 動いているかの確かめ: `curl -i -X POST https://hihoukan-calc.kei-devworks.workers.dev/v` が `403`（このサイトからの送信ではない）を返せば動いている
+- **公開先の URL が変わったら**（[管理者を代えるとき](#管理者を代えるとき)）、`SITE_ORIGIN` を新しい `https://<持ち主>.github.io` に直して中継を公開し直す。
+  直さないと、新しい URL からの閲覧は中継で捨てられる（403）
+- **毎週のブロック一覧の確認（Actions の「Check analytics relay against blocklists」）が落ちたら**、中継の名前が一覧に載ったということ。
+  `worker/wrangler.jsonc` の `name` を変え、`src/core/analytics.ts` の `COUNT_RELAY_URL` も同じ名前に直す。中継を先に公開してから、サイトの PR をマージする
+- 公開を止めたら、Cloudflare の Workers & Pages で `hihoukan-calc` を消す
 
 ### Claude Code で保守するとき
 

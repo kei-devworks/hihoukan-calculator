@@ -1,7 +1,7 @@
 # 秘宝館 計算機
 
 お店の業務で使う集計用の Web ページ集です。端末のブラウザだけで動き、サーバーは使いません。
-入力した数は端末の中だけに保存し、外に送るのは閲覧数だけです（GoatCounter。[docs/deployment.md](docs/deployment.md#閲覧数の計測)）。
+入力した数は端末の中だけに保存し、外に送るのは閲覧数だけです（自分の中継を通して GoatCounter へ。[docs/deployment.md](docs/deployment.md#閲覧数の計測)）。
 
 **公開先: https://kei-devworks.github.io/hihoukan-calculator/**
 
@@ -30,9 +30,11 @@ npm run test:e2e       # E2E（ビルドして iPhone・Android のエミュレ�
 npm run test:e2e:live  # 本番の URL に対して E2E
 npm run build          # dist/ にビルド
 node scripts/make-icons.mjs  # public/favicon.svg を直したら、PNG のアイコンを作り直す
+npm run check:blocklists     # 閲覧数の中継が、広告ブロッカーの一覧に止められていないか
+npm run worker:deploy        # 閲覧数の中継（worker/）を Cloudflare に公開する（docs/maintenance.md）
 ```
 
-`main` にマージすると GitHub Pages に自動でデプロイされます。
+`main` にマージすると GitHub Pages に自動でデプロイされます。閲覧数の中継（`worker/`）は自動では公開されないので、直したら `npm run worker:deploy` します。
 
 ## ドキュメント
 

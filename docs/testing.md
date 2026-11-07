@@ -23,7 +23,12 @@
 
 - 送る中身（数えない条件・月ごとの端末・送る URL）は `core/analytics.test.ts` で確かめる
 - 送るところは `ui/analytics.test.ts`。jsdom の URL を本番と同じにして（`// @vitest-environment-options { "url": … }`）、
-  sendBeacon を差し替えて、送った URL を見る（`#hikitsugi=` を送らない、`#count-off`、fetch に切り替える、送れなくても例外を投げない）
+  fetch を差し替えて、送った先と本文を見る（GoatCounter ではなく中継へ送る、`#hikitsugi=` を送らない、`#count-off`、送れなくても例外を投げない）
+- 中継は `worker/index.test.ts`。`Request` を作って `relay` に渡し、GoatCounter への送信を差し替えて見る
+  （`ns=1` とブラウザの種類を付ける、ほかのサイト・形のちがう値・大きすぎる本文は送らない）
+- 中継が広告ブロッカーの一覧に止められていないかは、`npm run check:blocklists`（`scripts/check-blocklists.mjs`）。
+  広告ブロッカーと同じ判定エンジン（`@ghostery/adblocker`）に、よく使われる7つの一覧を読ませて判定する。
+  一覧はネットから取るので `npm test` には入れず、[blocklists.yml](../.github/workflows/blocklists.yml) が毎週流す
 - どのページも入口で呼んでいることは `src/pages/registry.test.ts` が、HTML から入口のスクリプトをたどって確かめる
 - E2E と smoke は `navigator.webdriver` が true なので、GoatCounter に送らない（数に混ざらない）
 

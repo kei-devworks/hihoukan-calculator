@@ -2,7 +2,7 @@
 
 お店（秘宝館）の業務で使う集計用の静的サイト。GitHub Pages に置く（https://kei-devworks.github.io/hihoukan-calculator/）。
 サーバーはなく、データは各端末の `localStorage` にだけ保存する。
-外に送るのは閲覧数だけ（GoatCounter。`src/ui/analytics.ts`。公開を続けるかを決めるため。docs/deployment.md）。
+外に送るのは閲覧数だけ（`src/ui/analytics.ts` → 中継の Cloudflare Worker `worker/` → GoatCounter。公開を続けるかを決めるため。docs/deployment.md）。
 
 ## コマンド
 
@@ -11,6 +11,8 @@ npm run typecheck && npm run lint && npm test   # CI の check と同じ
 npm run test:e2e                                  # E2E（iPhone・Android エミュレーション）
 npm run build
 node scripts/make-icons.mjs                       # favicon.svg から PNG のアイコンを作り直す
+npm run check:blocklists                          # 閲覧数の中継が広告ブロッカーの一覧に止められていないか
+npm run worker:deploy                             # 閲覧数の中継を Cloudflare に公開（自動では公開されない）
 ```
 
 ## 構成
@@ -22,6 +24,7 @@ node scripts/make-icons.mjs                       # favicon.svg から PNG の�
   どの入口（`portal.ts`・`<フォルダ>/main.ts`）も最初に `countVisit('/<フォルダ名>')` を呼ぶ（閲覧数）
 - `src/core/` — DOM に触れないロジック。単体テストはここが中心
 - `src/ui/` — DOM の共通部品と共通スタイル
+- `worker/` — 閲覧数の中継（Cloudflare Worker）。直したら、マージのあと `npm run worker:deploy`（docs/maintenance.md）
 - `e2e/` — Playwright。本番と同じサブパス `/hihoukan-calculator/` で配信して流す
 
 ## 決まりごと
