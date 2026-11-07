@@ -102,28 +102,78 @@ Pages には閲覧数を数える機能がない。見方は [maintenance.md](ma
 | --- | --- |
 | ページの id（`/`・`/takumi`・`/neko`・`/kinmu`・`/check`）と題名 | 入力した数・単価・勤務の記録（端末の中だけ） |
 | 「その月に使った端末」（`device-2026-11`。各端末が月に1回） | URL の `#` のあと（`#hikitsugi=` の引き継ぎのデータなど） |
-| 通信のしくみ上届く、IP アドレスとブラウザの種類（GoatCounter の画面では、ブラウザ・OS・国の集計になる） | 端末を見分ける番号・Cookie |
+| ブラウザの種類（中継が GoatCounter に引き継ぐ。ブラウザ・OS の集計になる） | 端末を見分ける番号・Cookie |
 
+IP アドレスは中継（Cloudflare）までで、GoatCounter には届かない。そのため GoatCounter の国の集計は、中継が GoatCounter へ送るときの
+Cloudflare の拠点の国になり、あてにならない（2026-11-07 に日本から中継へ送った分は、アメリカ・シンガポールになった）。
 画面での告知はしない（2026-11-06 に決めた）。
 
 ### しくみ
 
-- 各ページの入口で `countVisit('/<フォルダ名>')`（`src/ui/analytics.ts`）を呼び、GoatCounter の `/count` に `navigator.sendBeacon` で送る。
-  スクリプトを使わずに数える方法として公開されている口（[GoatCounter: pixel](https://www.goatcounter.com/help/pixel)）
+```
+ページ（各端末のブラウザ）
+  │ fetch POST https://hihoukan-calc.kei-devworks.workers.dev/v   本文 {"p":"/takumi","t":"タクミ売上カウンター"}
+  ▼
+中継（Cloudflare Worker。worker/index.ts）
+  │ GET https://hihoukan-calc.goatcounter.com/count?p=/takumi&t=…&ns=1
+  ▼
+GoatCounter（ダッシュボード）
+```
+
+- 各ページの入口で `countVisit('/<フォルダ名>')`（`src/ui/analytics.ts`）を呼び、中継に `fetch` で送る。
+  本文は文字列（`text/plain`）なので、事前の確認（preflight）なしで届く。`keepalive` で、すぐ別のページへ移っても送り切る
+- 中継は、`Origin` がこのサイト（`https://kei-devworks.github.io`）で、このサイトが送る形（ページの id か `device-YYYY-MM`）のものだけを、
+  GoatCounter の `/count` に送り直す（スクリプトを使わずに数える方法として公開されている口。[GoatCounter: pixel](https://www.goatcounter.com/help/pixel)）。
+  ほかのサイトや、形のちがう値では数を荒らせない
 - **公式の `count.js` は読み込まない。** 売上や勤務の記録がある保存場所（同じオリジン）で、外部のスクリプトを動かさないため。E2E でも外部のスクリプトを読まない
 - **`ns=1` を付けて送る。** GoatCounter は、IP アドレスとブラウザの種類が同じ閲覧を8時間まとめて1人と数える（[sessions](https://www.goatcounter.com/help/sessions)）。
-  まとめると、お店の Wi-Fi で同じ機種の2台が1人に、Wi-Fi とモバイル回線を行き来する1台が2人になる。まとめないので、ダッシュボードの数が
-  ページの行では開いた回数、`device-YYYY-MM` の行ではその月の端末の数になる
+  まとめると、お店の Wi-Fi で同じ機種の2台が1人に、Wi-Fi とモバイル回線を行き来する1台が2人になる。中継を通すと、どの端末も中継の IP アドレスになるので、
+  まとめるとなおさら数がずれる。まとめないので、ダッシュボードの数が、ページの行では開いた回数、`device-YYYY-MM` の行ではその月の端末の数になる
+  （GoatCounter の設定でも Sessions をオフにしてある）
 - 「使った端末」は、送った月を `hihoukan-calc:analytics:v1` に覚えて、月に1回だけ送る。月の区切りは端末の時刻。
   保存できない端末では送らない（開くたびに数えてしまうため）
 - 数えないとき: 手元で開いたとき（localhost・192.168.* など。`npm run dev` と E2E）、自動テスト（`navigator.webdriver`。デプロイのあとの smoke も含む）、
   `#count-off` にした端末（[maintenance.md](maintenance.md#自分の端末を数えない)）
 - 送れなくても、ページはそのまま使える
+- 中継は Cloudflare Workers の無料枠で動く（1日10万回まで。[limits](https://developers.cloudflare.com/workers/platform/limits/)）。
+  公開は GitHub Pages とは別で、手で行う（[maintenance.md](maintenance.md#中継cloudflare-worker)）
+
+### 広告ブロッカーを避ける（2026-11-07）
+
+最初は GoatCounter に直接（`sendBeacon` で）送っていたが、管理者の Mac の Chrome と iPhone の Safari（どちらも広告ブロッカー入り）から1件も届かなかった。
+お店の端末にも広告ブロッカーが入っていれば、使われていても 0 に見え、使われているのに公開を止めることになる。
+
+広告ブロッカーは、通信の中身ではなく「送り先の名前」と「送り方」をブロックの一覧と突き合わせて止める。よく使われる一覧を、
+広告ブロッカーと同じ判定エンジン（`@ghostery/adblocker`）にかけると、直接送るやり方は2つの規則に当たっていた。
+
+| 規則 | 意味 | 一覧 |
+| --- | --- | --- |
+| `\|\|goatcounter.com^$3p` | ほかのサイトから goatcounter.com への通信を止める | EasyPrivacy、AdGuard Tracking Protection |
+| `$ping,3p` | ほかのサイトへの `sendBeacon`（ping）は、送り先に関係なくすべて止める | EasyPrivacy |
+
+| 送り先 | `sendBeacon` | `fetch` |
+| --- | --- | --- |
+| GoatCounter に直接 | 止められる | 止められる（2つの一覧） |
+| 自分の中継（Cloudflare Worker） | 止められる（`$ping,3p`） | **7つの一覧すべてで通る** |
+
+一覧は EasyList・EasyPrivacy・AdGuard（Base・Tracking Protection・Japanese）・uBlock（filters・Privacy）。
+中継なら通る理由は次の2つ。
+
+- 中継の名前（`hihoukan-calc.kei-devworks.workers.dev`）はこのサイトだけのもので、一覧を作る人は知らない。
+  `workers.dev` をまとめて止めると、ふつうのサイトがたくさん壊れるので、一覧には載せられない
+- 中継から GoatCounter への通信は、端末の外（Cloudflare のサーバー）で起きるので、端末のブロッカーは止めようがない。
+  GoatCounter を独自ドメインに付け替えるやり方は、AdGuard の一覧が付け替え先まで載せている（`goatcounter.○○.com` など）ので使わない
+
+確かめていないもの: 280blocker の一覧（有料で非公開）、Safari に入っているトラッキング防止（中身は非公開）、
+ほかのサイトへの通信をすべて止める設定（uBlock のハードモードなど。使う人はごく少ない）。
+
+一覧は日々更新されるので、`npm run check:blocklists`（`scripts/check-blocklists.mjs`）を
+[blocklists.yml](../.github/workflows/blocklists.yml) が毎週月曜に流し、中継が止められるようになったら落ちる（持ち主にメールが届く）。
+落ちたら、中継の名前を変える（[maintenance.md](maintenance.md#中継cloudflare-worker)）。
 
 ### 数えもれ
 
-- 広告ブロッカー（多くが goatcounter.com を止める）と、Safari のプライベートブラウズ（知られた計測先を止める）では届かない。
-  お店の端末はふつうのブラウザで使うので、「使われているか（0 か 0 でないか）」を見るには足りる
+- ほかのサイトへの通信をすべて止める設定のブラウザでは届かない（上）
 - iPhone の Safari が保存を消すと（[注意点と対策](#注意点と対策)）、同じ月に同じ端末を2回数えることがある
 - 1台は「ブラウザ1つ」。同じ iPhone でも Safari とホーム画面のアプリは別に数える（保存場所が別のため）
 

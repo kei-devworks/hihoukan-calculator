@@ -1,0 +1,10 @@
+// 閲覧数の中継（Cloudflare Worker）の設定。公開は `npm run worker:deploy`（docs/maintenance.md）
+{
+  // URL は https://<name>.<workers.dev のサブドメイン>.workers.dev になる。変えたら src/core/analytics.ts の COUNT_RELAY_URL も直す
+  "name": "hihoukan-calc",
+  "main": "index.ts",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  // 公開前の確認用の URL は使わない
+  "preview_urls": false,
+}

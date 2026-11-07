@@ -5,6 +5,8 @@ import {
   GOATCOUNTER_ENDPOINT,
   monthKey,
   parseAnalyticsState,
+  parseRelayBody,
+  relayBody,
   shouldCount,
   toggleByHash,
   visitHits,
@@ -100,6 +102,30 @@ describe('visitHits', () => {
 describe('deviceHit', () => {
   it('月は 0 を付けずに書く', () => {
     expect(deviceHit('2027-01').title).toBe('2027年1月に使った端末')
+  })
+})
+
+describe('relayBody / parseRelayBody', () => {
+  it('ページの閲覧と「使った端末」が、送ったとおりに読み戻せる', () => {
+    const page = { path: '/takumi', title: 'タクミ売上カウンター' }
+    expect(relayBody(page)).toBe('{"p":"/takumi","t":"タクミ売上カウンター"}')
+    expect(parseRelayBody(relayBody(page))).toEqual(page)
+    expect(parseRelayBody(relayBody({ path: '/', title: '秘宝館 計算機' }))).toEqual({ path: '/', title: '秘宝館 計算機' })
+    expect(parseRelayBody(relayBody(deviceHit('2026-11')))).toEqual(deviceHit('2026-11'))
+  })
+
+  it.each([
+    ['JSON でない', 'p=/takumi'],
+    ['配列', '[]'],
+    ['ページの id の形でない', '{"p":"https://example.com/","t":"x"}'],
+    ['大文字・記号の入った id', '{"p":"/Takumi?x=1","t":"x"}'],
+    ['題名がない', '{"p":"/takumi"}'],
+    ['題名が長すぎる', JSON.stringify({ p: '/takumi', t: 'あ'.repeat(101) })],
+    ['ページの閲覧をイベントにしている', '{"p":"/takumi","t":"x","e":true}'],
+    ['「使った端末」がイベントでない', '{"p":"device-2026-11","t":"x"}'],
+    ['月の形でない「使った端末」', '{"p":"device-11","t":"x","e":true}'],
+  ])('%s ものは受け付けない', (_, raw) => {
+    expect(parseRelayBody(raw)).toBeNull()
   })
 })
 

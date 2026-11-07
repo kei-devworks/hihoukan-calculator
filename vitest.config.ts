@@ -4,11 +4,11 @@ import { defineConfig } from 'vitest/config'
 // （E2E も playwright.config.ts で同じ時間帯にしている）
 process.env.TZ = 'Asia/Tokyo'
 
-// 単体テストは src/**/*.test.ts。DOM が要るテストはファイル先頭に
+// 単体テストは src/**/*.test.ts と worker/**/*.test.ts（閲覧数の中継）。DOM が要るテストはファイル先頭に
 // `// @vitest-environment jsdom` を書く（既定は node 環境で速く回す）
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'worker/**/*.test.ts'],
     environment: 'node',
   },
 })

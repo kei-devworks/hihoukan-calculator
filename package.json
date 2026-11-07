@@ -15,10 +15,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:live": "PLAYWRIGHT_BASE_URL=https://kei-devworks.github.io/hihoukan-calculator/ playwright test"
+    "test:e2e:live": "PLAYWRIGHT_BASE_URL=https://kei-devworks.github.io/hihoukan-calculator/ playwright test",
+    "worker:deploy": "npx --yes wrangler@4.155.0 deploy --config worker/wrangler.jsonc",
+    "check:blocklists": "node scripts/check-blocklists.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@ghostery/adblocker": "2.20.3",
     "@playwright/test": "^1.64.1",
     "@types/node": "^24.19.2",
     "eslint": "^10.12.0",
