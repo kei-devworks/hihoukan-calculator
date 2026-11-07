@@ -14,7 +14,7 @@
   | 勤務時間報告（work-report） | 勤務日・勤務時間・交通費から報告文を作ってコピーする | 勤務時間報告（`kinmu/`） |
 
 - 数字は**各端末のブラウザ（localStorage）にだけ**保存する。端末どうしで共有はしない
-- 外に送るのは閲覧数だけ（GoatCounter。ページの id と「その月に使った端末」の数）。入力した数は送らない（[deployment.md](deployment.md#閲覧数の計測)）
+- 外に送るのは閲覧数だけ（ページの id と「その月に使った端末」。自分の中継 `worker/` を通して GoatCounter へ）。入力した数は送らない（[deployment.md](deployment.md#閲覧数の計測)）
 
 ## ディレクトリ
 
@@ -38,7 +38,7 @@ src/
     work-report-store.ts  WorkReportState を端末に保存・復元する
     json-store.ts  1ページ分の状態を JSON で保存・復元する（JsonStore。各ページの store の土台）
     storage.ts     localStorage の薄い包み（キーの接頭辞・例外を投げない読み書き）
-    analytics.ts   閲覧数の計測で送る中身（数えない条件・月ごとの端末・GoatCounter に送る URL）
+    analytics.ts   閲覧数の計測で送る中身（数えない条件・月ごとの端末・中継へ送る本文と、中継が GoatCounter に送る URL）
     guards.ts      保存値を読み戻すときの型の確かめ
     time.ts        報告時刻・営業日・日時の表示
     format.ts      金額の表示
@@ -46,7 +46,7 @@ src/
     qr-read.ts     画像から QR コードを読む（jsQR は使うときだけ読み込む）
   ui/            DOM の共通部品と共通スタイル
     page-parts.ts  ページ共通の部品: 見出し、保存の状態、前の営業日の知らせ、表示を新しく保つしくみ
-    analytics.ts   閲覧数を GoatCounter に送る（countVisit。各ページの入口で呼ぶ）
+    analytics.ts   閲覧数を中継に送る（countVisit。各ページの入口で呼ぶ）
     tally-app.ts   TallyConfig から「個数 × 単価」の画面を組み立てる（mountTallyApp）
     order-panel.ts 画面の下の「今のオーダー」「前のオーダー」
     order-editor.ts  オーダーを直す画面（下から出すダイアログ）
@@ -78,9 +78,10 @@ src/
     neko/          ネコ・グリコ売上カウンター（config.ts に品目・単価）
     kinmu/         勤務時間報告（config.ts に初めて使うときの勤務時間）
     check/         実機の確認のページ（ページの中のカメラで QR を読めるかなど。ポータルには載せない）
+worker/          閲覧数の中継（Cloudflare Worker）。ページから受けた閲覧を GoatCounter に送り直す。サイトとは別に `npm run worker:deploy` で公開する
 e2e/             Playwright
 public/          そのまま配信するファイル（アイコン: favicon.svg・favicon-32.png・apple-touch-icon.png）
-scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg から PNG のアイコンを作る）
+scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg から PNG のアイコンを作る。check-blocklists.mjs: 中継が広告ブロッカーの一覧に止められていないかを見る）
 ```
 
 ページを足す手順は [adding-a-page.md](adding-a-page.md)。
@@ -98,7 +99,7 @@ scripts/         開発用のスクリプト（make-icons.mjs: favicon.svg か�
 | `JsonStore`（`core/json-store.ts`） | 状態を `hihoukan-calc:<ページの id>:v<版>` に保存・復元する。読み戻しはページごとの `parse` 関数に任せ、壊れた値でも例外にしない |
 | `earlierBusinessDay`（`core/time.ts`） | 「数え始めた時刻」が前の営業日かを判定する（前日の数字が残っている知らせに使う） |
 | `pageHeader` / `pageStatus` / `keepFresh`（`ui/page-parts.ts`） | 「‹ 一覧」と題名、保存の状態と赤い警告、前の営業日の黄色い知らせ、30秒ごと・画面復帰・別タブ・戻るボタンでの再描画 |
-| `countVisit`（`ui/analytics.ts`） | 入口（`portal.ts`・`<フォルダ>/main.ts`）の最初で、ページの id（`'/takumi'`。ポータルは `'/'`）を渡して呼ぶ。閲覧と、その端末でその月はじめてなら「使った端末」を GoatCounter に送る。手元・自動テスト・`#count-off` にした端末では送らない。失敗してもページは止めない |
+| `countVisit`（`ui/analytics.ts`） | 入口（`portal.ts`・`<フォルダ>/main.ts`）の最初で、ページの id（`'/takumi'`。ポータルは `'/'`）を渡して呼ぶ。閲覧と、その端末でその月はじめてなら「使った端末」を、中継（`worker/`）を通して GoatCounter に送る。手元・自動テスト・`#count-off` にした端末では送らない。失敗してもページは止めない |
 | アイコン（`public/`） | どのページの `<head>` にも、タブのアイコン（射的の的。`favicon.svg` と、SVG を表示できない iOS 26 より前の Safari 向けの `favicon-32.png`）とホーム画面のアイコン（`apple-touch-icon.png`）を書く |
 
 アイコンは `/favicon.svg` のようにサイトの根からのパスで書く。ビルドすると、ページの場所に合わせた相対パス（`takumi/` なら `../favicon.svg`）に直る。
