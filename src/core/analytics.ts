@@ -1,13 +1,22 @@
 /**
- * 閲覧数の計測（GoatCounter）のうち、DOM に触れない部分。送るのは ui/analytics.ts。
+ * 閲覧数の計測（GoatCounter）のうち、DOM に触れない部分。送るのは ui/analytics.ts、中継は worker/index.ts。
  *
  * 公開を続けるかを決めるために、ページを開いた回数と、月ごとに使われた端末の数を数える。
  * 送るのはページの id と題名、「使った端末」の月（'2026-11'）だけ。
  * 入力した数・URL の # のあと・端末を見分ける番号は送らない（docs/deployment.md）
+ *
+ * ページは GoatCounter に直接送らず、自分の中継（Cloudflare Worker）に fetch で送る。
+ * 広告ブロッカーの一覧が goatcounter.com と、ほかのサイトへの sendBeacon を止めるため
  */
 import { isRecord } from './guards'
 
-/** 送り先。GoatCounter のサイトのコードを変えたら、ここも直す（docs/maintenance.md） */
+/** ページが送る先（中継の Cloudflare Worker）。worker/wrangler.jsonc の name と、Cloudflare の workers.dev のサブドメインで決まる */
+export const COUNT_RELAY_URL = 'https://hihoukan-calc.kei-devworks.workers.dev/v'
+
+/** 中継が受け付けるページの出どころ。公開先が変わったら、ここも直して中継を公開し直す（docs/maintenance.md） */
+export const SITE_ORIGIN = 'https://kei-devworks.github.io'
+
+/** 中継が送る先。GoatCounter のサイトのコードを変えたら、ここも直す（docs/maintenance.md） */
 export const GOATCOUNTER_ENDPOINT = 'https://hihoukan-calc.goatcounter.com/count'
 
 /** 端末に保存する計測の状態 */
@@ -81,8 +90,37 @@ export function visitHits(
   return { page: pageHit, device: deviceHit(month), next: { ...state, deviceMonth: month } }
 }
 
+/** ページから中継へ送る本文 */
+export function relayBody(hit: Hit): string {
+  return JSON.stringify(hit.event ? { p: hit.path, t: hit.title, e: true } : { p: hit.path, t: hit.title })
+}
+
+/** ページの id（'/'・'/takumi'）か、「使った端末」のイベント（'device-2026-11'） */
+const PAGE_PATH = /^\/[a-z0-9-]{0,40}$/
+const DEVICE_PATH = /^device-\d{4}-\d{2}$/
+const MAX_TITLE = 100
+
 /**
- * GoatCounter の /count に送る URL。ns=1 で、同じ人の閲覧を8時間まとめる数え方をやめる。
+ * 中継が受け取った本文を読む。このサイトが送る形でなければ null（ほかの値で数を荒らされないように）。
+ * ページの閲覧はイベントにせず、「使った端末」は必ずイベントにする
+ */
+export function parseRelayBody(raw: string): Hit | null {
+  let value: unknown
+  try {
+    value = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!isRecord(value)) return null
+  const { p, t, e } = value
+  if (typeof p !== 'string' || typeof t !== 'string' || t.length > MAX_TITLE) return null
+  if (PAGE_PATH.test(p) && e === undefined) return { path: p, title: t }
+  if (DEVICE_PATH.test(p) && e === true) return { path: p, title: t, event: true }
+  return null
+}
+
+/**
+ * GoatCounter の /count に送る URL（中継が使う）。ns=1 で、同じ人の閲覧を8時間まとめる数え方をやめる。
  * これでダッシュボードの数が、ページの行では開いた回数、device-YYYY-MM の行では端末の数になる
  */
 export function countUrl(endpoint: string, hit: Hit, rnd: string = Math.random().toString(36).slice(2, 7)): string {
