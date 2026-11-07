@@ -104,7 +104,8 @@ Pages には閲覧数を数える機能がない。見方は [maintenance.md](ma
 | 「その月に使った端末」（`device-2026-11`。各端末が月に1回） | URL の `#` のあと（`#hikitsugi=` の引き継ぎのデータなど） |
 | ブラウザの種類（中継が GoatCounter に引き継ぐ。ブラウザ・OS の集計になる） | 端末を見分ける番号・Cookie |
 
-IP アドレスは中継（Cloudflare）までで、GoatCounter には届かない。GoatCounter の国の集計は、中継の拠点の国になる（日本からならほぼ Japan）。
+IP アドレスは中継（Cloudflare）までで、GoatCounter には届かない。そのため GoatCounter の国の集計は、中継が GoatCounter へ送るときの
+Cloudflare の拠点の国になり、あてにならない（2026-11-07 に日本から中継へ送った分は、アメリカ・シンガポールになった）。
 画面での告知はしない（2026-11-06 に決めた）。
 
 ### しくみ
